@@ -111,6 +111,12 @@ Besides full drills, Tell has a deck of battle cards: one scammer line per card,
 62. As a user, I want the detector to say "can't tell" when it's unsure, so that it never gives me false confidence.
 63. As a user, I want my real bank's urgent calls not flagged as scams, so that I keep trusting legitimate callers.
 
+### Try it without signing up
+64. As a judge or first-time visitor, I want to try a drill in my browser with no signup and no phone number, by voice or by text, so that I see what Tell does in under 30 seconds.
+65. As a visitor, I want a one-line intro before the try-it drill ("What would you say to Ray?") and a clear "AI practice caller" label, so that I know it's a safe simulation.
+66. As a user, I want every drill capped in length (a set number of my replies or minutes, whichever comes first), so that a drill never drags and costs stay predictable.
+67. As a visitor, I want the landing page to show real pilot results (n, hit rate, false-alarm rate before and after), so that I believe it works.
+
 ## Implementation Decisions
 
 **Product rules**
@@ -120,6 +126,10 @@ Besides full drills, Tell has a deck of battle cards: one scammer line per card,
 - Progress metrics: hit rate (scams correctly called scam) and false-alarm rate (legit calls called scam), stored per drill as time-series.
 - Anti-shortcut rules: a shared pool of four voices assigned randomly regardless of call type; one opening-line template for every type; mixed demeanor (hijacked callers are the warmest, some legit callers are brisk); an identical card layout for all types.
 - Fictional brands only: Lonestar Bank, ParcelPoint, ShopNest, Nimbus Mobile.
+- Drill caps: every drill (phone, browser voice or text) ends after 12 user replies or 3 minutes, whichever comes first. The cap and "you can end it at any time" are shown on the scenario card.
+- Caller label: every persona is labelled "AI practice caller" in the app (never "scam" or "legit"), so the label is honest without giving away the call type.
+- Try-it mode (no signup): a public page runs a drill in the browser by voice (ElevenLabs web session, same agent) or by text (Nemotron directly), with no phone number and no account. It offers three fixed personas, one per call type, ends in the same "Could you tell?" verdict and after-call report, and stores nothing beyond anonymous outcome counts. This is the judges' path; the real-phone drill stays the headline demo.
+- Landing page: the tagline ("Every scam has a tell"), a Try-it button, a Start-drill signup, and the pilot's before/after hit rate and false-alarm rate with n, filled in from tonight's results.
 - Scenario card secrets: every card carries a fake date of birth and a fake home address alongside the card ending, PIN and (on some drills) a one-time code. Scam personas ask for these identity details first, before payment details, because real scam calls ask for identity details far more often than for payment credentials.
 - Persona quirks: every persona keeps its serious script beats, so the drill still teaches the four rules, and adds ONE comic quirk taken from real scam-baiting behavior:
   - Derek (bank scam): reads his script too literally and restarts it when interrupted.
@@ -231,6 +241,8 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - "Practice this" on a threat produces a drill whose persona traces back to that threat.
   - The demo seed produces the exact Derek → Dana → Ray sequence.
   - Calls are never placed to an unverified number.
+  - A drill ends at the reply or time cap, and the report is still produced.
+  - A try-it drill places no call, needs no account, and stores only anonymous outcome counts.
 - **Seam 2 — detector evaluation script.** Given a dataset split, it scores every detector version (baseline, Nemotron zero-shot, Nemotron + retrieval, and T-Mobile's baseline if provided):
   - Accuracy, precision, recall, F1, false-positive rate and a confusion matrix, on (a) the synthetic test split, (b) real calls, (c) hard negatives.
   - Unseen-type test: example pool limited to ssn + refund, scored on support + reward, to show it learned tactics, not scripts.
@@ -269,6 +281,13 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
 - **Transfer is the key claim to defend.** An 8-month randomized trial with about 19,500 UC San Diego Health employees found embedded phishing training reduced failure rates by only about 1.7%, mainly because people didn't engage with the material. Tell's answer is live voice practice with feedback in seconds, adapting to the rule you keep breaking. Tonight's pilot: 10–15 consenting hackers do a pre-test on held-out items (phone-provider calls, real scam clips, one legit call), then 3 drills on banking and shopping only, then a post-test on different held-out items. Report n, hit rate, false-alarm rate and rule-correct actions, and present the results honestly even if nothing moves.
 - **Integration risks to clear in the first hour:** the phone ringing via ElevenLabs → Photon with two-way audio; each Nemotron model ID responding on the hosted endpoint; per-call voice override enabled in the ElevenLabs agent (fallback: one agent per voice); a public URL for the webhook.
 - **Fallbacks:** Photon SIP fails → place calls from an ElevenLabs/Twilio number. Live-call Nemotron too slow → ElevenLabs built-in model. Webhook missing → poll the conversation by ID after hang-up.
+- **Prior art: Scam Vaccine (scamvaccine.gov.sg, Singapore Open Government Products, from Hack for Public Good 2026).** From its public pages: an AI scammer talks to you by voice call or message (bank and police impersonation), there's a no-signup demo capped at 12 replies or 3 minutes, real users get safe versions of newly detected scam variants by call or WhatsApp, and a debrief lists the red flags and what to watch next. Its headline results are satisfaction numbers (100% wanted more exercises, 96% supported a rollout). Judges may know it, so the pitch says plainly where Tell differs:
+  - **Legit and hijacked calls, not only scams.** Tell measures false alarms, so it can show people get better without becoming paranoid.
+  - **Measured learning, not satisfaction.** Pre/post hit rate and false-alarm rate on themes participants never practiced.
+  - **Adaptive practice.** The Planner targets the rule you break most, and battle cards drill the exact move that got you.
+  - **Detection with real numbers.** Baseline vs Nemotron vs Nemotron + retrieval, on real calls and hard negatives, plus the live risk meter.
+  - **Your real phone rings**, plus a no-signup browser mode matching theirs.
+- **Three-minute stage run:** (1) hook: the one-line problem plus "Every scam has a tell"; (2) a judge's phone rings live with Derek, then Ray, with the spectator risk meter on the big screen; (3) the after-call report and the battle card it hands over; (4) one slide of results: pilot before/after and detection F1 on real calls vs baseline; (5) "try it now" QR code to the no-signup page. Rehearse with the demo seed, and have the text try-it mode ready as the fallback if the phone line fails on stage.
 - **Detection pitch slide:** one big number (F1 on real calls, Nemotron + retrieval vs baseline); a small table of the 3 versions × synthetic / real / hard negatives / false-positive rate; a time-to-detection chart; one honesty line ("synthetic training data; real-call test set is small, n = …").
 - **If time is short (detection):** keep the baseline, Nemotron + retrieval, real-call scoring, time to detection, the spectator meter and the unsure band. Drop the calibration plot and the unseen-type test.
 - Diagrams live in `docs/img/`: architecture, persona matrix, and the live-call and reveal screens.
