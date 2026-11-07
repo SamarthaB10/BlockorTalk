@@ -24,6 +24,8 @@ A Nemotron Drill Planner agent chooses each drill, targeting the rule the user b
 
 Besides full drills, Tell has a deck of battle cards: one scammer line per card, a 3–5 turn practice round by voice or text, and the exact safest next action to say and do. The Debrief agent hands the user the card for the move that got them in their last drill.
 
+The headline experience is **Challenge mode: "Three calls. Two stories. Who gets your trust?"** You start a fictional day with $1,000 and two tasks: book a job interview and sort out a bank alert. Three calls come in on your real phone: a real recruiter, a fake "recruiter" who wants an equipment deposit, and a bank caller who knows your details. You win by keeping your $1,000 *and* finishing both tasks, so hanging up on everyone loses too. After each call you say Real, Scam or Unverified (you don't have to guess), then a detective reveal flips each caller to show who they really were, and one rewind lets you replay the decision that cost you the most. Challenge rounds are scripted so every player faces the same day; adaptive drills and battle cards are practice mode.
+
 ## User Stories
 
 ### Onboarding and settings
@@ -117,18 +119,28 @@ Besides full drills, Tell has a deck of battle cards: one scammer line per card,
 66. As a user, I want every drill capped in length (a set number of my replies or minutes, whichever comes first), so that a drill never drags and costs stay predictable.
 67. As a visitor, I want the landing page to show real pilot results (n, hit rate, false-alarm rate before and after), so that I believe it works.
 
+### Challenge mode
+68. As a player, I want to start a fictional day with $1,000 and two tasks, so that every call has stakes I can feel.
+69. As a player, I want hanging up on a real caller to cost me a task, so that I learn caution isn't the same as safety.
+70. As a player, I want to answer Unverified when I can't tell, so that verifying through a number I already have counts as a good move instead of a guess.
+71. As a player, I want to check a fictional company portal and my fictional bank app during the day, so that I can verify a caller the way I would in real life.
+72. As a player, I want a detective reveal where each caller flips to show who they were and the lines that gave them away light up, so that the ending teaches me something.
+73. As a player, I want one rewind to replay the decision that cost me the most, so that I can try the safer move right away.
+74. As a player, I want the Probe, Protect, Verify and Disconnect moves on screen during a call, so that I remember my options under pressure.
+75. As a judge, I want every challenge round to be the same scripted day, so that players' scores are comparable.
+
 ## Implementation Decisions
 
 **Product rules**
-- Call-type mix per session: about 60% scam, 25% legit, 15% hijacked. Hijacked maps to the "convincing" difficulty. The demo uses a fixed sequence: Derek (banking scam) → Dana (phone-provider legit) → Ray (phone-provider hijacked).
+- Call-type mix per session: about 60% scam, 25% legit, 15% hijacked. Hijacked maps to the "convincing" difficulty. This mix applies to practice mode; the stage demo is the scripted Challenge mode day (below).
 - The four rules live in one policy definition. Persona prompts, Debrief scoring, verdict copy and the Guardian all read from it.
 - Scoring has two parts. Behavior: whether any fake secret appears in the user's turns (exact string match), whether they complied, verified, or hung up, and when. Judgment: whether the Real/Scam verdict was correct, weighted by confidence. Falling for a scam or hijacked call is a large penalty; rejecting a legit call is a small one.
 - Progress metrics: hit rate (scams correctly called scam) and false-alarm rate (legit calls called scam), stored per drill as time-series.
 - Anti-shortcut rules: a shared pool of four voices assigned randomly regardless of call type; one opening-line template for every type; mixed demeanor (hijacked callers are the warmest, some legit callers are brisk); an identical card layout for all types.
-- Fictional brands only: Lonestar Bank, ParcelPoint, ShopNest, Nimbus Mobile.
+- Fictional brands only: Lonestar Bank, ParcelPoint, ShopNest, Nimbus Mobile, Bluebonnet Labs.
 - Drill caps: every drill (phone, browser voice or text) ends after 12 user replies or 3 minutes, whichever comes first. The cap and "you can end it at any time" are shown on the scenario card.
 - Caller label: every persona is labelled "AI practice caller" in the app (never "scam" or "legit"), so the label is honest without giving away the call type.
-- Try-it mode (no signup): a public page runs a drill in the browser by voice (ElevenLabs web session, same agent) or by text (Nemotron directly), with no phone number and no account. It offers three fixed personas, one per call type, ends in the same "Could you tell?" verdict and after-call report, and stores nothing beyond anonymous outcome counts. This is the judges' path; the real-phone drill stays the headline demo.
+- Try-it mode (no signup): a public page runs a drill in the browser by voice (ElevenLabs web session, same agent) or by text (Nemotron directly), with no phone number and no account. It runs the Challenge mode day in text or browser voice, ends in the same verdicts and detective reveal, and stores nothing beyond anonymous outcome counts. This is the judges' path; the real-phone drill stays the headline demo.
 - Landing page: the tagline ("Every scam has a tell"), a Try-it button, a Start-drill signup, and the pilot's before/after hit rate and false-alarm rate with n, filled in from tonight's results.
 - Scenario card secrets: every card carries a fake date of birth and a fake home address alongside the card ending, PIN and (on some drills) a one-time code. Scam personas ask for these identity details first, before payment details, because real scam calls ask for identity details far more often than for payment credentials.
 - Persona quirks: every persona keeps its serious script beats, so the drill still teaches the four rules, and adds ONE comic quirk taken from real scam-baiting behavior:
@@ -193,6 +205,21 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
   - Safest next action: say "I don't share codes. I'll call Nimbus back on the number in my app," then hang up.
   - Trains: rule 1 + rule 4 · Why it works: he already knows your plan and bill, so he feels real.
 
+**Challenge mode**
+- The day: the player starts with $1,000 and two tasks, "Book your Bluebonnet Labs interview" and "Sort out the Lonestar Bank alert". The win condition is ending the day with $1,000 and both tasks done. Bluebonnet Labs is a fictional employer and joins the fictional brand list.
+- The three scripted calls ("three calls, two stories"), placed on the player's real phone in this order:
+  1. Nina, Bluebonnet Labs recruiting (legit): confirms the interview slot and asks for nothing secret. Saying Real, or Unverified and then checking the portal, books the interview. Saying Scam leaves the task open.
+  2. Marcus, claiming Bluebonnet Labs onboarding (scam): asks for a $350 "equipment deposit" by gift card or payment app. Paying or reading fake card details costs $350. Refusing loses nothing.
+  3. James, Lonestar Bank fraud team (hijacked, the ambiguous call): knows the card ending and a recent charge, then asks for the one-time code that pops up mid-call. Reading the code costs $650 and fails the bank task. Hanging up and calling back through the in-app bank number resolves the alert and completes the task.
+- Verdicts: Real, Scam or Unverified after every call. Unverified is never penalized by itself; what counts is whether money moved and whether the task got done.
+- Verification surfaces: a fictional company portal (shows the real interview booking and says Bluebonnet never charges for equipment) and a fictional bank app (shows the official callback number and, after a callback, that no alert was sent). Checking them is how Unverified turns into a completed task.
+- Moves: Probe (ask a question), Protect (refuse a secret), Verify (check the portal or bank app, or call back), Disconnect (hang up). On a phone call they are spoken, and the screen shows them as reminders; in text try-it mode they are tappable. The Debrief agent tags which move the player made at each key moment.
+- Balance and tasks update after each call. A leak is detected with the same exact-match check over fake secrets as drills, and its cost comes from the call's stakes.
+- Detective reveal: after the third call, each caller card flips to show the real identity and call type, the detector's red-flag lines light up on the transcript, and each decision is marked as worked or cost you. It replaces the after-call report in Challenge mode and still grades against the four rules.
+- Rewind: one per day. The player picks a decision (default: the costliest) and replays from that turn in text with the same persona; the replay outcome is shown next to the original but doesn't change the official score. Rewind is the challenge's battle card.
+- Scripted vs adaptive: challenge rounds use a fixed seed, fixed personas, beats and stakes, so every player faces the same day. Nemotron still runs the live replies within those beats, the risk meter, the detector and the reveal. Practice mode keeps the adaptive Planner, the call-type mix and battle cards.
+- Stage demo: the scripted day is the demo sequence (Nina → Marcus → James), with the spectator risk meter on the big screen.
+
 **Detection**
 We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights never change. The Hugging Face data has three jobs:
 1. Train a tiny TF-IDF + logistic-regression baseline (seconds, scikit-learn). Its only purpose is to give Nemotron something to beat.
@@ -226,6 +253,8 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
 - Submit verdict → Real/Scam + confidence (50/75/100).
 - Get report → rules, flags, reveal, scores, next target, agent steps.
 - Get progress → time series of hit rate, false-alarm rate, rule breaks.
+- Start challenge → returns the day (balance, tasks, the three calls' scenario cards); calls are placed one after another.
+- Get challenge result → final balance, task status, per-call verdicts and moves, the reveal and the rewind outcome.
 
 ## Testing Decisions
 
@@ -239,7 +268,10 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - A real-looking card number or SSN in the transcript is redacted before storage.
   - The Planner targets the user's most-broken rule and respects the type mix over many drills.
   - "Practice this" on a threat produces a drill whose persona traces back to that threat.
-  - The demo seed produces the exact Derek → Dana → Ray sequence.
+  - The challenge seed produces the exact Nina → Marcus → James day, with the same stakes every time.
+  - Challenge scoring: confirming Nina books the interview; paying Marcus costs $350; reading James's code costs $650 and fails the bank task; calling back through the bank app completes it; a perfect day ends at $1,000 with both tasks done.
+  - Saying Scam to Nina leaves the interview task open, and Unverified followed by a portal check completes it.
+  - A rewind replay is recorded but doesn't change the official day score.
   - Calls are never placed to an unverified number.
   - A drill ends at the reply or time cap, and the report is still produced.
   - A try-it drill places no call, needs no account, and stores only anonymous outcome counts.
@@ -250,7 +282,7 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - Calibration: bucket predictions by confidence and compare to actual accuracy.
   - Leakage check: fails if any test item appears in the example pool.
   Tests use a tiny labeled fixture with known answers to verify every metric.
-- **Seam 3 — Persona QA (text only, no phone calls).** Nemotron plays each of 8 receiver personalities (aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one more still to be chosen) against all 9 personas, for 72 text conversations. Checks run on the conversation transcript only:
+- **Seam 3 — Persona QA (text only, no phone calls).** Nemotron plays each of 8 receiver personalities (aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one more still to be chosen) against all 11 personas (the nine practice personas plus Nina and Marcus), for 88 text conversations. Checks run on the conversation transcript only:
   - Every scam and hijacked persona asks for at least one fake secret.
   - No legit persona ever asks for a secret.
   - "Stop drill" ends the conversation within one turn.
@@ -273,6 +305,7 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
 - Inbound calls to the Tell number, and iMessage/SMS conversations through Photon.
 - Languages other than English.
 - User-created custom cards and sharing decks between users.
+- For the hackathon: evidence pinning against synthetic messages, a "boss" caller that combines earlier tactics, and shareable friend-challenge seeds. They fit Challenge mode later.
 - Claims about retention or long-term behavior change; the pilot is same-session only.
 - Production compliance (Photon business-profile registration, NewsAPI paid tier, consent and recording-law review per state).
 
@@ -287,7 +320,7 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - **Adaptive practice.** The Planner targets the rule you break most, and battle cards drill the exact move that got you.
   - **Detection with real numbers.** Baseline vs Nemotron vs Nemotron + retrieval, on real calls and hard negatives, plus the live risk meter.
   - **Your real phone rings**, plus a no-signup browser mode matching theirs.
-- **Three-minute stage run:** (1) hook: the one-line problem plus "Every scam has a tell"; (2) a judge's phone rings live with Derek, then Ray, with the spectator risk meter on the big screen; (3) the after-call report and the battle card it hands over; (4) one slide of results: pilot before/after and detection F1 on real calls vs baseline; (5) "try it now" QR code to the no-signup page. Rehearse with the demo seed, and have the text try-it mode ready as the fallback if the phone line fails on stage.
+- **Three-minute stage run:** (1) hook: "Three calls. Two stories. Who gets your trust?" and the $1,000 day; (2) a judge's phone takes the scripted day live (Nina, Marcus, James), with the balance, tasks and spectator risk meter on the big screen; (3) the detective reveal and one rewind; (4) one slide of results: pilot before/after and detection F1 on real calls vs baseline; (5) "try it now" QR code to the no-signup page. Rehearse with the demo seed, and have the text try-it mode ready as the fallback if the phone line fails on stage.
 - **Detection pitch slide:** one big number (F1 on real calls, Nemotron + retrieval vs baseline); a small table of the 3 versions × synthetic / real / hard negatives / false-positive rate; a time-to-detection chart; one honesty line ("synthetic training data; real-call test set is small, n = …").
 - **If time is short (detection):** keep the baseline, Nemotron + retrieval, real-call scoring, time to detection, the spectator meter and the unsure band. Drop the calibration plot and the unseen-type test.
 - Diagrams live in `docs/img/`: architecture, persona matrix, and the live-call and reveal screens.
