@@ -13,7 +13,7 @@ Phone scams work because they happen live, under pressure, and often sound right
 
 ## Solution
 
-Tell is a web app that runs practice phone calls. The user picks themes (banking, shopping/delivery, phone provider) and a difficulty. Each drill starts with a scenario card: a recent event ("Yesterday you spent $23.40 at Chipotle") and fake secrets to protect (a card ending, a PIN, sometimes a one-time code that appears mid-call). Then the user's real phone rings. The AI caller is a scammer, a legitimate caller, or a "hijacked" caller who knows the real details but asks for a secret anyway. After hang-up the user answers "Could you tell?" (real or scam, plus confidence) and gets an after-call report. The report grades them against four portable rules, not against the specific scam:
+Tell is a web app that runs practice phone calls. The user picks themes (banking, shopping/delivery, phone provider) and a difficulty. Each drill starts with a scenario card: a recent event ("Yesterday you spent $23.40 at Chipotle") and fake secrets to protect (a date of birth, a home address, a card ending, a PIN, sometimes a one-time code that appears mid-call). Then the user's real phone rings. The AI caller is a scammer, a legitimate caller, or a "hijacked" caller who knows the real details but asks for a secret anyway. After hang-up the user answers "Could you tell?" (real or scam, plus confidence) and gets an after-call report. The report grades them against four portable rules, not against the specific scam:
 
 1. Never share codes, PINs, passwords or SSN — whoever is calling.
 2. Pressure is the tell — urgency, secrecy, or an odd payment method.
@@ -51,45 +51,47 @@ A Nemotron Drill Planner agent chooses each drill, targeting the rule the user b
 20. As a user, I want to say "stop drill" at any time to end the call immediately, so that I'm always in control.
 21. As a user, I want the caller to break character if I start saying something that sounds like real personal data, so that I never leak anything real.
 22. As a user, I want an End drill button in the app, so that I can stop without speaking.
+23. As a user, I want scammers with believable, funny quirks, so that drills are fun enough to keep doing.
 
 ### Verdict and debrief
-23. As a user, I want to answer "Could you tell?" (Real or Scam) and how sure I am after hang-up, so that my judgment is measured, not just my behavior.
-24. As a user, I want an after-call report within seconds of hang-up, so that feedback arrives while the call is fresh.
-25. As a user, I want to see which rules I kept or broke, with the moment in the call, so that I know exactly what to change.
-26. As a user, I want the red flags the caller used marked on the transcript, so that I learn to hear them.
-27. As a user, I want to learn who the caller really was (persona and call type) only after my verdict, so that the reveal teaches something.
-28. As a user, I want a gentle, non-shaming explanation when I hang up on a legit call, including how I could have checked, so that I don't become afraid of every call.
-29. As a user, I want the report to recommend my next drill based on my weakest rule, so that practice adapts to me.
-30. As a user, I want to see the agent's steps (what it planned and why), so that I can trust the system isn't random.
+24. As a user, I want to answer "Could you tell?" (Real or Scam) and how sure I am after hang-up, so that my judgment is measured, not just my behavior.
+25. As a user, I want an after-call report within seconds of hang-up, so that feedback arrives while the call is fresh.
+26. As a user, I want to see which rules I kept or broke, with the moment in the call, so that I know exactly what to change.
+27. As a user, I want the red flags the caller used marked on the transcript, so that I learn to hear them.
+28. As a user, I want to learn who the caller really was (persona and call type) only after my verdict, so that the reveal teaches something.
+29. As a user, I want a gentle, non-shaming explanation when I hang up on a legit call, including how I could have checked, so that I don't become afraid of every call.
+30. As a user, I want the report to recommend my next drill based on my weakest rule, so that practice adapts to me.
+31. As a user, I want to see the agent's steps (what it planned and why), so that I can trust the system isn't random.
 
 ### Progress
-31. As a user, I want a progress view of scams caught over time, so that I can see myself improving.
-32. As a user, I want my false-alarm rate (legit calls I rejected) shown beside it, so that I know I'm not just becoming paranoid.
-33. As a user, I want to see which rules I keep breaking, so that I know what to focus on.
-34. As a user, I want a gallery of personas I've faced, marked caught or missed, so that practice feels like progress.
+32. As a user, I want a progress view of scams caught over time, so that I can see myself improving.
+33. As a user, I want my false-alarm rate (legit calls I rejected) shown beside it, so that I know I'm not just becoming paranoid.
+34. As a user, I want to see which rules I keep breaking, so that I know what to focus on.
+35. As a user, I want a gallery of personas I've faced, marked caught or missed, so that practice feels like progress.
 
 ### Today threats (news)
-35. As a user, I want a Today screen with 3–4 current scams from official FTC alerts, so that I know what's going around.
-36. As a user, I want each threat tagged with its theme and its red flags in a few bullets, so that I can understand it at a glance.
-37. As a user, I want a "Practice this" button on each threat, so that I can drill against a scam that's in the news today.
-38. As a user, I want a banner when a trending scam matches my themes, so that I'm warned about what affects me.
+36. As a user, I want a Today screen with 3–4 current scams from official FTC alerts, so that I know what's going around.
+37. As a user, I want each threat tagged with its theme and its red flags in a few bullets, so that I can understand it at a glance.
+38. As a user, I want a "Practice this" button on each threat, so that I can drill against a scam that's in the news today.
+39. As a user, I want a banner when a trending scam matches my themes, so that I'm warned about what affects me.
 
 ### Guardian
-39. As a user, I want to paste a suspicious text or call transcript and get a verdict with honest confidence and next steps, so that Tell helps outside drills too.
-40. As a user, I want the Guardian verdict to use the same four rules as my drills, so that advice is consistent everywhere.
+40. As a user, I want to paste a suspicious text or call transcript and get a verdict with honest confidence and next steps, so that Tell helps outside drills too.
+41. As a user, I want the Guardian verdict to use the same four rules as my drills, so that advice is consistent everywhere.
 
 ### Safety and privacy
-41. As a user, I want Tell to never ask me for, or store, real personal or financial data, so that using it carries no risk.
-42. As a user, I want transcripts redacted before they're stored, so that an accidental slip isn't kept.
-43. As a user, I want every persona to use fictional company names, so that Tell never impersonates a real business.
+42. As a user, I want Tell to never ask me for, or store, real personal or financial data, so that using it carries no risk.
+43. As a user, I want transcripts redacted before they're stored, so that an accidental slip isn't kept.
+44. As a user, I want every persona to use fictional company names, so that Tell never impersonates a real business.
 
 ### Team, judges and evaluation
-44. As a judge, I want to watch a live three-call demo (obvious scam, legit, hijacked) on a real phone, so that I can see the product work end to end.
-45. As a judge, I want to see the Planner and Debrief agents' multi-step tool use live, so that I can tell Nemotron is more than a chatbot.
-46. As a judge, I want detection accuracy for a baseline and for Nemotron, on held-out data and real scam calls, so that I can judge accuracy honestly.
-47. As a judge, I want pilot results reported with n, hit rate and false-alarm rate on themes the participants never practiced, so that I can judge whether learning transfers.
-48. As a team member, I want the demo sequence to be reproducible on demand, so that the stage demo doesn't depend on randomness.
-49. As a team member, I want to swap in T-Mobile's synthetic data if it becomes available, so that we use the official set without rework.
+45. As a judge, I want to watch a live three-call demo (obvious scam, legit, hijacked) on a real phone, so that I can see the product work end to end.
+46. As a judge, I want to see the Planner and Debrief agents' multi-step tool use live, so that I can tell Nemotron is more than a chatbot.
+47. As a judge, I want detection accuracy for a baseline and for Nemotron, on held-out data and real scam calls, so that I can judge accuracy honestly.
+48. As a judge, I want pilot results reported with n, hit rate and false-alarm rate on themes the participants never practiced, so that I can judge whether learning transfers.
+49. As a team member, I want the demo sequence to be reproducible on demand, so that the stage demo doesn't depend on randomness.
+50. As a team member, I want to swap in T-Mobile's synthetic data if it becomes available, so that we use the official set without rework.
+51. As a team member, I want every persona checked against 8 receiver personalities before demo day, so that no persona breaks the rules on stage.
 
 ## Implementation Decisions
 
@@ -100,6 +102,14 @@ A Nemotron Drill Planner agent chooses each drill, targeting the rule the user b
 - Progress metrics: hit rate (scams correctly called scam) and false-alarm rate (legit calls called scam), stored per drill as time-series.
 - Anti-shortcut rules: a shared pool of four voices assigned randomly regardless of call type; one opening-line template for every type; mixed demeanor (hijacked callers are the warmest, some legit callers are brisk); an identical card layout for all types.
 - Fictional brands only: Lonestar Bank, ParcelPoint, ShopNest, Nimbus Mobile.
+- Scenario card secrets: every card carries a fake date of birth and a fake home address alongside the card ending, PIN and (on some drills) a one-time code. Scam personas ask for these identity details first, before payment details, because real scam calls ask for identity details far more often than for payment credentials.
+- Persona quirks: every persona keeps its serious script beats, so the drill still teaches the four rules, and adds ONE comic quirk taken from real scam-baiting behavior:
+  - Derek (bank scam): reads his script too literally and restarts it when interrupted.
+  - Priya (delivery scam): keeps cheerfully lowering the "redelivery fee".
+  - Kevin (SIM-swap scam): gets audibly stressed about his supervisor listening in.
+  - Ray (hijacked, demo finale): too smooth; compliments you for being "so security-conscious" right before asking for the code.
+  - Legit personas: mild realism only (a hold-music joke, typing sounds), never pushy.
+  Quirks must never reveal the call type, so legit callers get quirks too.
 
 **Modules**
 - **Drill service (the main seam).** Interface: start a drill for a user (optionally from a threat), receive a post-call event, record a verdict, get a report, get progress. It coordinates everything below, and every external system sits behind an adapter so it can be replaced with a fake.
@@ -123,7 +133,7 @@ A Nemotron Drill Planner agent chooses each drill, targeting the rule the user b
   "voice_id": "<shared pool>",
   "demeanor": "calm, authoritative",
   "card_facts": {"plan": "Unlimited Plus", "last_bill": "$71.18"},
-  "fake_secrets": {"account_pin": "8302", "live_code": "551 274"},
+  "fake_secrets": {"date_of_birth": "1991-03-14", "home_address": "418 Pecan Hollow Dr, Plano TX", "account_pin": "8302", "live_code": "551 274"},
   "script_beats": ["verify name", "cite last bill", "warn of port-out", "ask for live code", "press once if refused"],
   "red_flags": ["details_as_proof", "asks_for_code"],
   "rules_tested": [1, 3]
@@ -134,7 +144,12 @@ The card is sent to the voice agent as dynamic variables and saved on the drill,
 **Data (TigerData / Tiger Cloud Postgres with TimescaleDB, pgvector and pgvectorscale)**
 - Regular tables: users (first name, verified phone, themes, difficulty, voice, surprise window), drills (theme, call type, persona card, fake secrets, conversation ID, verdict, confidence), scam examples (dialogue, type, label, embedding with a StreamingDiskANN index).
 - Hypertables: call turns, drill outcomes (behavior, judgment, hit/false-alarm flags), agent steps, threats.
-- Seed data: BothBosu/scam-dialogue (Apache-2.0; 1.28k train / 320 test; scam types ssn, refund, support, reward; non-scam types delivery, insurance, telemarketing, wrong). Held-out real calls: 436-4/youtube-scam-conversations. If T-Mobile's synthetic set and taxonomy arrive, they replace these behind the same loader.
+- Seed data:
+  - Scammer persona source: BothBosu/multi-agent-scam-conversation (Hugging Face, Apache-2.0). Columns: dialogue, personality, type, label. Scam types: ssn, refund, support, reward. Non-scam types: delivery, insurance, telemarketing, wrong. The Planner pulls 2–3 example dialogues per scam type into each persona prompt as script references.
+  - Legit caller style: talkmap/telecom-conversation-corpus (200k synthetic telecom support calls, MIT) and talkmap/banking-conversation-corpus (300k, MIT). A few agent turns serve as style examples for the legit personas (Maria, Tom, Dana): calm, specific, never pushy. These are customer-initiated calls, so they are adapted to outbound.
+  - Scammer flavor: 436-4/youtube-scam-conversations (20 real scam-baiting transcripts, Apache-2.0). Used for persona quirks and as held-out real calls in the pilot.
+  - Detector train/test: BothBosu/scam-dialogue (1.28k train / 320 test), unchanged.
+  - If T-Mobile's synthetic set arrives, it is swapped in behind the same loader.
 
 **API contract (shape, not routes)**
 - Start drill → returns the drill ID and scenario card; the call is placed asynchronously.
@@ -158,6 +173,14 @@ The card is sent to the voice agent as dynamic variables and saved on the drill,
   - The demo seed produces the exact Derek → Dana → Ray sequence.
   - Calls are never placed to an unverified number.
 - **Seam 2 — detector evaluation script.** Given a dataset split, it reports accuracy, precision/recall per class, and a confusion matrix for the baseline and for Nemotron. It runs on the scam-dialogue test split and on the YouTube real-call transcripts. Tests check that the metrics are computed correctly on a tiny labeled fixture where the answers are known.
+- **Seam 3 — Persona QA (text only, no phone calls).** Nemotron plays each of 8 receiver personalities (aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one more still to be chosen) against all 9 personas, for 72 text conversations. Checks run on the conversation transcript only:
+  - Every scam and hijacked persona asks for at least one fake secret.
+  - No legit persona ever asks for a secret.
+  - "Stop drill" ends the conversation within one turn.
+  - The persona breaks character when the receiver says something that looks like a real card number or SSN.
+  - No real company names appear.
+  - The opening line matches the shared template for every call type.
+  Output: a pass/fail table per persona × personality, plus saved transcripts, which double as demo material and as evidence of Nemotron multi-step use for the NVIDIA track.
 - **No separate UI test seam.** The UI is checked by hand against the demo script. Optional smoke checks only if time allows.
 - **Prior art:** none; the repo is empty. These seams set the pattern for later tests.
 
