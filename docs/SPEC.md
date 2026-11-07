@@ -105,6 +105,12 @@ Besides full drills, Tell has a deck of battle cards: one scammer line per card,
 58. As a user, I want to see which cards I've mastered, so that I know I'm improving.
 59. As a team member, I want every card checked automatically against simulated receivers, so that no card breaks on stage.
 
+### Detection
+60. As a judge, I want accuracy for a baseline and for Nemotron on real scam calls, not just synthetic data, so that I can trust the detection claim.
+61. As a judge, I want to watch the risk meter rise during a live call, so that I can see detection happening in real time.
+62. As a user, I want the detector to say "can't tell" when it's unsure, so that it never gives me false confidence.
+63. As a user, I want my real bank's urgent calls not flagged as scams, so that I keep trusting legitimate callers.
+
 ## Implementation Decisions
 
 **Product rules**
@@ -131,7 +137,7 @@ Besides full drills, Tell has a deck of battle cards: one scammer line per card,
 - **Voice adapter (ElevenLabs Agents).** Places outbound calls through the SIP-trunk outbound-call API with the persona passed as dynamic variables, and verifies and parses the post-call transcription webhook (HMAC signature; idempotent on the conversation ID because retries resend the same payload).
 - **Telephony configuration (Photon Spectrum Voice).** The Photon iMessage line is imported into ElevenLabs as a SIP-trunk number: TLS to Photon's SIP server on port 5061, digest auth with the project ID and secret, media encryption disabled (Photon carries plain RTP), caller ID must be a line owned by the same project. Photon is the phone line only; it has no voice webhooks, so call results come from ElevenLabs.
 - **LLM adapter (Nemotron via NVIDIA's OpenAI-compatible API).** Agents use a larger Nemotron (`nemotron-3-super-120b-a12b`, with `llama-3.3-nemotron-super-49b-v1.5` as backup). The live call tries a small fast model (`nvidia-nemotron-nano-9b-v2`) as ElevenLabs' custom LLM. If first-token latency is too high, the live call falls back to ElevenLabs' built-in model and Nemotron stays on the agents.
-- **Detector.** Two classifiers behind one interface: a TF-IDF + logistic-regression baseline, and a Nemotron classifier that returns label, scam type, red flags and confidence. Used by the Debrief agent, the Guardian screen and the evaluation script.
+- **Detector.** Three versions behind one interface (TF-IDF baseline, Nemotron zero-shot, Nemotron + retrieval), each returning label, scam type, tactic-tagged red flags and confidence; see Detection below. Used by the Debrief agent, battle-card recommendations, the Guardian screen and the evaluation script.
 - **Threat ingest.** Pulls FTC consumer alerts (primary) and NewsAPI headlines (secondary, free tier: 24-hour delay, 100 requests/day, development use only) on the server every few hours. Nemotron tags each item with a theme and red flags; results are cached.
 - **Web app (Next.js, dark, Apple-clean).** Screens: onboarding, home (Start drill, Today, progress), scenario card, live call (voice orb, claimed caller, timer, rule strip, code pop-up, End drill), verdict, after-call report with persona reveal, agent log drawer, Guardian, settings.
 
@@ -177,6 +183,33 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
   - Safest next action: say "I don't share codes. I'll call Nimbus back on the number in my app," then hang up.
   - Trains: rule 1 + rule 4 · Why it works: he already knows your plan and bill, so he feels real.
 
+**Detection**
+We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights never change. The Hugging Face data has three jobs:
+1. Train a tiny TF-IDF + logistic-regression baseline (seconds, scikit-learn). Its only purpose is to give Nemotron something to beat.
+2. Act as an example pool for retrieval: for each call, fetch the 5 most similar labeled dialogues from TigerData (pgvector) and put them in Nemotron's prompt as examples.
+3. Act as held-out test sets that produce the accuracy numbers.
+
+- Data roles (strict split, no leakage):
+
+  | Data | Role |
+  | --- | --- |
+  | BothBosu/scam-dialogue train split | Train the baseline + the retrieval example pool in TigerData |
+  | BothBosu/scam-dialogue test split | Scoring only, never used as examples |
+  | 436-4/youtube-scam-conversations + FTC robocall transcripts (wspr-ncsu/robocall-audio-dataset) | Real-call scoring only, never used as examples |
+  | 30–50 hard negatives: urgent-sounding legit calls (real fraud alerts, delivery problems) generated with Nemotron + talkmap support calls | False-positive scoring only |
+  | BothBosu/multi-agent-scam-conversation + talkmap corpora | Persona prompts only, not detection |
+
+  Deduplicate across splits; the evaluation must assert that no test item is in the example pool.
+- Three detector versions behind one interface, all returning label, scam type, red-flag spans tagged with tactics (authority, urgency, details-as-proof, reward, fear), and confidence:
+  1. TF-IDF baseline.
+  2. Nemotron zero-shot with structured output.
+  3. Nemotron + retrieval (5 nearest labeled examples from pgvector). This is the production detector.
+  If T-Mobile provides their baseline classifier, add it as a fourth comparison.
+- Unsure band: below 60% confidence the detector says "Can't tell — verify by calling back on a number you already have" instead of guessing.
+- Turn-by-turn scoring: the detector can run after each call turn and record the first turn where it flags correctly (time to detection).
+- Spectator mode: during a live drill, a risk meter on the presenter screen only (never on the user's phone, so drills stay honest) rises turn by turn and shows tactic labels as red flags appear. Used in the stage demo.
+- The detector feeds the Debrief agent (red flags on the transcript) and battle-card recommendations.
+
 **API contract (shape, not routes)**
 - Start drill → returns the drill ID and scenario card; the call is placed asynchronously.
 - Post-call webhook → verified, idempotent; stores redacted turns and triggers Debrief.
@@ -198,7 +231,13 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
   - "Practice this" on a threat produces a drill whose persona traces back to that threat.
   - The demo seed produces the exact Derek → Dana → Ray sequence.
   - Calls are never placed to an unverified number.
-- **Seam 2 — detector evaluation script.** Given a dataset split, it reports accuracy, precision/recall per class, and a confusion matrix for the baseline and for Nemotron. It runs on the scam-dialogue test split and on the YouTube real-call transcripts. Tests check that the metrics are computed correctly on a tiny labeled fixture where the answers are known.
+- **Seam 2 — detector evaluation script.** Given a dataset split, it scores every detector version (baseline, Nemotron zero-shot, Nemotron + retrieval, and T-Mobile's baseline if provided):
+  - Accuracy, precision, recall, F1, false-positive rate and a confusion matrix, on (a) the synthetic test split, (b) real calls, (c) hard negatives.
+  - Unseen-type test: example pool limited to ssn + refund, scored on support + reward, to show it learned tactics, not scripts.
+  - Time to detection: average turn of first correct flag.
+  - Calibration: bucket predictions by confidence and compare to actual accuracy.
+  - Leakage check: fails if any test item appears in the example pool.
+  Tests use a tiny labeled fixture with known answers to verify every metric.
 - **Seam 3 — Persona QA (text only, no phone calls).** Nemotron plays each of 8 receiver personalities (aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one more still to be chosen) against all 9 personas, for 72 text conversations. Checks run on the conversation transcript only:
   - Every scam and hijacked persona asks for at least one fake secret.
   - No legit persona ever asks for a secret.
@@ -230,5 +269,7 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
 - **Transfer is the key claim to defend.** An 8-month randomized trial with about 19,500 UC San Diego Health employees found embedded phishing training reduced failure rates by only about 1.7%, mainly because people didn't engage with the material. Tell's answer is live voice practice with feedback in seconds, adapting to the rule you keep breaking. Tonight's pilot: 10–15 consenting hackers do a pre-test on held-out items (phone-provider calls, real scam clips, one legit call), then 3 drills on banking and shopping only, then a post-test on different held-out items. Report n, hit rate, false-alarm rate and rule-correct actions, and present the results honestly even if nothing moves.
 - **Integration risks to clear in the first hour:** the phone ringing via ElevenLabs → Photon with two-way audio; each Nemotron model ID responding on the hosted endpoint; per-call voice override enabled in the ElevenLabs agent (fallback: one agent per voice); a public URL for the webhook.
 - **Fallbacks:** Photon SIP fails → place calls from an ElevenLabs/Twilio number. Live-call Nemotron too slow → ElevenLabs built-in model. Webhook missing → poll the conversation by ID after hang-up.
+- **Detection pitch slide:** one big number (F1 on real calls, Nemotron + retrieval vs baseline); a small table of the 3 versions × synthetic / real / hard negatives / false-positive rate; a time-to-detection chart; one honesty line ("synthetic training data; real-call test set is small, n = …").
+- **If time is short (detection):** keep the baseline, Nemotron + retrieval, real-call scoring, time to detection, the spectator meter and the unsure band. Drop the calibration plot and the unseen-type test.
 - Diagrams live in `docs/img/`: architecture, persona matrix, and the live-call and reveal screens.
 - No issue tracker is configured for this repo yet. This file stands in for the tracker issue, labeled `ready-for-agent`. GitHub Issues can replace it once the team sets them up.
