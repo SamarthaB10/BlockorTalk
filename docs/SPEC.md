@@ -22,6 +22,8 @@ Tell is a web app that runs practice phone calls. The user picks themes (banking
 
 A Nemotron Drill Planner agent chooses each drill, targeting the rule the user breaks most, and builds the persona. A Nemotron Debrief agent scores the call. A Today screen turns current FTC scam alerts into one-tap practice drills. A detector (TF-IDF baseline vs Nemotron) labels scam type and red flags, both in debriefs and in a paste-a-message Guardian screen. Tell tracks hit rate and false-alarm rate over time, so it can show learning without teaching paranoia.
 
+Besides full drills, Tell has a deck of battle cards: one scammer line per card, a 3–5 turn practice round by voice or text, and the exact safest next action to say and do. The Debrief agent hands the user the card for the move that got them in their last drill.
+
 ## User Stories
 
 ### Onboarding and settings
@@ -93,6 +95,16 @@ A Nemotron Drill Planner agent chooses each drill, targeting the rule the user b
 50. As a team member, I want to swap in T-Mobile's synthetic data if it becomes available, so that we use the official set without rework.
 51. As a team member, I want every persona checked against 8 receiver personalities before demo day, so that no persona breaks the rules on stage.
 
+### Battle cards
+52. As a user, I want to practice just the moment I keep failing, so that I build the reflex without a full call.
+53. As a user, I want the exact words to say back to a scammer, so that I'm not stuck mid-call.
+54. As a user, I want each card to explain why the line works on people, so that I understand the trick, not just the answer.
+55. As a user, I want to practice a card by voice or by text, so that I can train even when I can't take a call.
+56. As a user, I want the card for the move I fell for recommended after each drill, so that practice targets my weak spot.
+57. As a user, I want to turn a Today threat into a battle card, so that I can rehearse against a scam that's in the news.
+58. As a user, I want to see which cards I've mastered, so that I know I'm improving.
+59. As a team member, I want every card checked automatically against simulated receivers, so that no card breaks on stage.
+
 ## Implementation Decisions
 
 **Product rules**
@@ -151,6 +163,20 @@ The card is sent to the voice agent as dynamic variables and saved on the drill,
   - Detector train/test: BothBosu/scam-dialogue (1.28k train / 320 test), unchanged.
   - If T-Mobile's synthetic set arrives, it is swapped in behind the same loader.
 
+**Battle cards**
+Battle cards are short, focused practice rounds. Each card is one scammer move, and the user practices the safest next action against it, like sales battle cards but for scam calls. Full drills test the user; battle cards build the reflex for the exact moment they keep failing.
+- Card fields: theme; tactic (authority, urgency, details-as-proof, reward, fear); the scammer line; the persona who delivers it; the safest next action (the exact words to say + what to do); the rule it trains (1–4); why it works on people (one line).
+- Practice loop: the persona delivers the line and pushes back using its quirk. The user responds by voice (same ElevenLabs agent, short session) or by text (Nemotron directly). The round ends when the user reaches a safe action (refuses + verifies through a known number, or hangs up) or leaks a fake secret (exact-match check, same as drills).
+- Scoring: pass/fail on safety, plus the number of turns taken. Mastered = 2 safe passes in a row.
+- Deck for v1: 3 cards per theme (banking, shopping, phone provider) = 9 cards, written from the existing nine personas.
+- Recommendation: the Debrief agent picks the card matching the tactic and rule the user broke in their last drill. "Practice this" on a Today threat can create a card through the Drill Planner.
+- Storage: cards as regular rows; each practice attempt as a time-series row (user, card, pass/fail, turns, timestamp) feeding a mastery grid on the progress screen.
+- Example card:
+  - Theme: phone provider · Tactic: details-as-proof · Persona: Ray, Nimbus Mobile Security
+  - Line: "I just texted you a code — read it back so I can cancel the port."
+  - Safest next action: say "I don't share codes. I'll call Nimbus back on the number in my app," then hang up.
+  - Trains: rule 1 + rule 4 · Why it works: he already knows your plan and bill, so he feels real.
+
 **API contract (shape, not routes)**
 - Start drill → returns the drill ID and scenario card; the call is placed asynchronously.
 - Post-call webhook → verified, idempotent; stores redacted turns and triggers Debrief.
@@ -181,6 +207,8 @@ The card is sent to the voice agent as dynamic variables and saved on the drill,
   - No real company names appear.
   - The opening line matches the shared template for every call type.
   Output: a pass/fail table per persona × personality, plus saved transcripts, which double as demo material and as evidence of Nemotron multi-step use for the NVIDIA track.
+- **Battle cards** are tested through the drill service seam: start a card, send scripted user turns, assert the outcome (safe action ends the round as a pass; a leaked fake secret is caught as a fail; mastery flips after 2 consecutive passes; the Debrief recommendation matches the last broken rule).
+- **Persona QA also covers battle cards:** every card runs against the 8 simulated receiver personalities (text only), checking that a safe response ends the round and a leak is detected.
 - **No separate UI test seam.** The UI is checked by hand against the demo script. Optional smoke checks only if time allows.
 - **Prior art:** none; the repo is empty. These seams set the pattern for later tests.
 
@@ -193,6 +221,7 @@ The card is sent to the voice agent as dynamic variables and saved on the drill,
 - Native mobile apps; Tell is a mobile-responsive web app.
 - Inbound calls to the Tell number, and iMessage/SMS conversations through Photon.
 - Languages other than English.
+- User-created custom cards and sharing decks between users.
 - Claims about retention or long-term behavior change; the pilot is same-session only.
 - Production compliance (Photon business-profile registration, NewsAPI paid tier, consent and recording-law review per state).
 
