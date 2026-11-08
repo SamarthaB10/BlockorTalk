@@ -50,6 +50,7 @@ The app follows `app/` router conventions. API routes in `app/api/*/route.ts` ar
   - `nemotron.ts` picks an approved line for the current script beat. If the model fails or returns an invalid choice, the call falls back to a fixed line.
   - `reveal.ts`, `detector.ts` and `debriefAdapter.ts` build the detective reveal. The detailed route streams agent phases as NDJSON.
   - A cookie (`tell_challenge`) restores the day.
+  - **Rewind.** After the reveal the player gets one text replay of a call from a chosen turn (`rewind_*` actions, stored as `day.rewind`). The replay shares the reply logic and `scoring.ts` with the official day but never touches `balance`, tasks, `calls` or `events`, so the official score and the cached reveal do not change. The server refuses a second rewind.
 - **`lib/debrief/`** (`.mjs`): the Debrief agent, a Nemotron tool-calling loop capped at 8 tool calls and 8 s, with a fixed-sequence fallback. The core rule is **code decides, the agent explains**:
   - money, tasks, leaks and rule statuses are computed in `tools.mjs`;
   - the model only orders the tools, writes sentences and picks the rewind point;

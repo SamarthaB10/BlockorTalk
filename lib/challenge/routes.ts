@@ -45,8 +45,11 @@ export function createChallengeHandlers(service: () => ReturnType<typeof createC
         const voice = (action.type === 'voice_turns' || action.type === 'voice_live') && 'turns' in action && Array.isArray(action.turns) && action.turns.length <= 40 && action.turns.every((turn: unknown) => !!turn && typeof turn === 'object' && 'text' in turn && typeof turn.text === 'string' && turn.text.length <= 1000 && 'role' in turn && (turn.role === 'assistant' || turn.role === 'user'));
         const voiceSession = 'sessionId' in action && typeof action.sessionId === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(action.sessionId);
         const live = voiceSession && 'callerId' in action && ['recruiter', 'onboarding', 'fraud_team'].includes(String(action.callerId)) && 'startedAt' in action && typeof action.startedAt === 'string';
-        const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next'].includes(String(action.type)) ||
-          (action.type === 'reply' && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) ||
+        const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next',
+          'rewind_end', 'rewind_portal', 'rewind_bank', 'rewind_callback_start', 'rewind_callback_next'].includes(String(action.type)) ||
+          ((action.type === 'reply' || action.type === 'rewind_reply') && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) ||
+          (action.type === 'rewind_start' && 'callIndex' in action && Number.isInteger(action.callIndex) && 'turn' in action && Number.isInteger(action.turn)) ||
+          (action.type === 'rewind_verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict)) ||
           (voice && (action.type === 'voice_live' ? live : !('sessionId' in action) || voiceSession)) || (action.type === 'voice_start' && live) ||
           (action.type === 'verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict));
         if (!valid) return json({ error: 'Invalid challenge action.' }, 400);
