@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import './globals.css';
+import './futuristic.css';
 
 export const metadata = { title: 'Block or Talk', description: 'Every scam has a tell.' };
 
