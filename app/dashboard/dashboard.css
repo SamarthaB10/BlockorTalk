@@ -157,14 +157,17 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub.hub .hub-people span { display:flex; flex-direction:column; width:auto; height:auto; gap:8px; background:transparent; }
 .hub-people .hub-scenario-mascot { width:68px; height:58px; border-radius:8px; }
 .hub-skill-key { margin:0 0 20px; color:var(--hub-muted); line-height:1.6; }
-.hub-skill-scales { display:grid; gap:12px; margin:8px 0; }
+.hub-skill-scales { --skill-success:#4ade80; --skill-rest:#ef4444; --skill-empty:#52525b; display:grid; gap:12px; margin:8px 0; }
 .hub-skill-scales>div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:4px 12px; font-size:12px; }
 .hub-skill-scales dd { display:contents; margin:0; }
 .hub-skill-scales dd>span { text-align:right; font-variant-numeric:tabular-nums; }
-.hub-skill-scales meter { grid-column:1 / -1; width:100%; height:10px; appearance:none; background:var(--hub-card-2); border-radius:8px; overflow:hidden; }
-.hub-skill-scales meter::-webkit-meter-bar { background:var(--hub-card-2); border:0; border-radius:8px; }
-.hub-skill-scales meter::-webkit-meter-optimum-value { background:var(--cyan); }
-.hub-skill-scales meter::-moz-meter-bar { background:var(--cyan); }
+.hub-skill-scales meter { grid-column:1 / -1; width:100%; height:10px; appearance:none; background:var(--skill-rest); border-radius:8px; overflow:hidden; }
+.hub-skill-scales meter::-webkit-meter-bar { height:100%; background:var(--skill-rest); box-shadow:none; border:0; border-radius:8px; }
+.hub-skill-scales meter::-webkit-meter-optimum-value { background:var(--skill-success); }
+.hub-skill-scales meter::-moz-meter-bar { background:var(--skill-success); }
+.hub-skill-scales meter[data-empty="true"] { background:var(--skill-empty); }
+.hub-skill-scales meter[data-empty="true"]::-webkit-meter-bar { background:var(--skill-empty); }
+@supports selector(::-webkit-meter-bar) { .hub-skill-scales meter { background:transparent; } }
 
 .hub-intro { align-items: center; }
 .hub-balance { margin-left: auto; align-self: center; }

@@ -26,7 +26,7 @@ function SkillScales({ skill }: { skill: SkillCard }) {
   ];
   return <dl className="hub-skill-scales">{scales.map(scale => <div key={scale.label}>
     <dt>{scale.label}</dt><dd><span>{scale.total ? `${scale.value} / ${scale.total}` : 'No evidence'}</span>
-      <meter min={0} max={scale.total || 1} value={scale.value} aria-label={`${skill.name}: ${scale.label}`} aria-valuetext={scale.total ? `${scale.value} of ${scale.total}` : 'No evidence yet'} />
+      <meter data-empty={scale.total === 0} min={0} max={scale.total || 1} value={scale.value} aria-label={`${skill.name}: ${scale.label}`} aria-valuetext={scale.total ? `${scale.value} of ${scale.total}` : 'No evidence yet'} />
     </dd>
   </div>)}</dl>;
 }
