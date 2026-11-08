@@ -62,36 +62,40 @@ export default function ContactsPhone({ contacts, disabled, onCall, actions }: {
   let letter = '';
   return <section className="contacts-stage" aria-label="Choose a practice caller">
     <p className="contacts-wordmark" aria-hidden="true">Who’s calling?</p>
-    <div className="contacts-phone"><div className="contacts-screen">
-      {open ? <div className="contact-card pixel-phone-host">
-        <button type="button" className="contact-back" onClick={() => setOpen(null)}>‹ Contacts</button>
-        <PixelPhone />
-        <h2>{open.name}</h2>
-        <p className="contact-label">AI practice caller</p>
-        <p>{open.org} · {open.about}</p>
-        <p>{open.fact}</p>
-        <button type="button" className="contact-call" disabled={disabled} onClick={() => onCall(open.id)}>Play by voice ↗</button>
-        {actions(open.id)}
-      </div> : <>
-        <header className="contacts-head"><h2>Contacts</h2><button type="button" className="contacts-shuffle" disabled={disabled || !shown.length || Boolean(ringing)} onClick={shuffle}>Shuffle call</button></header>
-        <div className="contacts-groups" role="group" aria-label="Filter scenarios by topic">
-          <button type="button" aria-pressed={topic === 'All'} onClick={() => setTopic('All')}>All <span>{contacts.length}</span></button>
-          {TOPICS.map(t => <button type="button" key={t} aria-pressed={topic === t} onClick={() => setTopic(t)}>{t} <span>{count(t)}</span></button>)}
-        </div>
-        <p className="contacts-count" role="status">{topic === 'All' ? `Showing all ${contacts.length} calls` : `Showing ${shown.length} of ${contacts.length} calls`}</p>
-        <ul ref={list} className="contacts-list">
-          {shown.map((c, i) => {
-            const head = c.name[0]!.toUpperCase() !== letter ? (letter = c.name[0]!.toUpperCase()) : null;
-            return <li key={c.id} style={{ '--i': i } as CSSProperties}>
-              {head && <p className="contacts-letter" aria-hidden="true">{head}</p>}
-              <button type="button" id={`contact-${c.id}`} data-contact className={ringing === c.id ? 'is-ringing' : undefined} onClick={() => setOpen(c)}>
-                <span className="contact-avatar" aria-hidden="true">{c.name[0]}</span>
-                <span><strong>{c.name}</strong><small>{c.org} · {c.about}</small></span>
-              </button>
-            </li>;
-          })}
-        </ul>
-      </>}
-    </div></div>
+    <div className="contacts-phone">
+      <div className="contacts-earpiece" aria-hidden="true"><i /><i /><i /></div>
+      <div className="contacts-screen">
+        {open ? <div className="contact-card pixel-phone-host">
+          <button type="button" className="contact-back" onClick={() => setOpen(null)}>‹ Contacts</button>
+          <PixelPhone />
+          <h2>{open.name}</h2>
+          <p className="contact-label">AI practice caller</p>
+          <p>{open.org} · {open.about}</p>
+          <p>{open.fact}</p>
+          <button type="button" className="contact-call" disabled={disabled} onClick={() => onCall(open.id)}>Play by voice ↗</button>
+          {actions(open.id)}
+        </div> : <>
+          <header className="contacts-head"><h2>Contacts</h2><button type="button" className="contacts-shuffle" disabled={disabled || !shown.length || Boolean(ringing)} onClick={shuffle}>Shuffle call</button></header>
+          <div className="contacts-groups" role="group" aria-label="Filter scenarios by topic">
+            <button type="button" aria-pressed={topic === 'All'} onClick={() => setTopic('All')}>All <span>{contacts.length}</span></button>
+            {TOPICS.map(t => <button type="button" key={t} aria-pressed={topic === t} onClick={() => setTopic(t)}>{t} <span>{count(t)}</span></button>)}
+          </div>
+          <p className="contacts-count" role="status">{topic === 'All' ? `Showing all ${contacts.length} calls` : `Showing ${shown.length} of ${contacts.length} calls`}</p>
+          <ul ref={list} className="contacts-list">
+            {shown.map((c, i) => {
+              const head = c.name[0]!.toUpperCase() !== letter ? (letter = c.name[0]!.toUpperCase()) : null;
+              return <li key={c.id} style={{ '--i': i } as CSSProperties}>
+                {head && <p className="contacts-letter" aria-hidden="true">{head}</p>}
+                <button type="button" id={`contact-${c.id}`} data-contact className={ringing === c.id ? 'is-ringing' : undefined} onClick={() => setOpen(c)}>
+                  <span className="contact-avatar" aria-hidden="true">{c.name[0]}</span>
+                  <span><strong>{c.name}</strong><small>{c.org} · {c.about}</small></span>
+                </button>
+              </li>;
+            })}
+          </ul>
+        </>}
+      </div>
+      <div className="contacts-keypad" aria-hidden="true">{['1','2','3','4','5','6','7','8','9','*','0','#'].map(k => <span key={k}>{k}</span>)}</div>
+    </div>
   </section>;
 }
