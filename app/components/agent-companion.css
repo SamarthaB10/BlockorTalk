@@ -35,6 +35,7 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
+@keyframes agent-fade { from { opacity: 0; } to { opacity: 1; } }
 .agent-companion.is-confirming .agent-copy {
   animation: agent-confirm 280ms var(--agent-ease);
 }
@@ -46,11 +47,39 @@
 .agent-copy {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-width: 36ch;
-  transition: border-color 200ms var(--agent-ease);
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 42ch;
+  animation: agent-fade 200ms var(--agent-ease);
 }
-.agent-message { margin: 0; font-size: 16px; line-height: 1.45; }
+.agent-role {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #625f59);
+}
+.agent-message { margin: 0; font-size: 18px; line-height: 1.45; }
+.agent-companion.is-lead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 8px;
+  align-items: start;
+}
+.agent-companion.is-lead .agent-stage { grid-column: 1; grid-row: 1; }
+.agent-companion.is-lead .agent-copy { grid-column: 2; grid-row: 1; max-width: 56ch; }
+.agent-companion.is-lead .agent-mute { grid-column: 1; grid-row: 2; justify-self: start; }
+.agent-lead {
+  padding: 8px 0 20px;
+  border-bottom: 1px solid var(--line, rgba(20, 20, 20, 0.14));
+}
+.challenge .agent-lead p { margin: 0; }
+.agent-lead .agent-chips li { animation: agent-enter 300ms var(--agent-ease, cubic-bezier(0.23, 1, 0.32, 1)); }
+.agent-lead .agent-chips li:nth-child(2) { animation-delay: 40ms; }
+.agent-lead .agent-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.agent-lead .agent-status .call-meta,
+.agent-lead .call-meta { margin: 0; }
 .agent-evidence,
 .agent-exchange,
 .agent-skill,
@@ -153,11 +182,17 @@
 @media (max-width: 640px) {
   .caller-head { flex-direction: column; }
   .agent-phase-row { align-items: flex-start; }
+  .agent-companion.is-lead { grid-template-columns: 1fr; }
+  .agent-companion.is-lead .agent-stage { grid-row: 1; }
+  .agent-companion.is-lead .agent-copy { grid-column: 1; grid-row: 2; }
+  .agent-companion.is-lead .agent-mute { grid-column: 1; grid-row: 3; }
 }
 @media (prefers-reduced-motion: reduce) {
   .agent-companion.is-entering .agent-stage,
   .agent-companion.is-confirming .agent-copy,
-  .agent-phases.is-entering .agent-chips li {
+  .agent-copy,
+  .agent-phases.is-entering .agent-chips li,
+  .agent-lead .agent-chips li {
     animation: agent-fade 200ms ease;
   }
   @keyframes agent-fade { from { opacity: 0; } to { opacity: 1; } }

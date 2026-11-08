@@ -366,17 +366,25 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
   return <main className="challenge">
     <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{stage && <span className="pill">{stagePlan ? `STAGE · PLAN ${STAGE_PLANS.find(plan => plan.id === stagePlan)!.letter}` : 'STAGE · TAP A PLAN'}</span>}{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span><button className="start-over" disabled={busy} onClick={() => { void hangUp(); setMode('text'); setVoice('connecting'); setVoiceTurns([]); setError(''); setDay(null); }}>Start over</button></>}</header>
     {error && <p role="alert" className="error">{error} <button onClick={() => location.reload()}>Reload saved day</button></p>}
-    {loading ? <p role="status">Loading your saved day…</p> : !day ? <section className="intro">
+    {loading ? <p role="status">Loading your saved day…</p> : <>
+    <section className="agent-lead" aria-label="Practice agent">
+      <AgentCompanion companion={companion} tone="ink" lead showRole showMute extra={<>
+        {day && <div className="agent-status"><span className="pill">AI practice caller</span>{active && <span className="pill">Listening</span>}<span className="timer">{active ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'Call ended'}</span></div>}
+        {!day && <>
+          <p className="agent-balance">$1,000</p>
+          <ul className="agent-chips"><li>Book your Bluebonnet Labs interview</li><li>Sort out the Corvanta Bank alert</li></ul>
+          <div className="start-row">
+            <button className="primary" disabled={busy} onClick={() => void startVoice(true)}>Start by voice<span>Talk to Yui with your microphone</span></button>
+            <button className="primary" disabled={busy} onClick={() => { setMode('text'); void act({ type: 'start' }); }}>{busy && mode === 'text' ? 'Starting…' : 'Begin practice'}</button>
+          </div>
+          <p className="hint">Either way: an AI practice caller, the same day. Use no real personal details.</p>
+        </>}
+        {day?.phase === 'complete' && <div className="agent-challenge-actions"><a href="#reveal-heading">Practice this skill</a><a href="/try-it">Try without guidance</a></div>}
+      </>} />
+    </section>
+    {!day ? <section className="intro">
       <div className="intro-copy"><p className="eyebrow">THREE CALLS. TWO STORIES.</p><h1>Keep your $1,000.<br />Finish both tasks.</h1>
-      <p>{tryIt ? "What would you say to Kai?" : "Who gets your trust?"}</p>{tryIt && <p>No account. No phone number. Only anonymous outcomes are stored. Your day clears when you leave this page.</p>}
-      <div className="start-row"><button className="primary" disabled={busy} onClick={() => void startVoice(true)}>Start by voice<span>Talk to Yui with your microphone</span></button></div>
-      <p className="hint">Either way: an AI practice caller, the same day. Use no real personal details.</p></div>
-      <figure className="planner">
-        <AgentCompanion companion={companion} tone="ink" showMute />
-        <p className="agent-balance">$1,000</p>
-        <ul className="agent-chips"><li>Book your Bluebonnet Labs interview</li><li>Sort out the Corvanta Bank alert</li></ul>
-        <button className="primary" disabled={busy} onClick={() => { setMode('text'); void act({ type: 'start' }); }}>{busy && mode === 'text' ? 'Starting…' : 'Begin practice'}</button>
-      </figure>
+      <p>{tryIt ? "What would you say to Kai?" : "Who gets your trust?"}</p>{tryIt && <p>No account. No phone number. Only anonymous outcomes are stored. Your day clears when you leave this page.</p>}</div>
     </section> : <>
       <h1 className="sr-only">Your Challenge day</h1>
       <div className={`board ${active ? 'on-call' : ''}`}>
@@ -384,11 +392,6 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
           <h2>Day ledger</h2><ol className="ledger">{CALL_ORDER.map(id => { const result = day.calls?.find(call => call.callerId === id); return <li key={id}>{CALLERS[id].name} · {CALLERS[id].org}<strong>{result ? <Stamp>{result.verdict} · {result.cost ? `−$${result.cost}` : '$0 lost'}</Stamp> : day.callerId === id ? 'IN PROGRESS' : 'UP NEXT'}</strong></li>; })}</ol>
         </aside>
         <section className="caller" aria-label={`${caller.name} call`}>
-          <div className="caller-head">
-            <AgentCompanion companion={companion} tone="ink" compact showMute />
-            <div className="call-meta"><span className="pill">AI practice caller</span>{active && <span className="pill">Listening</span>}<span className="timer">{active ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'Call ended'}</span></div>
-          </div>
-          {day.phase === 'complete' && <div className="agent-challenge-actions"><a href="#reveal-heading">Practice this skill</a><a href="/try-it">Try without guidance</a></div>}
           <p className={`call-state ${voiceMode && !voiceLive ? 'still' : ''}`}><span className="dot" aria-hidden="true">●</span>{voiceMode && active && !voiceLive ? (voice === 'connecting' ? 'Connecting' : 'Not connected') : active ? 'Call active' : 'Call ended'}</p><h2>{caller.name}</h2><p>{caller.org}</p><p className="scenario">{caller.scenario}</p><p className="limits">Fictional details only · Date of birth: {FAKE_SECRETS.date_of_birth} · Address: {FAKE_SECRETS.home_address} · PIN: {FAKE_SECRETS.account_pin}</p>
           {active && (day.codeVisible || (voiceMode && voiceCode)) && <Toast><strong>Corvanta · One-time code</strong><p className="bank-code">{FAKE_SECRETS.live_code}</p><p>Do not share this code with a caller.</p></Toast>}
           <p className="limits">12 replies or 3 minutes · {voiceMode ? spokenReplies : day.replies}/12 replies{voiceMode && ' · say “stop drill” to end'}</p>
@@ -414,6 +417,7 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
         </aside>
       </div>
       {day.phase === 'complete' && <Reveal requestReveal={tryIt ? () => requestDay({ type: 'reveal' }) : undefined} day={day} busy={busy} act={act} />}
+    </>}
     </>}
     <nav className="moves" aria-label="Your four moves">{moves.map(([move, hint]) => <button key={move} disabled={busy || !active || (voiceMode && (move === 'Probe' || move === 'Protect'))} onClick={() => {
       if (move === 'Disconnect') { if (handleRef.current) endVoiceCall(); else { if (voiceMode) { void hangUp(); setVoice('ended'); } void act({ type: 'end' }); } }

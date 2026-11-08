@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { frameCount, mascotDirectory, type Personality } from '../../lib/sprites.mjs';
 import { poseFolder, stateInputs, type Companion } from '../../lib/agents/machine.ts';
 import './agent-companion.css';
@@ -28,11 +28,16 @@ type Props = {
   still?: boolean;
   tone?: 'ink' | 'paper';
   compact?: boolean;
+  /** One row: the sprite, then the line it is saying. Used where the agent leads the page. */
+  lead?: boolean;
+  showRole?: boolean;
   showMute?: boolean;
   showCopy?: boolean;
+  /** The step the agent is offering, rendered under its line. */
+  extra?: ReactNode;
 };
 
-export default function AgentCompanion({ companion, scale = 1, quiet = false, still: held = false, tone = 'ink', compact = false, showMute = false, showCopy = true }: Props) {
+export default function AgentCompanion({ companion, scale = 1, quiet = false, still: held = false, tone = 'ink', compact = false, lead = false, showRole = false, showMute = false, showCopy = true, extra = null }: Props) {
   const folder = poseFolder(companion.pose);
   const reduced = usePrefersReducedMotion();
   const [muted, setMuted] = useState(false);
@@ -70,7 +75,7 @@ export default function AgentCompanion({ companion, scale = 1, quiet = false, st
   const inputs = stateInputs(companion.state);
   const confirming = companion.state === 'success' || companion.state === 'concerned';
   return <figure
-    className={`agent-companion${quiet ? ' is-quiet' : ''}${compact ? ' is-compact' : ''}${entering && !reduced && !muted ? ' is-entering' : ''}${confirming && !reduced && !muted ? ' is-confirming' : ''}`}
+    className={`agent-companion${quiet ? ' is-quiet' : ''}${compact ? ' is-compact' : ''}${lead ? ' is-lead' : ''}${entering && !reduced && !muted ? ' is-entering' : ''}${confirming && !reduced && !muted ? ' is-confirming' : ''}`}
     data-tone={tone}
     data-state={companion.state}
     data-pose={companion.pose}
@@ -79,12 +84,14 @@ export default function AgentCompanion({ companion, scale = 1, quiet = false, st
     <span className="agent-stage">
       <img src={src} width={170 * scale} height={145 * scale} style={{ width: 170 * scale, height: 145 * scale }} alt={`${names[companion.personality]}, ${companion.pose}`} draggable={false} />
     </span>
-    {showCopy && <figcaption className="agent-copy">
+    {showCopy && <figcaption key={companion.state} className="agent-copy">
+      {showRole && <p className="agent-role">{names[companion.personality]}</p>}
       <p className="agent-message" aria-live="polite">{companion.message}</p>
       {companion.exchange && <p className="agent-exchange">{companion.exchange}</p>}
       {companion.evidence && companion.evidence !== companion.message && <p className="agent-evidence">{companion.evidence}</p>}
       {companion.outcome && <p className="agent-outcome">{companion.outcome}</p>}
       {companion.skill && <p className="agent-skill">{companion.skill}</p>}
+      {extra}
     </figcaption>}
     {showMute && <button type="button" className="agent-mute" aria-pressed={muted} onClick={() => setMuted(value => !value)}>{muted ? 'Unmute companion' : 'Mute companion'}</button>}
   </figure>;
