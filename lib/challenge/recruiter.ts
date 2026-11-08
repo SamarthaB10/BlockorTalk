@@ -1,6 +1,6 @@
 // Yui's beats match the recruiter script on voice/elevenlabs-agents.
 // Keep approved lines here so model output cannot request a secret or reveal a call type.
-export const DISCLOSURE = "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime.";
+export { DISCLOSURE_LINE as DISCLOSURE } from '../voice/disclosure.ts';
 export const OPENING = 'Hi, is this Alex? This is Yui from Bluebonnet Labs recruiting. Do you have a quick minute?';
 export const RECRUITER_BEATS = [
   [

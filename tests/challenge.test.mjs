@@ -30,7 +30,7 @@ test('Real books the interview and persists the verdict', { skip: !databaseUrl }
   const { service } = await fixture(t);
   const day = await service.start();
   assert.equal(day.balance, 1000);
-  assert.match(day.turns[0].text, /^This is a Tell practice call/);
+  assert.match(day.turns[0].text, /^It's recorded for your report/);
   await service.act(day.id, { type: 'end' });
   await service.act(day.id, { type: 'verdict', verdict: 'Real' });
   const restored = await service.get(day.id);
@@ -271,7 +271,7 @@ test("reading Ren's gift-card code aloud costs $350 after the verdict", { skip: 
   let day = await toCall(service, 'onboarding');
   await service.act(day.id, { type: 'end' });
   day = await service.act(day.id, { type: 'voice_turns', turns: said(
-    ['assistant', "This is a Tell practice call from an AI voice. Hi, is this Alex? This is Ren from Bluebonnet Labs onboarding."],
+    ['assistant', "It's recorded for your report. Say 'stop drill' anytime. Hi, is this Alex? This is Ren from Bluebonnet Labs onboarding."],
     ['assistant', 'Read the code on the back of your gift card.'],
     ['user', 'okay it is four seven two nine'],
   ) });

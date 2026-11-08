@@ -125,7 +125,7 @@ test('mutations enforce auth, origin, bounded valid input and speech uses only t
   expect((await f.post({ type: 'speech', text: 'speak attacker-controlled text' }, id, 'other')).status).toBe(404);
   const audio = await f.post({ type: 'speech', text: 'speak attacker-controlled text' }, id);
   expect(audio.status).toBe(200);
-  expect(await audio.text()).toContain('This is a Tell practice call');
+  expect(await audio.text()).toContain("It's recorded for your report");
   const next = await f.post({ type: 'speech', text: 'speak attacker-controlled text' }, id);
   expect(await next.text()).not.toContain('attacker-controlled');
   expect((await f.post({ type: 'reply', text: 'x'.repeat(4000) }, id)).status).toBe(413);
