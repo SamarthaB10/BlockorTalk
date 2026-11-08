@@ -291,6 +291,95 @@ describe("review fixes", () => {
   });
 });
 
+describe("focus alert: Practice this call", () => {
+  const SEASON_IDS = ["bank", "delivery", "holiday", "business", "phishing", "support", "government", "prize", "investment", "carrier", "refund", "insurance", "sales", "wrong-number"];
+  const alert = (title: string, summary = ""): NewsItem => ({ title, summary, link: `https://consumer.ftc.gov/consumer-alerts/${encodeURIComponent(title)}` });
+  const TYPE_WORDS = /\b(scam\w*|real|legit\w*|genuine|hijack\w*|fake|fraudster|imposter|impostor|trust(ed|worthy)?)\b/i;
+
+  it("lets Nemotron pick the season scenario that matches the alert, from public facts only", async () => {
+    const { llm, seen } = scripted([
+      { content: null, tool_calls: [tool("a", "list_drills")] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "delivery", target_rule: 2, reason: "A parcel fee with a deadline. Practise slowing down." })] },
+    ]);
+    const plan = await planDrill({ history: [], llm, threats, focus: CUSTOMS });
+    expect(plan.path).toBe("agent");
+    expect(plan.drill).toEqual({ kind: "scenario", id: "delivery", caller: "Sora", org: "Mossparcel", category: "Delivery or customs fee" });
+    expect(plan.reason).toBe("A parcel fee with a deadline. Practise slowing down.");
+    expect(plan.news).toEqual(CUSTOMS);
+    expect(JSON.stringify(seen[0])).toContain(CUSTOMS.title);
+    const listed = JSON.parse((seen[1]!.at(-1) as { content: string }).content);
+    expect(listed.scenarios.map((s: { id: string }) => s.id)).toEqual(SEASON_IDS);
+    expect(JSON.stringify(seen)).not.toMatch(/versions|ask_line|next_step|Please read me|Hijacked/);
+  });
+
+  it("refuses a Challenge caller while an alert is focused", async () => {
+    const { llm } = scripted([
+      { content: null, tool_calls: [tool("a", "choose_drill", { kind: "scenario", id: "fraud_team", target_rule: 3, reason: "Practise." })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "delivery", target_rule: 2, reason: "Practise slowing down." })] },
+    ]);
+    const plan = await planDrill({ history: [], llm, threats, focus: CUSTOMS });
+    expect(plan.rejected[0]!.error).toMatch(/unknown drill/);
+    expect(plan.drill.id).toBe("delivery");
+  });
+
+  it("without Nemotron, maps a customs alert to delivery, even after a false alarm", async () => {
+    const plan = await planDrill({ history: [{ kind: "scenario", id: "recruiter", verdict: "Scam", leaked: [] }], threats, focus: CUSTOMS });
+    expect(plan.path).toBe("fixed");
+    expect(plan.drill).toMatchObject({ id: "delivery", category: "Delivery or customs fee" });
+    expect(plan.news).toEqual(CUSTOMS);
+  });
+
+  it.each([
+    ["The IRS isn't calling about your Social Security number", "government"],
+    ["Crypto investment pitches on dating apps", "investment"],
+    ["You won a sweepstakes? Not so fast", "prize"],
+    ["Tech support pop-ups on your computer", "support"],
+    ["A refund for a billing error you never had", "refund"],
+    ["Insurance calls after a storm", "insurance"],
+    ["Holiday gift card requests", "holiday"],
+    ["A fake CEO asks for a wire", "business"],
+    ["That text with a link to pay a toll", "phishing"],
+    ["Someone is porting your SIM to another carrier", "carrier"],
+    ["Subscription renewal calls", "sales"],
+    ["Your bank card has a fraud hold", "bank"],
+    ["Charity appeals after a disaster", "bank"],
+  ])("fixed plan maps “%s” to %s", async (title, id) => {
+    expect((await planDrill({ history: [], threats, focus: alert(title) })).drill.id).toBe(id);
+  });
+
+  it("never names a call type in the reason, on either path", async () => {
+    const fixed = await planDrill({ history: [], threats, focus: alert("Scammers fake real bank calls", "A scam call imposter trusted by many.") });
+    expect(fixed.reason).not.toMatch(TYPE_WORDS);
+    const { llm } = scripted([{ content: null, tool_calls: [tool("a", "choose_drill", { kind: "scenario", id: "delivery", target_rule: 2, reason: "This one is a scam." })] }]);
+    const agent = await planDrill({ history: [], llm, threats, focus: CUSTOMS });
+    expect(agent.reason).not.toMatch(TYPE_WORDS);
+    expect(agent.steps.at(-1)!.result_summary).toMatch(/rewritten by code/);
+  });
+
+  it("POST /api/practice plans the alert the server finds by link, and refuses unknown links", async () => {
+    const { POST } = await import("../app/api/practice/route");
+    const { clearNewsCache } = await import("../lib/practice/news");
+    const key = process.env.NVIDIA_API_KEY;
+    delete process.env.NVIDIA_API_KEY;
+    const realFetch = globalThis.fetch;
+    const rss = `<rss><channel><item><title>${CUSTOMS.title}</title><link>${CUSTOMS.link}</link><description>${CUSTOMS.summary}</description></item></channel></rss>`;
+    globalThis.fetch = (async () => new Response(rss)) as typeof fetch;
+    clearNewsCache();
+    const post = (body: unknown) => POST(new Request("http://localhost/api/practice", { method: "POST", headers: { origin: "http://localhost" }, body: JSON.stringify(body) }));
+    try {
+      const res = await post({ action: "plan", focus: CUSTOMS.link, history: [] });
+      expect(res.status).toBe(200);
+      const { plan } = await res.json() as { plan: Awaited<ReturnType<typeof planDrill>> };
+      expect(plan).toMatchObject({ path: "fixed", drill: { id: "delivery" } });
+      expect((await post({ action: "plan", focus: "https://evil.example/x" })).status).toBe(400);
+    } finally {
+      globalThis.fetch = realFetch;
+      clearNewsCache();
+      if (key !== undefined) process.env.NVIDIA_API_KEY = key;
+    }
+  });
+});
+
 describe("POST /api/practice plan: crafted history", () => {
   it("drops prototype-key ids instead of failing", async () => {
     const { POST } = await import("../app/api/practice/route");

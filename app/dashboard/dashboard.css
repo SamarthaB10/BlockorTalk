@@ -180,3 +180,10 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-phone p{margin:0;font-size:13px;}
 .hub-phone-status{font-size:13px!important;margin:0;}
 @media(max-width:760px){.hub-phone{grid-template-columns:1fr;}}
+
+/* Practice this call: the Drill Planner's pick, on the alert card and above the call. */
+.hub-pick{display:grid;gap:6px;width:100%;margin:0 0 16px;padding:14px 16px;background:var(--hub-card-2,#e9e6e1);border:1px solid var(--hub-line,#1e1c1a26);border-radius:12px;}
+.hub-card>.hub-pick{margin:0;}
+.hub-pick strong{font-size:14px;font-weight:600;}
+.hub-pick p{margin:0;max-width:65ch;}
+.hub-pick small{font-size:12px;color:var(--hub-muted,#625e58);}
