@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
       return json({ day }, 201, { 'Set-Cookie': `${COOKIE}=${day.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secure}` });
     }
-    const valid = action.type === 'end' || action.type === 'portal' ||
+    const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next'].includes(String(action.type)) ||
       (action.type === 'reply' && 'text' in action && typeof action.text === 'string') ||
       (action.type === 'verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict));
     if (!valid) return json({ error: 'Invalid challenge action.' }, 400);
