@@ -4,13 +4,19 @@ import { describe, expect, it } from 'vitest';
 import Landing from '../app/landing/Landing';
 
 describe('landing sprite containment', () => {
-  it('keeps one 3D display with reserved space in each section and a dashboard entry', () => {
+  it('keeps one centered robot that scroll can carry, plus a dashboard entry', () => {
     const html = renderToStaticMarkup(createElement(Landing));
     expect(html.match(/class="nova-scene"/g)).toHaveLength(1);
+    expect(html.match(/data-scene-slot=/g)).toHaveLength(1);
+    expect(html).toContain('data-scene-slot="0"');
+    expect(html).toContain('nova-actor');
+    expect(html.match(/<img /g)).toHaveLength(1);
+    expect(html).toContain('src="/sprites/purple/idle/idle_01.png"');
+    expect(html).not.toContain('/sprites/red/');
+    expect(html).not.toContain('/sprites/green/');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('OPEN DASHBOARD');
     expect(html).toContain('id="intro"');
-    for (const slot of ['0', '1', '2']) expect(html).toContain(`data-scene-slot="${slot}"`);
     expect(html).not.toContain('nova-section-sprite');
   });
   it('shows the original three companion columns', () => {

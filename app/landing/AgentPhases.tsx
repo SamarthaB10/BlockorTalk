@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import AgentCompanion from '../components/AgentCompanion';
 import { BENIGN_OPENING, SIGN_IN_CODE_ASK, riskyRequest } from '../../lib/agents/risky.ts';
 import { DEBRIEF_LINE, LISTENING, PREPARE, type Companion } from '../../lib/agents/machine.ts';
 
@@ -43,9 +42,6 @@ export default function AgentPhases({ paused = false }: { paused?: boolean }) {
       {phases.map(item => <button key={item} type="button" role="tab" aria-selected={phase === item} aria-pressed={phase === item} onClick={() => { setPhase(item); setEntered(true); }}>{item === 'before' ? 'Before' : item === 'during' ? 'During' : 'After'}</button>)}
     </div>
     <div className={`agent-phase-row${entered ? ' is-entering' : ''}`} role="tabpanel">
-      <div className="agent-sprites">
-        {phases.map(item => <AgentCompanion key={item} companion={quiet[item]} scale={item === phase ? 2 : 1} quiet={item !== phase} still={paused || muted} tone="paper" showCopy={false} />)}
-      </div>
       <div className="agent-phase-detail">
         {phase === 'before' && <>
           <p className="agent-message">{planner.message}</p>
