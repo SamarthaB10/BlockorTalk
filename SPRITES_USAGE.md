@@ -29,8 +29,8 @@ The spec does not assign colors. This table is the mapping to use when the masco
 | Personality | Colorway | Role | Sprite directory |
 |---|---|---|---|
 | Drill Planner agent | Purple | Chooses each drill, targets the rule the user breaks most, writes the persona card, and places the call. In Challenge mode the day is scripted; the Planner still runs in practice mode, including "Practice this" on a Today threat. | `public/sprites/purple/` |
-| Detector | Red | Returns a label, scam type, tactic-tagged red flags, and confidence for the Debrief, battle-card recommendations, the Guardian screen, and the evaluation script. Below 60% confidence it says it can't tell and tells the user to call back on a number they already have. The live risk meter is presenter-only and never appears on the user's phone during a drill. | `public/sprites/red/` |
-| Debrief agent | Green | Scores behavior and judgment, marks rules kept or broken with timestamps, names the red flags, and recommends the next rule or battle card. The explanation is specific and not shaming, including when the user hung up on a real caller. In Challenge mode its steps are shown on the detective reveal. | `public/sprites/green/` |
+| Detector | Red | Returns a label, scam type, tactic-tagged red flags, and confidence for the Debrief, the Guardian screen, and the evaluation script. Below 60% confidence it says it can't tell and tells the user to call back on a number they already have. The live risk meter is presenter-only and never appears on the user's phone during a drill. | `public/sprites/red/` |
+| Debrief agent | Green | Scores behavior and judgment, marks rules kept or broken with timestamps, names the red flags, and recommends the next rule. The explanation is specific and not shaming, including when the user hung up on a real caller. In Challenge mode its steps are shown on the detective reveal. | `public/sprites/green/` |
 
 Use one directory for the whole time that personality is the one on screen. When the app moves from planning a drill to explaining the result, switch from `purple/` to `green/` and start the new animation at frame 01.
 

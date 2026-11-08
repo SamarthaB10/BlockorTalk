@@ -40,7 +40,7 @@ Tell measures both sides of judgment: scams caught and real callers wrongly reje
 - Every caller is labelled "AI practice caller". Nothing on the player's screen (color, art, layout) may hint at call type before the reveal.
 - Fictional brands only: Corvanta Bank, ParcelKite, ShopNest, Nimbus Mobile, Bluebonnet Labs.
 - Drill caps: 12 player replies or 3 minutes.
-- Out of scope for the hackathon: auth beyond phone verification, production hardening, practice-mode surfaces (battle cards, Today threats, Guardian, progress).
+- Out of scope for the hackathon: auth beyond phone verification, production hardening, practice-mode surfaces (Today threats, Guardian, progress). Battle cards are not part of Tell.
 
 ## Brand Commitments
 

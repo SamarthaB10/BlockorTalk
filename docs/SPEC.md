@@ -22,9 +22,7 @@ Tell is a web app that runs practice phone calls. The user picks themes (banking
 
 A Nemotron Drill Planner agent chooses each drill, targeting the rule the user breaks most, and builds the persona. A Nemotron Debrief agent scores the call. A Today screen turns current FTC scam alerts into one-tap practice drills. A detector (TF-IDF baseline vs Nemotron) labels scam type and red flags, both in debriefs and in a paste-a-message Guardian screen. Tell tracks hit rate and false-alarm rate over time, so it can show learning without teaching paranoia.
 
-Besides full drills, Tell has a deck of battle cards: one scammer line per card, a 3–5 turn practice round by voice or text, and the exact safest next action to say and do. The Debrief agent hands the user the card for the move that got them in their last drill.
-
-The headline experience is **Challenge mode: "Three calls. Two stories. Who gets your trust?"** You start a fictional day with $1,000 and two tasks: book a job interview and sort out a bank alert. Three calls come in on your real phone: a real recruiter, a fake "recruiter" who wants an equipment deposit, and a bank caller who knows your details. You win by keeping your $1,000 *and* finishing both tasks, so hanging up on everyone loses too. After each call you say Real, Scam or Unverified (you don't have to guess), then a detective reveal flips each caller to show who they really were, and one rewind lets you replay the decision that cost you the most. Challenge rounds are scripted so every player faces the same day; adaptive drills and battle cards are practice mode.
+The headline experience is **Challenge mode: "Three calls. Two stories. Who gets your trust?"** You start a fictional day with $1,000 and two tasks: book a job interview and sort out a bank alert. Three calls come in on your real phone: a real recruiter, a fake "recruiter" who wants an equipment deposit, and a bank caller who knows your details. You win by keeping your $1,000 *and* finishing both tasks, so hanging up on everyone loses too. After each call you say Real, Scam or Unverified (you don't have to guess), then a detective reveal flips each caller to show who they really were, and one rewind lets you replay the decision that cost you the most. Challenge rounds are scripted so every player faces the same day; adaptive drills are practice mode.
 
 ## User Stories
 
@@ -97,16 +95,6 @@ The headline experience is **Challenge mode: "Three calls. Two stories. Who gets
 50. As a team member, I want to swap in T-Mobile's synthetic data if it becomes available, so that we use the official set without rework.
 51. As a team member, I want every persona checked against 8 receiver personalities before demo day, so that no persona breaks the rules on stage.
 
-### Battle cards
-52. As a user, I want to practice just the moment I keep failing, so that I build the reflex without a full call.
-53. As a user, I want the exact words to say back to a scammer, so that I'm not stuck mid-call.
-54. As a user, I want each card to explain why the line works on people, so that I understand the trick, not just the answer.
-55. As a user, I want to practice a card by voice or by text, so that I can train even when I can't take a call.
-56. As a user, I want the card for the move I fell for recommended after each drill, so that practice targets my weak spot.
-57. As a user, I want to turn a Today threat into a battle card, so that I can rehearse against a scam that's in the news.
-58. As a user, I want to see which cards I've mastered, so that I know I'm improving.
-59. As a team member, I want every card checked automatically against simulated receivers, so that no card breaks on stage.
-
 ### Detection
 60. As a judge, I want accuracy for a baseline and for Nemotron on real scam calls, not just synthetic data, so that I can trust the detection claim.
 61. As a judge, I want to watch the risk meter rise during a live call, so that I can see detection happening in real time.
@@ -162,7 +150,7 @@ The headline experience is **Challenge mode: "Three calls. Two stories. Who gets
 - **Voice adapter (ElevenLabs Agents).** Places outbound calls through the SIP-trunk outbound-call API with the persona passed as dynamic variables, and verifies and parses the post-call transcription webhook (HMAC signature; idempotent on the conversation ID because retries resend the same payload). Live events: during a call the agent reports scripted beats to Tell through server tools (mid-call requests the agent makes at defined beats: code requested, payment requested, secret heard, stop drill), and these drive the code pop-up, the risk meter, balance changes and break-character. Which live signals ElevenLabs exposes on SIP outbound calls is verified in the first hour; if per-turn data isn't available, the risk meter and live features run on the browser-voice session, where the app sees every turn.
 - **Telephony configuration (Photon Spectrum Voice).** The Photon iMessage line is imported into ElevenLabs as a SIP-trunk number: TLS to Photon's SIP server on port 5061, digest auth with the project ID and secret, media encryption disabled (Photon carries plain RTP), caller ID must be a line owned by the same project. Photon is the phone line only; it has no voice webhooks, so call results come from ElevenLabs.
 - **LLM adapter (Nemotron via NVIDIA's OpenAI-compatible API).** Agents use a larger Nemotron (`nemotron-3-super-120b-a12b`, with `llama-3.3-nemotron-super-49b-v1.5` as backup). The live call tries a small fast model (`nvidia-nemotron-nano-9b-v2`) as ElevenLabs' custom LLM. If first-token latency is above 800 ms in testing, the live call falls back to ElevenLabs' built-in model and Nemotron stays on the agents; the pitch then says Nemotron runs the agents, detector and reveal, not the live voice. The NVIDIA API key stays on the server, and Persona QA and evaluation runs happen before the demo so they don't share the live quota.
-- **Detector.** Three versions behind one interface (TF-IDF baseline, Nemotron zero-shot, Nemotron + retrieval), each returning label, scam type, tactic-tagged red flags and confidence; see Detection below. Used by the Debrief agent, battle-card recommendations, the Guardian screen and the evaluation script.
+- **Detector.** Three versions behind one interface (TF-IDF baseline, Nemotron zero-shot, Nemotron + retrieval), each returning label, scam type, tactic-tagged red flags and confidence; see Detection below. Used by the Debrief agent, the Guardian screen and the evaluation script.
 - **Threat ingest.** Pulls FTC consumer alerts (primary) and NewsAPI headlines (secondary, free tier: 24-hour delay, 100 requests/day, development use only) on the server every few hours. Nemotron tags each item with a theme and red flags; results are cached.
 - **Web app (Next.js, dark, Apple-clean).** Hackathon screens: landing, try-it, Challenge game board, verdict sheet, detective reveal with rewind, and the presenter screen. Practice-mode screens (onboarding, home, drills, after-call report, Guardian, settings) come later. Visual direction: see Design direction below; product truth for design work lives in PRODUCT.md.
 
@@ -194,20 +182,6 @@ The card is sent to the voice agent as dynamic variables and saved on the drill,
   - Detector train/test: BothBosu/scam-dialogue (1.28k train / 320 test), unchanged.
   - If T-Mobile's synthetic set arrives, it is swapped in behind the same loader.
 
-**Battle cards**
-Battle cards are short, focused practice rounds. Each card is one scammer move, and the user practices the safest next action against it, like sales battle cards but for scam calls. Full drills test the user; battle cards build the reflex for the exact moment they keep failing.
-- Card fields: theme; tactic (authority, urgency, details-as-proof, reward, fear); the scammer line; the persona who delivers it; the safest next action (the exact words to say + what to do); the rule it trains (1–4); why it works on people (one line).
-- Practice loop: the persona delivers the line and pushes back using its quirk. The user responds by voice (same ElevenLabs agent, short session) or by text (Nemotron directly). The round ends when the user reaches a safe action (refuses + verifies through a known number, or hangs up) or leaks a fake secret (normalized check, same as drills).
-- Scoring: pass/fail on safety, plus the number of turns taken. Mastered = 2 safe passes in a row.
-- Deck for v1: 3 cards per theme (banking, shopping, phone provider) = 9 cards, written from the existing nine personas.
-- Recommendation: the Debrief agent picks the card matching the tactic and rule the user broke in their last drill. "Practice this" on a Today threat can create a card through the Drill Planner.
-- Storage: cards as regular rows; each practice attempt as a time-series row (user, card, pass/fail, turns, timestamp) feeding a mastery grid on the progress screen.
-- Example card:
-  - Theme: phone provider · Tactic: details-as-proof · Persona: Ray, Nimbus Mobile Security
-  - Line: "I just texted you a code — read it back so I can cancel the port."
-  - Safest next action: say "I don't share codes. I'll call Nimbus back on the number in my app," then hang up.
-  - Trains: rule 1 + rule 4 · Why it works: he already knows your plan and bill, so he feels real.
-
 **Challenge mode**
 - The day: the player starts with $1,000 and two tasks, "Book your Bluebonnet Labs interview" and "Sort out the Corvanta Bank alert". The win condition is ending the day with $1,000 and both tasks done. Bluebonnet Labs is a fictional employer and joins the fictional brand list.
 - The three scripted calls ("three calls, two stories"), placed on the player's real phone in this order:
@@ -223,8 +197,8 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
 - Balance and tasks update after each call. A leak is detected with the same normalized check over fake secrets as drills (including the gift-card code), and its cost comes from the call's stakes.
 - Call flow: each call is scripted to about 45 seconds of beats (still capped at 12 replies or 3 minutes). The next call is placed only after the player submits a verdict, and the portal and bank app keep their state across the day.
 - Detective reveal: after the third call, each caller card flips to show the real identity and call type, the detector's red-flag lines light up on the transcript, and each decision is marked as worked or cost you. It replaces the after-call report in Challenge mode and still grades against the four rules.
-- Rewind: one per day. The player picks a decision (default: the costliest) and replays from that turn in text with the same persona; the replay outcome is shown next to the original but doesn't change the official score. Rewind is the challenge's battle card.
-- Scripted vs adaptive: challenge rounds use a fixed seed, fixed personas, beats and stakes, so every player faces the same day. Nemotron runs the detector, the risk meter and the Debrief agent behind the reveal, and the live replies within those beats when its latency allows (see LLM adapter). Practice mode keeps the adaptive Planner, the call-type mix and battle cards.
+- Rewind: one per day. The player picks a decision (default: the costliest) and replays from that turn in text with the same persona; the replay outcome is shown next to the original but doesn't change the official score.
+- Scripted vs adaptive: challenge rounds use a fixed seed, fixed personas, beats and stakes, so every player faces the same day. Nemotron runs the detector, the risk meter and the Debrief agent behind the reveal, and the live replies within those beats when its latency allows (see LLM adapter). Practice mode keeps the adaptive Planner and the call-type mix.
 - Stage demo: the scripted day is the demo sequence (Yui → Ren → Kai), with the spectator risk meter on the big screen. See Further Notes for timing.
 
 **Agent and voice decisions**
@@ -277,7 +251,7 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
 - Unsure band: below 60% confidence the detector says "Can't tell — verify by calling back on a number you already have" instead of guessing.
 - Turn-by-turn scoring: the detector can run after each call turn and record the first turn where it flags correctly (time to detection).
 - Spectator mode: during a live drill, a risk meter on the presenter screen only (never on the user's phone, so drills stay honest) rises turn by turn and shows tactic labels as red flags appear. Used in the stage demo.
-- The detector feeds the Debrief agent (red flags on the transcript) and battle-card recommendations.
+- The detector feeds the Debrief agent (red flags on the transcript).
 
 **API contract (shape, not routes)**
 - Start drill → returns the drill ID and scenario card; the call is placed asynchronously.
@@ -326,8 +300,6 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - The opening line matches the shared template for every call type.
   - The fixed disclosure line opens every conversation.
   Output: a pass/fail table per persona × personality, plus saved transcripts, which double as demo material and as evidence of Nemotron multi-step use for the NVIDIA track.
-- **Battle cards** are tested through the drill service seam: start a card, send scripted user turns, assert the outcome (safe action ends the round as a pass; a leaked fake secret is caught as a fail; mastery flips after 2 consecutive passes; the Debrief recommendation matches the last broken rule).
-- **Persona QA also covers battle cards:** every card runs against the 8 simulated receiver personalities (text only), checking that a safe response ends the round and a leak is detected.
 - **No separate UI test seam.** The UI is checked by hand against the demo script. Optional smoke checks only if time allows.
 - **Prior art:** none; the repo is empty. These seams set the pattern for later tests.
 
@@ -341,7 +313,7 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
 - Inbound calls to the Tell number, and iMessage/SMS conversations through Photon (callbacks happen in-app instead).
 - Surprise mode (story 8) for v1: a call the user didn't just start could reach whoever is holding the phone.
 - Languages other than English.
-- User-created custom cards and sharing decks between users.
+- Battle cards: one-line practice rounds, a mastery deck, and Debrief recommendations of a card to drill.
 - For the hackathon: evidence pinning against synthetic messages, a "boss" caller that combines earlier tactics, and shareable friend-challenge seeds. They fit Challenge mode later.
 - Claims about retention or long-term behavior change; the pilot is same-session only.
 - Production compliance (Photon business-profile registration, NewsAPI paid tier, consent and recording-law review per state).
@@ -354,14 +326,14 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
 - **Prior art: Scam Vaccine (scamvaccine.gov.sg, Singapore Open Government Products, from Hack for Public Good 2026).** From its public pages: an AI scammer talks to you by voice call or message (bank and police impersonation), there's a no-signup demo capped at 12 replies or 3 minutes, real users get safe versions of newly detected scam variants by call or WhatsApp, and a debrief lists the red flags and what to watch next. Its headline results are satisfaction numbers (100% wanted more exercises, 96% supported a rollout). Judges may know it, so the pitch says plainly where Tell differs:
   - **Legit and hijacked calls, not only scams.** Tell measures false alarms, so it can show people get better without becoming paranoid.
   - **Measured learning, not satisfaction.** Pre/post hit rate and false-alarm rate on themes participants never practiced, reported as a small feasibility check.
-  - **Adaptive practice.** The Planner targets the rule you break most, and battle cards drill the exact move that got you.
+  - **Adaptive practice.** The Planner targets the rule you break most.
   - **Detection with real numbers.** Baseline vs Nemotron vs Nemotron + retrieval: detection rate on real scam calls and false-alarm rate on hard negatives, plus the live risk meter.
   - **A game with stakes.** The $1,000 day rewards completing real tasks, not just refusing; both products call real phones, so that alone isn't a difference.
 - **Three-minute stage run:** 0:00–0:15 hook ("Three calls. Two stories. Who gets your trust?" and the $1,000 day). 0:15–0:45 Yui and Ren as a 30-second recording from rehearsal, labelled "recorded", with the balance moving. 0:45–1:45 Kai live on a team member's pre-verified phone, risk meter and code pop-up on the big screen. 1:45–2:20 the detective reveal with the Debrief agent's steps, and one rewind. 2:20–2:45 one results slide. 2:45–3:00 QR code to the no-signup page.
 - **Stage call path:** the live call goes to a team member's phone verified the day before, never an unverified judge's phone (a judge can try the no-signup page). In the first hours, test-call phones on T-Mobile, AT&T and Verizon and check the call isn't labelled "Scam Likely" or blocked. The presenter screen has a one-tap switch to the browser-voice session, which is Plan B for Kai; text try-it is Plan C.
 - **Detection pitch slide:** one big pair (Nemotron + retrieval vs baseline: share of real scam calls caught, and false-alarm rate on urgent legit calls); a small table of the 3 versions × synthetic F1 / real-call detection rate / hard-negative false-alarm rate; a time-to-detection chart; one honesty line ("synthetic training data; real-call test set is small, n = …").
 - **Build order (vertical slice first):** (1) Challenge day in text: three scripted personas on Nemotron, normalized leak check, balance and tasks, verdicts, verify events, reveal. This is also try-it and Plan C. (2) The same day by browser voice. (3) Real phone calls with the disclosure line and phone verification. (4) Live events: code pop-up and risk meter. (5) Detector: baseline vs Nemotron + retrieval on real calls and hard negatives. (6) Debrief agent log on the reveal, then rewind. Nothing below starts until (1)–(4) work end to end.
-- **Cut list, cut first to last:** surprise mode (already out), Guardian, NewsAPI, the Today screen, the battle-card deck beyond rewind, calibration and the unseen-type test, practice-mode Planner, Persona QA beyond the Challenge personas, the pilot (or run n≈5 as an anecdote), the landing page beyond tagline + Try-it.
+- **Cut list, cut first to last:** surprise mode (already out), Guardian, NewsAPI, the Today screen, calibration and the unseen-type test, practice-mode Planner, Persona QA beyond the Challenge personas, the pilot (or run n≈5 as an anecdote), the landing page beyond tagline + Try-it.
 - **More first-hour checks:** which live signals a SIP call exposes; each Nemotron model ID responding with structured output; capture one real post-call webhook payload as the test fixture.
 - Diagrams live in `docs/img/`: architecture, persona matrix, and the live-call and reveal screens.
 - No issue tracker is configured for this repo yet. This file stands in for the tracker issue, labeled `ready-for-agent`. GitHub Issues can replace it once the team sets them up.

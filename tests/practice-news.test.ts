@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { BATTLE_CARDS } from "../lib/practice/catalog";
-import { cardFor, clearNewsCache, ftcAlerts, parseFeed } from "../lib/practice/news";
+import { clearNewsCache, ftcAlerts, parseFeed } from "../lib/practice/news";
 
 // Shape fixtures only (made-up titles): they test parsing, not FTC content.
 const RSS = `<?xml version="1.0"?><rss version="2.0"><channel><title>Consumer Alerts</title>
@@ -24,17 +23,11 @@ describe("FTC news", () => {
     expect(items.map(i => i.title)).toEqual(["Got a call about a package held at customs?", "Job offer wants you to buy gift cards"]);
     expect(items[0]!.summary).toBe("Scammers say a delivery fee is due & ask for your card.");
     expect(items[0]!.date).toBe("2026-11-06T19:00:00.000Z");
-    expect(items[0]!.cardId).toBe("customs-fee");
   });
 
   it("parses Atom entries", () => {
     const [item] = parseFeed(ATOM);
-    expect(item).toMatchObject({ title: "Your phone carrier didn't text you", link: "https://consumer.ftc.gov/consumer-alerts/2026/11/example-three", cardId: "port-out-code" });
-  });
-
-  it("links every alert to a real battle card", () => {
-    const ids = new Set(BATTLE_CARDS.map(c => c.id));
-    for (const t of ["gift card job", "package", "phone", "utility bill", "refund order", "IRS", "anything else"]) expect(ids.has(cardFor(t)), t).toBe(true);
+    expect(item).toMatchObject({ title: "Your phone carrier didn't text you", link: "https://consumer.ftc.gov/consumer-alerts/2026/11/example-three" });
   });
 
   it("caches, serves a stale copy on failure, and throws with nothing cached", async () => {
