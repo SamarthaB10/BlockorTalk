@@ -6,7 +6,8 @@ import { CALLERS, CALL_ORDER, CALLBACK_LINES, FAKE_SECRETS } from '../../lib/cha
 import { Sheet, Toast, Stamp } from '../components/ui';
 // Browser-safe voice modules only: never personas.ts, adapter.ts or agentConfig.ts (they hold the prompts).
 import { startBrowserCall, type BrowserCallHandle, type TurnRole } from '../../lib/voice/browserCall';
-import { BROWSER_VOICE_VARIABLES } from '../../lib/voice/scenarioCards';
+import { SCENARIOS } from '../../lib/practice/catalog';
+import type { CallerId } from '../../lib/challenge/types';
 import SpritePlayer from '../components/SpritePlayer';
 import Reveal from './Reveal';
 import './challenge.css';
@@ -35,10 +36,10 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * The real waveform: Yui's output level in white, the player's microphone in grey,
+ * The real waveform: the caller's output level in white, the player's microphone in grey,
  * travelling right to left. With reduced motion it is one still level bar instead.
  */
-function Waveform({ handle }: { handle: BrowserCallHandle }) {
+function Waveform({ handle, caller }: { handle: BrowserCallHandle; caller: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const reduced = usePrefersReducedMotion();
   useEffect(() => {
@@ -82,7 +83,7 @@ function Waveform({ handle }: { handle: BrowserCallHandle }) {
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
   }, [handle, reduced]);
-  return <div className="waveform"><canvas ref={canvas} aria-hidden="true" /><p className="legend"><span className="yui">Yui</span><span>You</span></p></div>;
+  return <div className="waveform"><canvas ref={canvas} aria-hidden="true" /><p className="legend"><span className="yui">{caller}</span><span>You</span></p></div>;
 }
 
 export default function ChallengeBoard() {
@@ -107,7 +108,7 @@ export default function ChallengeBoard() {
   const handleRef = useRef<BrowserCallHandle | null>(null);
   const voiceStatus = useRef<HTMLParagraphElement>(null);
   const repliesRef = useRef(0);
-  // Yui's voice call is spoken in the browser, so its transcript is sent to the day once, when the call ends.
+  // A voice call is spoken in the browser, so its transcript is sent to the day once, when the call ends.
   const voiceLog = useRef<VoiceTurn[]>([]);
   const voiceSaved = useRef(false);
   const [savingVoice, setSavingVoice] = useState(false);
@@ -167,31 +168,34 @@ export default function ChallengeBoard() {
     void hangUp();
   }
 
-  /** Starts Yui's call by browser voice (voice uses the recruiter agent only). `fresh` creates a new stored day first. */
-  async function startVoice(fresh: boolean) {
+  // Kai's code appears as soon as he brings it up, as in text; the server confirms it when the transcript is saved.
+  const [voiceCode, setVoiceCode] = useState(false);
+  /** Starts a call by browser voice with that caller's own agent. `fresh` creates a new stored day (Yui first). */
+  async function startVoice(fresh: boolean, callerId: CallerId = fresh ? 'recruiter' : day?.callerId ?? 'recruiter') {
     void hangUp();
     const attempt = attemptRef.current;
     const current = () => attempt === attemptRef.current;
-    setVoiceSaveError(false); setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError(''); voiceLog.current = []; voiceSaved.current = false;
-    const base = fresh ? 0 : day?.replies ?? 0;
+    setVoiceSaveError(false); setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setVoiceCode(false); setError(''); voiceLog.current = []; voiceSaved.current = false;
+    // Typed replies count toward the cap when this call switches to voice; a new caller starts at 0.
+    const base = fresh || callerId !== day?.callerId ? 0 : day?.replies ?? 0;
     repliesRef.current = base; setReplyBase(base);
     if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
     if (!current()) return;
     let token: string | undefined;
     try {
-      const response = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callerId: 'recruiter' }) });
+      const response = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callerId }) });
       if (response.ok) token = (await response.json() as { conversationToken?: string }).conversationToken;
     } catch { /* shown as the failure state below */ }
     if (!current()) return;
     if (!token) { setVoice('failed'); return; }
     try {
       const handle = await startBrowserCall({
-        callerId: 'recruiter', conversationToken: token, variables: BROWSER_VOICE_VARIABLES.recruiter,
+        callerId, conversationToken: token, variables: SCENARIOS.find(s => s.id === callerId)!.voiceVariables,
         onTurn: turn => {
           if (!current()) return;
           voiceLog.current.push(turn);
           setVoiceTurns(turns => [...turns, turn]);
-          if (turn.role !== 'user') return;
+          if (turn.role !== 'user') { if (callerId === 'fraud_team' && /\bcode\b/i.test(turn.message)) setVoiceCode(true); return; }
           repliesRef.current += 1;
           if (/\bstop\s+drill\b/i.test(turn.message) || repliesRef.current >= REPLY_CAP) endVoiceCall();
         },
@@ -210,10 +214,15 @@ export default function ChallengeBoard() {
   }
   const caller = CALLERS[day?.callerId ?? 'recruiter'];
   const active = day?.phase === 'call';
-  // Voice covers Yui's call; the calls after it stay in text.
-  const voiceMode = mode === 'voice' && day?.callerId === 'recruiter';
+  // Once the player chooses voice, every call of the day is by voice until they switch to text.
+  const voiceMode = mode === 'voice';
   const voiceLive = voiceMode && voice === 'live';
   const voiceBlocked = voiceMode && (voice === 'failed' || voice === 'mic-denied');
+  /** Moves to the next caller; in voice mode the next call rings by voice straight away. */
+  async function nextCall() {
+    const next = day ? CALL_ORDER[CALL_ORDER.indexOf(day.callerId) + 1] : undefined;
+    if (await act({ type: 'next' }) && voiceMode && next) void startVoice(false, next);
+  }
   function playInText() { void hangUp(); setMode('text'); if (day?.phase !== 'call') void act({ type: 'start' }); }
   function callAgain() { void startVoice(day?.phase !== 'call'); }
   const seconds = day ? Math.min(180, Math.max(0, 180 - Math.floor((clock - Date.parse(day.startedAt)) / 1000))) : 180;
@@ -271,22 +280,22 @@ export default function ChallengeBoard() {
         <section className="caller" aria-label={`${caller.name} call`}>
           <div className="call-meta"><span className="pill">AI practice caller</span><span className="timer">{active ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'Call ended'}</span></div>
           <p className={`call-state ${voiceMode && !voiceLive ? 'still' : ''}`}><span className="dot" aria-hidden="true">●</span>{voiceMode && active && !voiceLive ? (voice === 'connecting' ? 'Connecting' : 'Not connected') : active ? 'Call active' : 'Call ended'}</p><h2>{caller.name}</h2><p>{caller.org}</p><p className="scenario">{caller.scenario}</p><p className="limits">Fictional details only · Date of birth: {FAKE_SECRETS.date_of_birth} · Address: {FAKE_SECRETS.home_address} · PIN: {FAKE_SECRETS.account_pin}</p>
-          {active && day.codeVisible && <Toast><strong>Corvanta · One-time code</strong><p className="bank-code">{FAKE_SECRETS.live_code}</p><p>Do not share this code with a caller.</p></Toast>}
+          {active && (day.codeVisible || (voiceMode && voiceCode)) && <Toast><strong>Corvanta · One-time code</strong><p className="bank-code">{FAKE_SECRETS.live_code}</p><p>Do not share this code with a caller.</p></Toast>}
           <p className="limits">12 replies or 3 minutes · {voiceMode ? spokenReplies : day.replies}/12 replies{voiceMode && ' · say “stop drill” to end'}</p>
-          {voiceMode && active && voice === 'connecting' && <p className="voice-note" role="status">Calling Yui. Allow the microphone when your browser asks.</p>}
-          {voiceBlocked && active && <div className="voice-failed" role="alert"><p ref={voiceStatus} tabIndex={-1}>{voice === 'mic-denied' ? 'Your microphone is off, so Yui can’t hear you. Play this call in text instead.' : 'The call didn’t connect. Your day is saved.'}</p><div className="voice-actions">{voice === 'mic-denied' ? <><button className="primary" disabled={busy} onClick={playInText}>Play in text</button><button disabled={busy} onClick={callAgain}>Call again</button></> : <><button className="primary" disabled={busy} onClick={callAgain}>Call again</button><button disabled={busy} onClick={playInText}>Play in text</button></>}</div></div>}
-          {voiceLive && callHandle && <Waveform handle={callHandle} />}
+          {voiceMode && active && voice === 'connecting' && <p className="voice-note" role="status">Calling {caller.name}. Allow the microphone when your browser asks.</p>}
+          {voiceBlocked && active && <div className="voice-failed" role="alert"><p ref={voiceStatus} tabIndex={-1}>{voice === 'mic-denied' ? `Your microphone is off, so ${caller.name} can’t hear you. Play this call in text instead.` : 'The call didn’t connect. Your day is saved.'}</p><div className="voice-actions">{voice === 'mic-denied' ? <><button className="primary" disabled={busy} onClick={playInText}>Play in text</button><button disabled={busy} onClick={callAgain}>Call again</button></> : <><button className="primary" disabled={busy} onClick={callAgain}>Call again</button><button disabled={busy} onClick={playInText}>Play in text</button></>}</div></div>}
+          {voiceLive && callHandle && <Waveform handle={callHandle} caller={caller.name} />}
           <div className="transcript" hidden={voiceMode && voiceTurns.length === 0} ref={transcript} role="log" aria-label="Call transcript" aria-live="polite" tabIndex={0}>
-            {voiceMode ? voiceTurns.map((turn, i) => <div className={`turn ${turn.role === 'user' ? 'user' : 'assistant'}`} key={i}><strong>{turn.role === 'user' ? 'You' : 'Yui'}</strong><p>{turn.message}</p></div>) : day.turns.map((turn, i) => <div className={`turn ${turn.role}`} key={i}><strong>{turn.role === 'system' ? 'Tell' : turn.role === 'user' ? 'You' : caller.name}</strong><p>{turn.text}</p>{turn.role === 'assistant' && <span className="source">{turn.source === 'nemotron' ? 'Nemotron · approved script line' : 'Script'}</span>}</div>)}
+            {voiceMode ? voiceTurns.map((turn, i) => <div className={`turn ${turn.role === 'user' ? 'user' : 'assistant'}`} key={i}><strong>{turn.role === 'user' ? 'You' : caller.name}</strong><p>{turn.message}</p></div>) : day.turns.map((turn, i) => <div className={`turn ${turn.role}`} key={i}><strong>{turn.role === 'system' ? 'Tell' : turn.role === 'user' ? 'You' : caller.name}</strong><p>{turn.text}</p>{turn.role === 'assistant' && <span className="source">{turn.source === 'nemotron' ? 'Nemotron · approved script line' : 'Script'}</span>}</div>)}
           </div>
           {!voiceMode && <p className="source">Each reply shows whether it used Nemotron or the script.</p>}
-          {!voiceMode && active && day.callerId === 'recruiter' && <button className="switch-voice" disabled={busy} onClick={() => void startVoice(false)}>Talk to Yui by voice instead<span>Uses your microphone · the 3-minute clock keeps running</span></button>}
+          {!voiceMode && active && <button className="switch-voice" disabled={busy} onClick={() => void startVoice(false)}>Talk to {caller.name} by voice instead<span>Uses your microphone · the 3-minute clock keeps running</span></button>}
           {active && !voiceMode && <form onSubmit={event => { event.preventDefault(); void act({ type: 'reply', text }); }}>
             <label htmlFor="reply">Your reply · use no real personal details</label><div className="reply-row"><input ref={replyInput} id="reply" maxLength={1000} value={text} onChange={event => setText(event.target.value)} disabled={busy} autoComplete="off" /><button disabled={busy || !text.trim()}>{busy ? 'Saving…' : 'Send'}</button></div>
             <p className="hint">Type “stop drill” to end at any time.</p>
           </form>}
           {day.phase === 'verdict' && <section className="verdict"><h3 ref={verdictHeading} tabIndex={-1}>Could you tell?</h3><p>Choose one verdict.</p>{savingVoice && <p role="status">Saving your spoken turns…</p>}{voiceSaveError && <p role="alert">Your spoken turns were not saved. <button onClick={() => void saveVoiceTurns()}>Save again</button></p>}{([['Real', 'I trust this caller.'], ['Scam', 'I do not trust this caller.'], ['Unverified', 'I will check another way.']] as const).map(([verdict, description]) => <button key={verdict} disabled={busy || savingVoice || voiceSaveError} onClick={() => void act({ type: 'verdict', verdict })}><strong>{verdict}</strong><span>{description}</span></button>)}</section>}
-          {day.phase === 'between' && <section role="status" className="between"><h3>Verdict saved: {day.verdict}</h3><p>Balance and tasks saved.</p><button className="primary" disabled={busy} onClick={() => void act({ type: 'next' })}>Next call</button></section>}
+          {day.phase === 'between' && <section role="status" className="between"><h3>Verdict saved: {day.verdict}</h3><p>Balance and tasks saved.</p><button className="primary" disabled={busy} onClick={() => void nextCall()}>{voiceMode ? 'Next call by voice' : 'Next call'}</button></section>}
           {day.phase === 'complete' && <section className="day-result" aria-label="Day result"><h3>Your day result</h3><p className="balance">${day.balance.toLocaleString('en-US')}</p><p>{day.balance === 1000 && day.interview === 'BOOKED' && day.bank === 'RESOLVED' ? 'Both tasks done. You kept your $1,000.' : 'Your money and tasks show the outcome of your choices.'}</p><p>Interview: {day.interview === 'BOOKED' ? 'Done · Tuesday at 10 AM' : 'Not completed'}</p><p>Bank alert: {day.bank === 'RESOLVED' ? 'Done' : day.bank === 'FAILED' ? 'Failed · Code shared' : 'Not completed · Call Corvanta to check'}</p><ul>{day.calls.map(call => <li key={call.callerId}>{CALLERS[call.callerId].name}: {call.verdict} · ${call.cost} lost</li>)}</ul><div className="start-row"><button className="primary" disabled={busy} onClick={() => void startVoice(true)}>Play again by voice<span>Talk to Yui with your microphone</span></button><button className="start-text" disabled={busy} onClick={() => { setMode('text'); void act({ type: 'start' }); }}>Play again in text<span>Type your replies</span></button></div></section>}
         </section>
         <aside className="tasks dim"><h2>Your two tasks</h2><div className="task"><span className="pill">{!active && day.interview === 'BOOKED' ? <Stamp>{day.interview}</Stamp> : day.interview}</span><h3>Book your Bluebonnet Labs interview</h3></div><div className="task"><span className="pill">{!active && day.bank !== 'OPEN' ? <Stamp key={day.bank}>{day.bank}</Stamp> : day.bank}</span><h3>Sort out the Corvanta Bank alert</h3></div>
