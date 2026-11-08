@@ -44,7 +44,7 @@ export function HubStandings({ board, remaining, moves }: { board: Board; remain
         return <li key={rank.nickname} className={rank.rank === 1 ? 'hub-card is-first' : 'hub-card'}>
           <p className="hub-place">{placeLabel(rank.rank)}</p>
           <h3 className="hub-name">{rank.nickname}{rank.nickname === you ? ' · You' : ''}</h3>
-          <p className="hub-score"><span className="ui-sr-only">Blokbuks </span><span aria-hidden="true">B </span>{rank.blokbuks.toLocaleString('en-US')}</p>
+          <p className="hub-score"><span className="ui-sr-only">Blokbuks </span><span aria-hidden="true">₿ </span>{rank.blokbuks.toLocaleString('en-US')}</p>
           {prize && <p>{prize}</p>}
           <span className="hub-meter"><span style={{ transform: `scaleX(${meter(rank.blokbuks)})` }} /></span>
         </li>;
@@ -59,7 +59,7 @@ export function HubStandings({ board, remaining, moves }: { board: Board; remain
           return <li key={rank.nickname} className={isYou ? 'hub-rank-row is-you' : 'hub-rank-row'}>
             <span>{rank.rank}</span>
             <span>{rank.nickname}{isYou ? ' · You' : ''}{climbed && <span className="hub-move">{climbed}</span>}</span>
-            <strong><span className="ui-sr-only">Blokbuks </span><span aria-hidden="true">B </span>{rank.blokbuks.toLocaleString('en-US')}</strong>
+            <strong><span className="ui-sr-only">Blokbuks </span><span aria-hidden="true">₿ </span>{rank.blokbuks.toLocaleString('en-US')}</strong>
           </li>;
         })}
       </ol></div> : <p>No Players yet. Be the first to join.</p>}

@@ -165,3 +165,10 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-skill-scales meter::-webkit-meter-bar { background:var(--hub-card-2); border:0; border-radius:8px; }
 .hub-skill-scales meter::-webkit-meter-optimum-value { background:var(--cyan); }
 .hub-skill-scales meter::-moz-meter-bar { background:var(--cyan); }
+
+.hub-intro { align-items: center; }
+.hub-balance { margin-left: auto; align-self: center; }
+.balance-badge { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding: 14px 22px; border: 1px solid rgb(196 181 253 / .45); border-radius: 20px; background: rgb(124 58 237 / .16); box-shadow: 0 0 24px rgb(139 92 246 / .35); white-space: nowrap; }
+.balance-badge-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #a9a3d9; }
+.balance-badge .blokbuks { font-size: clamp(24px, 3vw, 36px); color: #fff; }
+@media (max-width: 760px) { .hub-balance { margin-left: 0; align-self: flex-start; } .balance-badge { align-items: flex-start; } }

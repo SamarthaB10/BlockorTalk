@@ -8,7 +8,7 @@ import type { PublicCall } from '../lib/season/calls/types';
 export const call: PublicCall = { id:'c', label:'AI practice caller', scenario:{id:'bank',category:'Bank fraud alert',org:'Corvanta Bank',card:{name:'Alex Practice',facts:['Fictional account 2048'],ownApp:{title:'Your Corvanta app',facts:['Use your saved contact.']}},secrets:[{label:'Practice code',value:'8302'}]},turns:[{role:'caller',text:'An AI practice call.',step:1}],phase:'call',replies:0,startedAt:'2026-11-08T18:00:00Z',serverNow:'2026-11-08T18:00:00Z',scored:false,callsLeft:0 };
 test('Play presents ten Category and org cards and marks practice before starting', () => {
   const html = renderToStaticMarkup(createElement(PlayCatalog,{ model:{ scenarios:Array.from({length:10},(_,i)=>({id:String(i),category:'Bank fraud alert',org:'Corvanta Bank'})),blokbuks:250,scoredCallsLeft:0,nextCallScored:false,season:{id:"s",name:"Season 1",startsAt:"2026-11-01T00:00:00Z",endsAt:"2026-11-10T00:00:00Z",status:"live"},serverNow:call.startedAt } }));
-  expect(html.match(/href="\/play\//g)).toHaveLength(10); expect(html).toContain('0 Scored calls left today'); expect(html).toContain('Practice · 0 B'); expect(html).toContain('B 250'); expect(html).not.toContain('8302');
+  expect(html.match(/href="\/play\//g)).toHaveLength(10); expect(html).toContain('0 Scored calls left today'); expect(html).toContain('Practice · 0 ₿'); expect(html).toContain('₿ 250'); expect(html).not.toContain('8302');
 });
 test('Play lists every catalog Category, including the training-type additions, without secrets', () => {
   const html = renderToStaticMarkup(createElement(PlayCatalog, { model: { scenarios: scenarioCatalog.map(({ id, category, org }) => ({ id, category, org })), blokbuks: 250, scoredCallsLeft: 5, nextCallScored: true, season: { id: 's', name: 'Season 1', startsAt: '2026-11-01T00:00:00Z', endsAt: '2026-11-10T00:00:00Z', status: 'live' }, serverNow: call.startedAt } }));
@@ -19,7 +19,7 @@ test('Play lists every catalog Category, including the training-type additions, 
 });
 test('the call has a neutral identity, fictional card, secrets, editable reply and own app', () => {
  const html=renderToStaticMarkup(createElement(CallScreen,{scenarioId:'bank',initialCall:call}));
- for(const text of ['AI practice caller','Alex Practice','8302','Open your own app','Type your reply','End call','Practice · 0 B','class="voice-orb"','class="convo"','class="turn caller"']) expect(html).toContain(text);
+ for(const text of ['AI practice caller','Alex Practice','8302','Open your own app','Type your reply','End call','Practice · 0 ₿','class="voice-orb"','class="convo"','class="turn caller"']) expect(html).toContain(text);
  expect(html).not.toContain('caller-link');
 });
 test('a suggestion from finished calls is named and listed first', () => {
@@ -29,7 +29,7 @@ test('a suggestion from finished calls is named and listed first', () => {
 });
 test('a missing Season keeps personal totals absent and calls unavailable',()=>{
  const html=renderToStaticMarkup(createElement(PlayCatalog,{model:{scenarios:[],blokbuks:0,scoredCallsLeft:5,nextCallScored:false,season:null,serverNow:call.startedAt}}));
- expect(html).toContain('Season unavailable');expect(html).not.toContain('B 0');
+ expect(html).toContain('Season unavailable');expect(html).not.toContain('₿ 0');
 });
 test('ended calls expose one-tap Verdicts and completed calls expose a neutral integration boundary',()=>{
  const html=renderToStaticMarkup(createElement(CallScreen,{scenarioId:'bank',initialCall:{...call,phase:'verdict'}}));

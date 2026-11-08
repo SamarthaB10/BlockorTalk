@@ -21,11 +21,14 @@
 .standings-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
 .standings-actions a { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; max-width: 100%; text-align: center; text-decoration: none; white-space: normal; }
 
-.standings-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); align-items: end; margin: var(--space-6) 0; padding: 0; list-style: none; }
+.standings-podium { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--space-4); align-items: end; margin: var(--space-6) 0; padding: 0; list-style: none; }
 .standings-podium[data-count="1"] { grid-template-columns: minmax(0, 420px); justify-content: center; }
 .standings-podium[data-count="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
 .standings-step { display: flex; flex-direction: column; gap: var(--space-2); min-height: 220px; margin: 0; padding: var(--space-5); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-lg); animation: standings-in var(--dur-toast) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
-.standings-step--first { min-height: 280px; background: var(--paper); color: #000; border-color: var(--paper); }
+.standings-step--first { min-height: 340px; padding: var(--space-6); background: var(--paper); color: #000; border-color: var(--paper); }
+.standings-step--first .standings-place { font-size: clamp(56px, 9vw, 104px); }
+.standings-step--first .standings-name { font-size: clamp(28px, 4vw, 44px); }
+.standings-step--first .standings-score { font-size: 28px; }
 .standings-place { margin: 0; font-family: var(--font-dot); font-variant-numeric: tabular-nums; font-size: clamp(40px, 6vw, 72px); line-height: 1; }
 .standings-you .standings-place { font-size: clamp(48px, 8vw, 80px); }
 .standings-name { margin: 0; font-family: Sora, var(--font-ui); font-weight: 500; letter-spacing: -.03em; font-size: clamp(22px, 3vw, 32px); line-height: 1.15; overflow-wrap: anywhere; }

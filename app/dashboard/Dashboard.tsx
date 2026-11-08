@@ -7,6 +7,7 @@ import { SCENARIOS, type ScenarioId } from '../../lib/practice/catalog';
 import { scenarioCatalog } from '../../lib/season/scenarios/catalog';
 import { SCENARIO_VARIABLE_NAMES, scenarioVoiceVariables } from '../../lib/voice/scenarioVoice';
 import SpritePlayer from '../components/SpritePlayer';
+import BalanceBadge from '../components/BalanceBadge';
 import './dashboard.css';
 import Welcome from './Welcome';
 import PracticeCard from './PracticeCard';
@@ -98,7 +99,7 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
     <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button aria-current={view === 'Leaderboard' ? 'page' : undefined} onClick={() => navigate('Leaderboard')}>Leaderboard</button>{(['Progress', 'Profile'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}</nav></header>
-    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>{dashboardIntro(view).kicker}</p><h1>{dashboardIntro(view).title}</h1><p>{dashboardIntro(view).summary}</p></div></section>
+    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>{dashboardIntro(view).kicker}</p><h1>{dashboardIntro(view).title}</h1><p>{dashboardIntro(view).summary}</p></div><BalanceBadge className="hub-balance" /></section>
     {error && <p role="alert">{error}</p>}
     {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
       <article className="hub-card"><span className="hub-chip">Scenario practice</span><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map((item, index) => <span key={item.id}><ScenarioMascot index={index} />{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>

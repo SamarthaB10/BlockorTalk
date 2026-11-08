@@ -56,7 +56,7 @@ export default function CallResults({ view, onNextDrill, onDone }: {
         <p className="call-results-summary">{view.summary}</p>
         <p className="call-results-blokbuks">
           <strong>{view.blokbuks.text}</strong>
-          {view.blokbuks.total !== null && <span> · Total B {view.blokbuks.total.toLocaleString('en-US')}</span>}
+          {view.blokbuks.total !== null && <span> · Total ₿ {view.blokbuks.total.toLocaleString('en-US')}</span>}
         </p>
         {view.rank && <p className="call-results-rank">Rank {view.rank}</p>}
         {view.scoredByRules && <p className="call-results-note">Scored by rules</p>}
