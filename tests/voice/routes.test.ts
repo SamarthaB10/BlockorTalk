@@ -105,6 +105,13 @@ describe("redact", () => {
     expect(redact("4111.1111.1111.1111")).toBe("[redacted card number]");
     expect(redact("5500-0000-0000-0004")).toBe("[redacted card number]");
   });
+
+  it("redacts a card number even when more digits follow it", async () => {
+    const { redact } = await import("../../lib/voice/routes");
+    expect(redact("4111 1111 1111 1111, 123")).toBe("[redacted card number], 123");
+    expect(redact("card 4111111111111111 exp 0426")).toBe("card [redacted card number] exp 0426");
+    expect(redact("my pin 8302 then 4111 1111 1111 1111")).toBe("my pin 8302 then [redacted card number]");
+  });
 });
 
 describe("voice routes: live events", () => {
