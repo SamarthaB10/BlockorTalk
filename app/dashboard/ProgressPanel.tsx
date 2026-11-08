@@ -143,22 +143,32 @@ function InlineResults({ callId, anchor, onDone }: {
  * Loads the Player's Skill Log and opens saved evidence on the dashboard.
  * Signed-out visitors go to Profile.
  */
-export default function ProgressPanel({ initialSkill = null, onSignIn }: { initialSkill?: SkillId | null; onSignIn: () => void }) {
-  const [load, setLoad] = useState<Load>({ state: 'loading' });
+export default function ProgressPanel({ initialSkill = null, initialProgress = null, onProgressLoaded, onSignIn }: {
+  initialSkill?: SkillId | null; initialProgress?: ProgressView | null;
+  onProgressLoaded?: (progress: ProgressView | null) => void; onSignIn: () => void;
+}) {
+  const [load, setLoad] = useState<Load>(() => initialProgress ? { state: 'ready', progress: initialProgress } : { state: 'loading' });
+  const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<SkillId | null>(initialSkill);
   const [retry, setRetry] = useState(0);
   const [mode, setMode] = useState<Mode>({ kind: 'board' });
   useEffect(() => {
     const controller = new AbortController();
+    setRefreshing(true);
     // Keep showing the current log while a refresh loads.
     setLoad(current => (current.state === 'ready' ? current : { state: 'loading' }));
     fetch('/api/progress', { signal: controller.signal, cache: 'no-store' }).then(async response => {
-      if (response.status === 401) return setLoad({ state: 'signin' });
+      if (controller.signal.aborted) return;
+      if (response.status === 401) { onProgressLoaded?.(null); return setLoad({ state: 'signin' }); }
       if (!response.ok) return setLoad({ state: 'down' });
-      setLoad({ state: 'ready', progress: (await response.json() as { progress: ProgressView }).progress });
-    }).catch(() => { if (!controller.signal.aborted) setLoad({ state: 'down' }); });
+      const { progress } = await response.json() as { progress: ProgressView };
+      if (controller.signal.aborted) return;
+      setLoad({ state: 'ready', progress });
+      onProgressLoaded?.(progress);
+    }).catch(() => { if (!controller.signal.aborted) setLoad({ state: 'down' }); })
+      .finally(() => { if (!controller.signal.aborted) setRefreshing(false); });
     return () => controller.abort();
-  }, [retry]);
+  }, [retry, onProgressLoaded]);
   useEffect(() => { if (mode.kind !== 'board') bringIntoView('progress-stage'); }, [mode]);
   function select(skill: SkillId | null) {
     setSelected(skill);
@@ -176,6 +186,6 @@ export default function ProgressPanel({ initialSkill = null, onSignIn }: { initi
   if (load.state === 'loading') return <p className="hub-progress-note" role="status">Loading your Skill Log…</p>;
   if (load.state === 'signin') return <section className="hub-card hub-progress-note"><h2>Keep a Skill Log</h2><p>Sign in so each call adds evidence to your skills.</p><button type="button" className="hub-primary" onClick={onSignIn}>Sign in or sign up <span>↗</span></button></section>;
   if (load.state === 'down') return <section className="hub-card hub-progress-note" role="alert"><p>Your progress is not available right now.</p><button type="button" className="hub-link" onClick={() => setRetry(value => value + 1)}>Try again</button></section>;
-  return <ProgressBoard progress={load.progress} selected={selected} onSelect={select}
-    onOpenEvidence={href => { const target = parseEvidence(href); if (target) setMode({ kind: 'results', ...target }); }} />;
+  return <>{refreshing && <p className="hub-progress-note" role="status">Updating your Skill Log…</p>}<ProgressBoard progress={load.progress} selected={selected} onSelect={select}
+    onOpenEvidence={href => { const target = parseEvidence(href); if (target) setMode({ kind: 'results', ...target }); }} /></>;
 }

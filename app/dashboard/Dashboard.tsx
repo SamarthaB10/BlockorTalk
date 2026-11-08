@@ -16,6 +16,7 @@ import Leaderboard from '../leaderboard/Leaderboard';
 import ScenarioMascot from './ScenarioMascot';
 import { dashboardIntro, dashboardView, type DashboardView } from './view';
 import ProgressPanel from './ProgressPanel';
+import type { ProgressView } from '../../lib/skills/log';
 import ProfilePanel from './ProfilePanel';
 import { isSkillId, type SkillId } from '../../lib/skills/catalog';
 
@@ -29,10 +30,13 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
   const [skillParam, setSkillParam] = useState<SkillId | null>(skill);
   const [playerName, setPlayerName] = useState('');
   const [view, setView] = useState<View>(initialView);
+  const [progress, setProgress] = useState<ProgressView | null>(null);
   useEffect(() => {
     const restore = () => {
       const params = new URLSearchParams(location.search);
-      setView(dashboardView(params.get('view') ?? undefined));
+      const restored = dashboardView(params.get('view') ?? undefined);
+      setView(restored);
+      if (restored === 'Profile') setProgress(null);
       const selected = params.get('skill');
       setSkillParam(isSkillId(selected) ? selected : null);
       stopVoice(); setScenario(null); setShowCode(false);
@@ -122,8 +126,6 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
       const { drill, reason, path } = value.plan;
       const note = { link, pick: { link, id: drill.id, category: drill.category ?? drill.org, reason, path } };
       setAlertNote(note);
-      // Long enough to read the pick before the call screen replaces the alert list.
-      await new Promise(resolve => setTimeout(resolve, 1500));
       if (attempt !== connection.current) return;
       navigate('Scenarios'); setAlertNote(note);
       void practiceVoice(drill.id);
@@ -131,7 +133,7 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
       if (attempt === connection.current) setAlertNote({ link, error: failure instanceof Error ? failure.message : 'The Drill Planner is unavailable. Try again in a moment.' });
     } finally { setPlanning(null); }
   }
-  function navigate(next: View) { stopVoice(); setView(next); setScenario(null); setError(''); setAlertNote(null); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
+  function navigate(next: View) { if (next === 'Profile') setProgress(null); stopVoice(); setView(next); setScenario(null); setError(''); setAlertNote(null); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
   return <main className="hub">
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
@@ -163,7 +165,7 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     {view === 'Scenarios' && scenario && SCENARIOS.some(item => item.id === scenario) && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'Caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{ended && turns.length > 0 && <><h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy} onClick={() => void giveVerdict(scenario as ScenarioId, verdict)}>{verdict}</button>)}</div></>}</>}</section>}
     {view === 'News' && <NewsAlerts alerts={alerts} status={newsState} planning={planning} note={alertNote} onPractice={link => void practiceAlert(link)} />}
     {view === 'Leaderboard' && <Leaderboard embedded />}
-    {view === 'Progress' && <ProgressPanel initialSkill={skillParam} onSignIn={() => navigate('Profile')} />}
+    {view === 'Progress' && <ProgressPanel initialProgress={progress} onProgressLoaded={setProgress} initialSkill={skillParam} onSignIn={() => navigate('Profile')} />}
     {view === 'Profile' && <ProfilePanel returnTo={returnTo} />}
     <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<a href="/insights">Carrier insights</a></footer>
   </main>;
