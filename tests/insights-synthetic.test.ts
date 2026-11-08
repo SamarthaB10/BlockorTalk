@@ -19,6 +19,19 @@ describe('synthetic demo data', () => {
     expect(buildSyntheticDataset(scenarios)).toEqual(data);
   });
 
+  it('gives every call a length within the 3-minute cap, longest for scams people fall for', () => {
+    for (const call of data.calls) {
+      expect(call.durationSeconds).toBeGreaterThanOrEqual(20);
+      expect(call.durationSeconds).toBeLessThanOrEqual(180);
+    }
+    const mean = (outcome: string) => {
+      const lengths = data.calls.filter(call => call.outcome === outcome).map(call => call.durationSeconds);
+      return lengths.reduce((a, b) => a + b, 0) / lengths.length;
+    };
+    expect(mean('fell for')).toBeGreaterThan(mean('caught'));
+    expect(mean('caught')).toBeGreaterThan(mean('false alarm'));
+  });
+
   it('uses addresses that cannot be real and unique, valid nicknames', () => {
     expect(new Set(data.players.map(p => p.email)).size).toBe(200);
     expect(new Set(data.players.map(p => p.nickname.toLowerCase())).size).toBe(200);
