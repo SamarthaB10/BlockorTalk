@@ -12,6 +12,7 @@ import { pendingPlan, STAGE_PLANS, type StagePlan, type StagePlanState } from '.
 import AgentCompanion from '../components/AgentCompanion';
 import { companionForSession } from '../../lib/agents/session';
 import Reveal from './Reveal';
+import Conversation from './Conversation';
 import './challenge.css';
 
 const moves = [
@@ -119,7 +120,6 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
   const [clock, setClock] = useState(Date.now());
   const replyInput = useRef<HTMLInputElement>(null);
   const verdictHeading = useRef<HTMLHeadingElement>(null);
-  const transcript = useRef<HTMLDivElement>(null);
   const portalDialog = useRef<HTMLDialogElement>(null);
   const [mode, setMode] = useState<Mode>('text');
   const [voice, setVoiceState] = useState<VoiceState>('connecting');
@@ -337,7 +337,6 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
     else if (active && !busy && !voiceMode) replyInput.current?.focus();
   }, [day?.phase, busy, active, voiceMode]);
   useEffect(() => { if (voiceBlocked) voiceStatus.current?.focus(); }, [voiceBlocked]);
-  useEffect(() => { transcript.current?.scrollTo(0, transcript.current.scrollHeight); }, [day?.turns.length, voiceTurns.length]);
   useEffect(() => {
     if (!day) return;
     const target = day.balance;
@@ -396,9 +395,14 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
           {voiceMode && active && voice === 'connecting' && <p className="voice-note" role="status">Calling {caller.name}. Allow the microphone when your browser asks.</p>}
           {voiceBlocked && active && <div className="voice-failed" role="alert"><p ref={voiceStatus} tabIndex={-1}>{voice === 'mic-denied' ? `Your microphone is off, so ${caller.name} can’t hear you. Play this call in text instead.` : 'The call didn’t connect. Your day is saved.'}</p><div className="voice-actions">{voice === 'mic-denied' ? <><button className="primary" disabled={busy} onClick={playInText}>Play in text</button><button disabled={busy} onClick={callAgain}>Call again</button></> : <><button className="primary" disabled={busy} onClick={callAgain}>Call again</button><button disabled={busy} onClick={playInText}>Play in text</button></>}</div></div>}
           {voiceLive && callHandle && <Waveform handle={callHandle} caller={caller.name} />}
-          <div className="transcript" hidden={voiceMode && voiceTurns.length === 0} ref={transcript} role="log" aria-label="Call transcript" aria-live="polite" tabIndex={0}>
-            {voiceMode ? voiceTurns.map((turn, i) => <div className={`turn ${turn.role === 'user' ? 'user' : 'assistant'}`} key={i}><strong>{turn.role === 'user' ? 'You' : caller.name}</strong><p>{turn.message}</p></div>) : day.turns.map((turn, i) => <div className={`turn ${turn.role}`} key={i}><strong>{turn.role === 'system' ? 'Tell' : turn.role === 'user' ? 'You' : caller.name}</strong><p>{turn.text}</p>{turn.role === 'assistant' && <span className="source">{turn.source === 'nemotron' ? 'Nemotron · approved script line' : 'Script'}</span>}</div>)}
-          </div>
+          <Conversation
+            handle={voiceLive ? callHandle : null}
+            active={Boolean(active) && (voiceLive || !voiceMode)}
+            connecting={voiceMode && Boolean(active) && voice === 'connecting'}
+            turns={voiceMode
+              ? voiceTurns.map((turn, i) => ({ key: i, who: turn.role === 'user' ? 'you' as const : 'caller' as const, label: turn.role === 'user' ? 'You' : caller.name, text: turn.message }))
+              : day.turns.map((turn, i) => ({ key: i, who: turn.role === 'user' ? 'you' as const : turn.role === 'system' ? 'system' as const : 'caller' as const, label: turn.role === 'system' ? 'Tell' : turn.role === 'user' ? 'You' : caller.name, text: turn.text, note: turn.role === 'assistant' ? (turn.source === 'nemotron' ? 'Nemotron · approved script line' : 'Script') : undefined }))}
+          />
           {!voiceMode && <p className="source">Each reply shows whether it used Nemotron or the script.</p>}
           {!voiceMode && active && <button className="switch-voice" disabled={busy} onClick={() => void startVoice(false)}>Talk to {caller.name} by voice instead<span>Uses your microphone · the 3-minute clock keeps running</span></button>}
           {active && !voiceMode && <form onSubmit={event => { event.preventDefault(); void act({ type: 'reply', text }); }}>

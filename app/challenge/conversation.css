@@ -1,0 +1,13 @@
+.conversation { background:#100e19; color:#f1ecff; border-radius:20px; padding:8px 16px 16px; margin:16px 0; }
+.conversation .voice-stage > p, .conversation .voice-stage > span, .conversation .source, .conversation .convo-empty { color:#bdb0d7; }
+.conversation .convo { max-height:320px; overflow:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:12px; margin:0; padding:4px; }
+.conversation .turn { max-width:min(85%,420px); margin:0; padding:10px 14px; border-radius:16px; background:#251e35; color:#f1ecff; overflow-wrap:anywhere; }
+.conversation .turn strong { display:block; margin-bottom:4px; color:#bdb0d7; font-size:13px; }
+.conversation .turn p { margin:0; color:inherit; }
+.conversation .turn.you, .conversation .turn.user { margin-left:auto; background:#143039; color:#e0faff; }
+.conversation .turn.system { margin-inline:auto; background:transparent; color:#bdb0d7; text-align:center; }
+.conversation .convo-empty { margin:0; font-size:14px; }
+.conversation :focus-visible { outline:3px solid #a8e8ef; outline-offset:3px; }
+.conversation textarea, .conversation input { background:#1a1628; color:#f1ecff; border:1px solid #a8e8ef55; border-radius:12px; }
+.conversation .play-primary, .conversation button.play-primary { background:#cbb4ff; color:#100e19; border-color:#cbb4ff; }
+.conversation a { color:#cbb4ff; }

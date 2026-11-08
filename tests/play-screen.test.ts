@@ -19,7 +19,7 @@ test('Play lists every catalog Category, including the training-type additions, 
 });
 test('the call has a neutral identity, fictional card, secrets, editable reply and own app', () => {
  const html=renderToStaticMarkup(createElement(CallScreen,{scenarioId:'bank',initialCall:call}));
- for(const text of ['AI practice caller','Alex Practice','8302','Open your own app','Type your reply','End call','Practice · 0 B']) expect(html).toContain(text);
+ for(const text of ['AI practice caller','Alex Practice','8302','Open your own app','Type your reply','End call','Practice · 0 B','class="voice-orb"','class="convo"','class="turn caller"']) expect(html).toContain(text);
  expect(html).not.toContain('caller-link');
 });
 test('a suggestion from finished calls is named and listed first', () => {
