@@ -39,7 +39,9 @@ test('each stored Version has four outlines ending with its approved action', ()
     expect(row.versions.scam.steps).toHaveLength(4);
     expect(row.versions.real.steps[3]).toBe(row.versions.real.next_step);
     expect(row.versions.scam.steps[3]).toBe(row.versions.scam.ask_line);
-    expect(row.versions.scam.ask_line).toContain('Practice protection code');
+    // Carrier Magenta-pattern ask is a just-texted verification code; others keep the shared practice code.
+    if (row.id === 'carrier') expect(row.versions.scam.ask_line).toMatch(/verification code that was just texted/i);
+    else expect(row.versions.scam.ask_line).toContain('Practice protection code');
   }
   const phishing = scenarios.find(row => row.id === 'phishing')!;
   expect(phishing.versions.scam.steps[2]).toContain('Send the caller link');
