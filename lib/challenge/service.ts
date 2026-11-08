@@ -1,0 +1,94 @@
+import pg from 'pg';
+import type { Action, Challenge, Reply, Turn } from './types.ts';
+import { DISCLOSURE, OPENING, RECRUITER_BEATS } from './recruiter.ts';
+
+export class ChallengeError extends Error {
+  status: number;
+  constructor(message: string, status = 409) { super(message); this.status = status; }
+}
+
+// Reject likely personal data before it reaches the model or stored transcript.
+function safeText(text: string) {
+  if (/\b(?:(?:my|the)\s+)?(?:pin|password|passcode|code|social security number|ssn|date of birth|birthday|address|phone number)\s*(?:is|:|=)\s*\S+/i.test(text)) return '[personal details removed]';
+  return text.replace(/\b(?:\d[ -]?){7,}\b/g, '[details removed]')
+    .replace(/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/gi, '[details removed]')
+    .replace(/\b(?:\d{1,2}[/-]){2}\d{2,4}\b/g, '[details removed]')
+    .replace(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?[,]?\s+\d{4}\b/gi, '[details removed]')
+    .replace(/\b\d+\s+(?:[a-z]+\s+){1,5}(?:street|st|road|rd|drive|dr|avenue|ave|lane|ln|court|ct)\b/gi, '[details removed]');
+}
+
+export function createChallengeService({ connectionString, reply, now = Date.now }: { connectionString: string; reply: Reply; now?: () => number }) {
+  async function withClient<T>(work: (client: pg.Client) => Promise<T>) {
+    const client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
+    await client.connect();
+    try { return await work(client); } finally { await client.end(); }
+  }
+  function end(day: Challenge, reason: Challenge['endReason']) {
+    day.phase = 'verdict';
+    day.endedAt = new Date(now()).toISOString();
+    day.endReason = reason;
+  }
+  async function update(id: string, action?: Action) {
+    return withClient(async client => {
+      await client.query('BEGIN');
+      try {
+        const result = await client.query('SELECT state FROM tell_challenges WHERE id = $1 FOR UPDATE', [id]);
+        if (!result.rowCount) throw new ChallengeError('This day was not found. Start a new challenge.', 404);
+        const day = result.rows[0].state as Challenge;
+        if (day.phase === 'call' && now() - Date.parse(day.startedAt) >= 180000) end(day, 'time_cap');
+        if (action?.type === 'reply' && day.phase === 'call') {
+          const raw = action.text.trim();
+          if (!raw || raw.length > 1000) throw new ChallengeError('Use a reply from 1 to 1,000 characters.', 400);
+          const text = safeText(raw);
+          const at = new Date(now()).toISOString();
+          day.turns.push({ role: 'user', text, at });
+          day.replies += 1;
+          if (/\bstop\s+drill\b/i.test(raw)) end(day, 'stop');
+          else if (day.replies >= 12) end(day, 'reply_cap');
+          else {
+            const options = RECRUITER_BEATS[Math.min(day.replies - 1, RECRUITER_BEATS.length - 1)];
+            let answer: string = options[0];
+            let source: Turn['source'] = 'script';
+            if (text !== raw) answer = 'Quick pause: this is a practice call. Please do not use real personal details. We can continue with the interview time.';
+            else {
+              try {
+                const generated = await reply({ turns: day.turns, options });
+                if (options.some(option => option === generated)) { answer = generated; source = 'nemotron'; }
+              } catch (error) {
+                console.warn('Challenge used a scripted reply:', error instanceof Error ? error.message : 'LLM unavailable');
+              }
+            }
+            if (now() - Date.parse(day.startedAt) >= 180000) end(day, 'time_cap');
+            else day.turns.push({ role: 'assistant', text: answer, at: new Date(now()).toISOString(), source });
+          }
+        } else if (action?.type === 'reply' && day.phase !== 'verdict') {
+          throw new ChallengeError('This call has ended.');
+        } else if (action?.type === 'end' && day.phase === 'call') end(day, 'disconnect');
+        else if (action?.type === 'verdict') {
+          if (day.phase !== 'verdict') throw new ChallengeError('End the call before you give a verdict.');
+          if (!['Real', 'Scam', 'Unverified'].includes(action.verdict)) throw new ChallengeError('Choose Real, Scam or Unverified.', 400);
+          day.verdict = action.verdict;
+          day.phase = 'complete';
+          if (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.length > 0)) day.interview = 'BOOKED';
+        } else if (action?.type === 'portal') {
+          day.events.push({ type: 'Verify', surface: 'portal', at: new Date(now()).toISOString() });
+          if (day.verdict === 'Unverified') day.interview = 'BOOKED';
+        }
+        await client.query('UPDATE tell_challenges SET state = $2, updated_at = now() WHERE id = $1', [id, JSON.stringify(day)]);
+        await client.query('COMMIT');
+        return day;
+      } catch (error) { await client.query('ROLLBACK'); throw error; }
+    });
+  }
+  return {
+    async start(): Promise<Challenge> {
+      const startedAt = new Date(now()).toISOString();
+      const day: Challenge = { id: crypto.randomUUID(), balance: 1000, interview: 'OPEN', bank: 'OPEN', callerId: 'recruiter', phase: 'call', startedAt, replies: 0,
+        turns: [{ role: 'system', text: DISCLOSURE, at: startedAt }, { role: 'assistant', text: OPENING, at: startedAt, source: 'script' }], events: [] };
+      await withClient(client => client.query('INSERT INTO tell_challenges (id, state) VALUES ($1, $2)', [day.id, JSON.stringify(day)]));
+      return day;
+    },
+    get: (id: string) => update(id),
+    act: (id: string, action: Action) => update(id, action),
+  };
+}

@@ -1,0 +1,20 @@
+export type Verdict = 'Real' | 'Scam' | 'Unverified';
+export type Turn = { role: 'system' | 'assistant' | 'user'; text: string; at: string; source?: 'script' | 'nemotron' };
+export type Challenge = {
+  id: string;
+  balance: number;
+  interview: 'OPEN' | 'BOOKED';
+  bank: 'OPEN';
+  callerId: 'recruiter';
+  phase: 'call' | 'verdict' | 'complete';
+  startedAt: string;
+  endedAt?: string;
+  endReason?: 'disconnect' | 'stop' | 'reply_cap' | 'time_cap';
+  replies: number;
+  verdict?: Verdict;
+  turns: Turn[];
+  events: { type: 'Verify'; surface: 'portal'; at: string }[];
+};
+export type Action = { type: 'reply'; text: string } | { type: 'end' } | { type: 'verdict'; verdict: Verdict } | { type: 'portal' };
+export type ReplyRequest = { turns: Turn[]; options: readonly string[] };
+export type Reply = (request: ReplyRequest) => Promise<string>;
