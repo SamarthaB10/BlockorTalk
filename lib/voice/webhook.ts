@@ -1,19 +1,8 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
-/** One turn of a finished call, as ElevenLabs reports it. */
-export interface CallTurn {
-  role: "agent" | "user";
-  message: string;
-  timeInCallSecs: number;
-}
+import { buildTranscript, type PostCallTranscript } from "./transcript";
 
-export interface PostCallTranscript {
-  conversationId: string;
-  agentId: string;
-  status: string;
-  durationSecs: number | null;
-  turns: CallTurn[];
-}
+export type { CallTurn, PostCallTranscript } from "./transcript";
 
 export interface PostCallDeps {
   /** HMAC secret ElevenLabs shows when the workspace webhook is created. */
@@ -29,6 +18,11 @@ export interface PostCallDeps {
   store(t: PostCallTranscript): Promise<"stored" | "duplicate">;
   /** Deletes the conversation from ElevenLabs once stored (docs/SPEC.md data handling). */
   deleteConversation(conversationId: string): Promise<void>;
+  /**
+   * An outbound call never connected (busy, no answer, ...). The drill service
+   * offers "Call again" / "Play in browser". A throw returns 500 so ElevenLabs retries.
+   */
+  onCallFailed(f: { conversationId: string; agentId: string; reason: string }): Promise<void>;
   /** Signature verifier; defaults to the ElevenLabs SDK helper. */
   verify?: (rawBody: string, signature: string, secret: string) => Promise<unknown>;
 }
@@ -45,20 +39,27 @@ function parseTranscript(event: any): PostCallTranscript | null {
   if (event?.type !== "post_call_transcription") return null;
   const d = event.data ?? {};
   if (typeof d.conversation_id !== "string" || !d.conversation_id) return null;
-  const turns: CallTurn[] = (Array.isArray(d.transcript) ? d.transcript : [])
-    .filter((t: any) => (t?.role === "agent" || t?.role === "user") && typeof t.message === "string")
-    .map((t: any) => ({
-      role: t.role,
-      message: t.message,
-      timeInCallSecs: Number(t.time_in_call_secs ?? 0),
-    }));
+  return buildTranscript({
+    conversationId: d.conversation_id,
+    agentId: d.agent_id,
+    status: d.status,
+    durationSecs: d.metadata?.call_duration_secs,
+    turns: (Array.isArray(d.transcript) ? d.transcript : []).map((t: any) => ({
+      role: t?.role,
+      message: t?.message,
+      timeInCallSecs: t?.time_in_call_secs,
+    })),
+  });
+}
+
+function parseCallFailure(event: any): { conversationId: string; agentId: string; reason: string } | null {
+  if (event?.type !== "call_initiation_failure") return null;
+  const d = event.data ?? {};
+  if (typeof d.conversation_id !== "string" || !d.conversation_id) return null;
   return {
     conversationId: d.conversation_id,
     agentId: String(d.agent_id ?? ""),
-    status: String(d.status ?? ""),
-    durationSecs:
-      typeof d.metadata?.call_duration_secs === "number" ? d.metadata.call_duration_secs : null,
-    turns,
+    reason: typeof d.failure_reason === "string" && d.failure_reason ? d.failure_reason : "unknown",
   };
 }
 
@@ -79,8 +80,19 @@ export function postCallWebhookHandler(deps: PostCallDeps) {
       return new Response("invalid signature", { status: 401 });
     }
 
+    const failure = parseCallFailure(event);
+    if (failure) {
+      try {
+        await deps.onCallFailed(failure);
+      } catch (err) {
+        console.error("call failure handler failed", failure.conversationId, err);
+        return new Response("handler failed", { status: 500 });
+      }
+      return new Response("ok", { status: 200 });
+    }
+
     const transcript = parseTranscript(event);
-    // Other event types (audio, call-initiation failures) are acknowledged and ignored.
+    // Other event types (audio, etc.) are acknowledged and ignored.
     if (!transcript) return new Response("ignored", { status: 200 });
 
     let outcome: "stored" | "duplicate";

@@ -1,5 +1,7 @@
+import { postCallWebhookHandler } from "../../lib/voice/webhook";
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { ElevenLabsVoiceAdapter, VoiceRequestError, type AgentIds } from "../../lib/voice/adapter";
+import { ElevenLabsVoiceAdapter, FakeVoiceAdapter, VoiceRequestError, type AgentIds } from "../../lib/voice/adapter";
 
 const AGENTS: AgentIds = {
   recruiter: "agent_r",
@@ -17,7 +19,7 @@ const KAI_CARD = {
   live_code: "803 116",
 };
 
-function fakeClient() {
+function fakeClient(conversation: any = { status: "in-progress", transcript: [] }) {
   const outbound: any[] = [];
   const client = {
     conversationalAi: {
@@ -30,6 +32,7 @@ function fakeClient() {
       conversations: {
         getWebrtcToken: async (req: any) => ({ token: `tok-for-${req.agentId}` }),
         delete: async () => undefined,
+        get: async () => conversation,
       },
     },
   };
@@ -92,5 +95,66 @@ describe("ElevenLabs voice adapter", () => {
       agentId: "agent_b",
       conversationToken: "tok-for-agent_b",
     });
+  });
+
+  it("polling returns null until the conversation is finished", async () => {
+    for (const status of ["initiated", "in-progress", "processing"]) {
+      const { client } = fakeClient({ status, agentId: "agent_f", transcript: [], metadata: {} });
+      const voice = new ElevenLabsVoiceAdapter(client, AGENTS, undefined);
+      expect(await voice.fetchFinishedTranscript("conv_123")).toBeNull();
+    }
+  });
+
+  it("polling produces the same transcript as the webhook for the same call", async () => {
+    const polled = await new ElevenLabsVoiceAdapter(
+      fakeClient({
+        status: "done",
+        agentId: "agent_fraud",
+        metadata: { callDurationSecs: 44 },
+        transcript: [
+          { role: "agent", message: "Hello", timeInCallSecs: 0 },
+          { role: "user", message: "Hi there", timeInCallSecs: 31 },
+          { role: "agent", timeInCallSecs: 40 },
+        ],
+      }).client,
+      AGENTS,
+      undefined,
+    ).fetchFinishedTranscript("conv_123");
+
+    const body = JSON.stringify({
+      type: "post_call_transcription",
+      data: {
+        agent_id: "agent_fraud",
+        conversation_id: "conv_123",
+        status: "done",
+        transcript: [
+          { role: "agent", message: "Hello", time_in_call_secs: 0 },
+          { role: "user", message: "Hi there", time_in_call_secs: 31 },
+          { role: "agent", message: null, time_in_call_secs: 40 },
+        ],
+        metadata: { call_duration_secs: 44 },
+      },
+    });
+    const at = Math.floor(Date.now() / 1000);
+    const sig = `t=${at},v0=${createHmac("sha256", "s").update(`${at}.${body}`).digest("hex")}`;
+    let hooked: unknown;
+    await postCallWebhookHandler({
+      secret: "s",
+      store: async (t) => ((hooked = t), "stored"),
+      deleteConversation: async () => {},
+      onCallFailed: async () => {},
+    })(new Request("https://tell.test/x", { method: "POST", body, headers: { "ElevenLabs-Signature": sig } }));
+
+    expect(polled).not.toBeNull();
+    expect(polled).toEqual(hooked);
+    expect(polled!.turns).toHaveLength(2);
+  });
+
+  it("fake adapter returns preloaded transcripts, else null", async () => {
+    const fake = new FakeVoiceAdapter();
+    const t = { conversationId: "c1", agentId: "a", status: "done", durationSecs: 5, turns: [] };
+    fake.transcripts.set("c1", t);
+    expect(await fake.fetchFinishedTranscript("c1")).toEqual(t);
+    expect(await fake.fetchFinishedTranscript("c2")).toBeNull();
   });
 });

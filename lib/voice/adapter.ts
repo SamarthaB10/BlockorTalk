@@ -1,5 +1,6 @@
 import type { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { PERSONAS, type ChallengeCallerId } from "./personas";
+import { buildTranscript, type PostCallTranscript } from "./transcript";
 
 /**
  * The voice adapter (docs/SPEC.md, "Voice adapter"): the only seam the drill
@@ -12,6 +13,11 @@ export interface VoiceAdapter {
   createBrowserSession(req: BrowserSessionRequest): Promise<BrowserSession>;
   /** Removes a conversation from ElevenLabs once Tell has stored what it needs. */
   deleteConversation(conversationId: string): Promise<void>;
+  /**
+   * Polling fallback when the post-call webhook is late: the finished transcript,
+   * or null while the conversation is still initiated / in progress / processing.
+   */
+  fetchFinishedTranscript(conversationId: string): Promise<PostCallTranscript | null>;
 }
 
 export interface PlaceCallRequest {
@@ -96,6 +102,18 @@ export class ElevenLabsVoiceAdapter implements VoiceAdapter {
   async deleteConversation(conversationId: string): Promise<void> {
     await this.client.conversationalAi.conversations.delete(conversationId);
   }
+
+  async fetchFinishedTranscript(conversationId: string): Promise<PostCallTranscript | null> {
+    const c = await this.client.conversationalAi.conversations.get(conversationId);
+    if (c.status !== "done" && c.status !== "failed") return null;
+    return buildTranscript({
+      conversationId,
+      agentId: c.agentId,
+      status: c.status,
+      durationSecs: c.metadata?.callDurationSecs,
+      turns: c.transcript ?? [],
+    });
+  }
 }
 
 /** Test double for the drill-service seam: records requests, places nothing. */
@@ -103,6 +121,8 @@ export class FakeVoiceAdapter implements VoiceAdapter {
   readonly calls: PlaceCallRequest[] = [];
   readonly sessions: BrowserSessionRequest[] = [];
   readonly deleted: string[] = [];
+  /** Preload finished transcripts by conversation ID for polling tests. */
+  readonly transcripts = new Map<string, PostCallTranscript>();
   private next = 1;
 
   async placeCall(req: PlaceCallRequest) {
@@ -121,5 +141,9 @@ export class FakeVoiceAdapter implements VoiceAdapter {
 
   async deleteConversation(conversationId: string) {
     this.deleted.push(conversationId);
+  }
+
+  async fetchFinishedTranscript(conversationId: string) {
+    return this.transcripts.get(conversationId) ?? null;
   }
 }

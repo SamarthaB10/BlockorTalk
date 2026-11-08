@@ -30,6 +30,8 @@ function harness() {
   const stored: PostCallTranscript[] = [];
   const deleted: string[] = [];
   const db = { down: false };
+  const failed: { conversationId: string; agentId: string; reason: string }[] = [];
+  const failing = { on: false };
   const handler = postCallWebhookHandler({
     secret: SECRET,
     store: async (t) => {
@@ -40,6 +42,10 @@ function harness() {
       return "stored";
     },
     deleteConversation: async (id) => void deleted.push(id),
+    onCallFailed: async (f) => {
+      if (failing.on) throw new Error("handler down");
+      failed.push(f);
+    },
   });
   const post = (body: string, signature: string) =>
     handler(
@@ -49,7 +55,7 @@ function harness() {
         headers: { "ElevenLabs-Signature": signature },
       }),
     );
-  return { post, stored, deleted, db };
+  return { post, stored, deleted, db, failed, failing };
 }
 
 describe("post-call webhook", () => {
@@ -121,5 +127,43 @@ describe("post-call webhook", () => {
     const res = await h.post(audio, sign(audio));
     expect(res.status).toBe(200);
     expect(h.stored).toHaveLength(0);
+  });
+
+  const failure = JSON.stringify({
+    type: "call_initiation_failure",
+    event_timestamp: 1762560000,
+    data: { agent_id: "agent_fraud", conversation_id: "conv_77", failure_reason: "busy" },
+  });
+
+  it("reports a call-initiation failure and stores nothing", async () => {
+    const h = harness();
+    const res = await h.post(failure, sign(failure));
+    expect(res.status).toBe(200);
+    expect(h.failed).toEqual([{ conversationId: "conv_77", agentId: "agent_fraud", reason: "busy" }]);
+    expect(h.stored).toHaveLength(0);
+    expect(h.deleted).toHaveLength(0);
+  });
+
+  it("uses reason 'unknown' when no failure_reason is given", async () => {
+    const h = harness();
+    const body = JSON.stringify({
+      type: "call_initiation_failure",
+      data: { agent_id: "agent_fraud", conversation_id: "conv_78" },
+    });
+    await h.post(body, sign(body));
+    expect(h.failed[0]!.reason).toBe("unknown");
+  });
+
+  it("rejects an unsigned call-initiation failure", async () => {
+    const h = harness();
+    const res = await h.post(failure, sign(failure, "wrong-secret"));
+    expect(res.status).toBe(401);
+    expect(h.failed).toHaveLength(0);
+  });
+
+  it("returns 500 when the call-failure handler throws", async () => {
+    const h = harness();
+    h.failing.on = true;
+    expect((await h.post(failure, sign(failure))).status).toBe(500);
   });
 });
