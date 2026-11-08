@@ -71,6 +71,7 @@ The app follows `app/` router conventions. API routes in `app/api/*/route.ts` ar
     - `events` is a cursor feed of those events for the UI.
   - **Wiring.** `server.ts` wires the real adapters from env, and `adapter.ts` holds `ElevenLabsVoiceAdapter` and `FakeVoiceAdapter`.
   - **Browser split.** Browser code may import only `callers.ts` and `browserCall.ts`, **never `personas.ts`**, because the prompts reveal which callers are legitimate. `tests/voice/browserBundle.test.ts` bundles the browser code and fails if a prompt leaks into it.
+  - **Phone calls.** `POST /api/voice/call` (`phoneCall.ts`) has an agent ring a real phone from the dashboard's "Call my phone" button. It dials only numbers in `TELL_TEAM_PHONES`, through the Twilio number set in `ELEVENLABS_PHONE_NUMBER_ID` (`ELEVENLABS_PHONE_PROVIDER=sip_trunk` switches to Photon). For catalog scenarios the server picks the agent and returns nothing about it.
   - **Scripts.** `scripts/import-sip-line.ts` and `scripts/spike-call.ts` handle the Photon SIP-trunk line. The spike script only dials numbers in `TELL_TEAM_PHONES` and needs `--yes`.
 - **`detection/`** (Python): the TF-IDF baseline, the Nemotron zero-shot detector, and Nemotron + retrieval over a train-only pgvector index (`migrations/007_detection_examples.sql`). See `docs/DETECTION.md`. The TypeScript reveal reads the same index through `lib/challenge/detector.ts`. If the index or key is unavailable, the reveal shows an explicit unavailable result, never invented flags.
 
