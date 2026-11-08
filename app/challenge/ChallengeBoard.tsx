@@ -88,7 +88,24 @@ function Waveform({ handle, caller }: { handle: BrowserCallHandle; caller: strin
   return <div className="waveform"><canvas ref={canvas} aria-hidden="true" /><p className="legend"><span className="yui">{caller}</span><span>You</span></p></div>;
 }
 
-export default function ChallengeBoard() {
+export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
+  const tokenRef = useRef<string | undefined>(undefined);
+  const requestQueue = useRef<Promise<void>>(Promise.resolve());
+  const requestDay = useCallback((action: object): Promise<Response> => {
+    const send = async () => {
+      const response = await fetch(tryIt ? '/api/try-it' : '/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout('type' in action && action.type === 'reveal' ? 30000 : 'type' in action && action.type === 'voice_live' ? 5000 : 15000), body: JSON.stringify(tryIt ? { action, token: tokenRef.current } : action) });
+      if (tryIt && response.ok) {
+        const result = await response.clone().json() as { token?: string };
+        if (result.token) tokenRef.current = result.token;
+      }
+      return response;
+    };
+    if (!tryIt) return send();
+    // Each action must use the state returned by the previous action, including voice uploads.
+    const result = requestQueue.current.then(send);
+    requestQueue.current = result.then(() => {}, () => {});
+    return result;
+  }, [tryIt]);
   const [day, setDay] = useState<Challenge | null>(null);
   const dayRef = useRef<Challenge | null>(null);
   const [loading, setLoading] = useState(true);
@@ -130,6 +147,7 @@ export default function ChallengeBoard() {
   const seenPlan = useRef(0);
   useEffect(() => { setStage(new URLSearchParams(window.location.search).has('stage')); }, []);
   useEffect(() => {
+    if (tryIt) { setLoading(false); return; }
     fetch('/api/challenge').then(async response => {
       const result = await response.json() as { day: Challenge | null; error?: string };
       if (!response.ok) throw new Error(result.error);
@@ -144,7 +162,7 @@ export default function ChallengeBoard() {
     if (busy) return false;
     setBusy(true); setError('');
     try {
-      const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action) });
+      const response = await requestDay(action);
       const result = await response.json() as { day: Challenge | null; error?: string };
       if (!response.ok) throw new Error(result.error);
       // A new day starts its presenter taps from zero, at Plan A.
@@ -173,7 +191,7 @@ export default function ChallengeBoard() {
     try {
       await voiceUploads.current;
       const turns = voiceSnapshot(voiceLog.current);
-      const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'voice_turns', sessionId, turns }) });
+      const response = await requestDay({ type: 'voice_turns', sessionId, turns });
       const result = await response.json() as { day: Challenge | null };
       if (!response.ok || !result.day) throw new Error('Voice transcript not saved.');
       setDay(result.day);
@@ -181,7 +199,7 @@ export default function ChallengeBoard() {
     finally { setSavingVoice(false); }
   }
   /** Ends the call on the server, then saves the spoken transcript (it needs the call to be over first). */
-  async function endCall() { setSavingVoice(true); try { if (await act({ type: 'end' })) await saveVoiceTurns(); } finally { setSavingVoice(false); } }
+  async function endCall() { setSavingVoice(true); try { await voiceUploads.current; if (await act({ type: 'end' })) await saveVoiceTurns(); } finally { setSavingVoice(false); } }
   /** Hang-up by the player (Disconnect, "stop drill", the reply cap): end the session, then the call. */
   function endVoiceCall() {
     if (voiceRef.current === 'live') { setVoice('ended'); void endCall(); }
@@ -209,22 +227,21 @@ export default function ChallengeBoard() {
     if (!current()) return;
     let token: string | undefined;
     try {
-      const response = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callerId }) });
+      const response = tryIt ? await requestDay({ type: 'voice_token' }) : await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callerId }) });
       if (response.ok) token = (await response.json() as { conversationToken?: string }).conversationToken;
     } catch { /* shown as the failure state below */ }
     if (!current()) return;
     if (!token) { setVoice('failed'); return; }
     try {
       const handle = await startBrowserCall({
-        callerId, conversationToken: token, variables: SCENARIOS.find(s => s.id === callerId)!.voiceVariables,
+        callerId, conversationToken: token, anonymous: tryIt, variables: SCENARIOS.find(s => s.id === callerId)!.voiceVariables,
         onTurn: turn => {
           if (!current()) return;
           voiceLog.current.push(turn);
           setVoiceTurns(turns => [...turns, turn]);
           const turns = voiceSnapshot(voiceLog.current);
           if (callStartedAt) voiceUploads.current = voiceUploads.current.then(async () => {
-            await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(5000),
-              body: JSON.stringify({ type: 'voice_live', sessionId, callerId, startedAt: callStartedAt, turns }) });
+            await requestDay({ type: 'voice_live', sessionId, callerId, startedAt: callStartedAt, turns });
           }).catch(() => { /* The next cumulative snapshot retries the missing messages. */ });
           if (turn.role !== 'user') { if (callerId === 'fraud_team' && /\bcode\b/i.test(turn.message)) setVoiceCode(true); return; }
           repliesRef.current += 1;
@@ -341,10 +358,10 @@ export default function ChallengeBoard() {
     {error && <p role="alert" className="error">{error} <button onClick={() => location.reload()}>Reload saved day</button></p>}
     {loading ? <p role="status">Loading your saved day…</p> : !day ? <section className="intro">
       <div className="intro-copy"><p className="eyebrow">THREE CALLS. TWO STORIES.</p><h1>Keep your $1,000.<br />Finish both tasks.</h1>
-      <p>Who gets your trust?</p>
+      <p>{tryIt ? "What would you say to Kai?" : "Who gets your trust?"}</p>{tryIt && <p>No account. No phone number. Only anonymous outcomes are stored. Your day clears when you leave this page.</p>}
       <div className="start-row"><button className="primary" disabled={busy} onClick={() => void startVoice(true)}>Start by voice<span>Talk to Yui with your microphone</span></button><button className="start-text" disabled={busy} onClick={() => { setMode('text'); void act({ type: 'start' }); }}>{busy && mode === 'text' ? 'Starting…' : 'Start in text'}<span>Type your replies</span></button></div>
       <p className="hint">Either way: an AI practice caller, the same day. Use no real personal details.</p></div>
-      <figure className="planner"><SpritePlayer personality="planner" animation="idle" /><figcaption>Drill Planner · your day is ready</figcaption></figure>
+      {!tryIt && <figure className="planner"><SpritePlayer personality="planner" animation="idle" /><figcaption>Drill Planner · your day is ready</figcaption></figure>}
     </section> : <>
       <h1 className="sr-only">Your Challenge day</h1>
       <div className={`board ${active ? 'on-call' : ''}`}>
@@ -377,7 +394,7 @@ export default function ChallengeBoard() {
           <button className="app-tile" disabled={busy} onClick={() => void act({ type: 'portal' })}>Bluebonnet portal <span>Open candidate portal ↗</span></button><button className="app-tile" disabled={busy} onClick={() => void act({ type: 'bank' })}>Corvanta Bank <span>Open your bank app ↗</span></button>
         </aside>
       </div>
-      {day.phase === 'complete' && <Reveal day={day} busy={busy} act={act} />}
+      {day.phase === 'complete' && <Reveal requestReveal={tryIt ? () => requestDay({ type: 'reveal' }) : undefined} day={day} busy={busy} act={act} />}
     </>}
     <nav className="moves" aria-label="Your four moves">{moves.map(([move, hint]) => <button key={move} disabled={busy || !active || (voiceMode && (move === 'Probe' || move === 'Protect'))} onClick={() => {
       if (move === 'Disconnect') { if (handleRef.current) endVoiceCall(); else { if (voiceMode) { void hangUp(); setVoice('ended'); } void act({ type: 'end' }); } }

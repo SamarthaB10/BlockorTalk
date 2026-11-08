@@ -34,7 +34,7 @@ function highlight(text: string, flags: Flag[]): ReactNode {
   return nodes;
 }
 
-function useRevealData(day: Challenge) {
+function useRevealData(day: Challenge, requestReveal?: () => Promise<Response>) {
   const [state, setState] = useState<State>({ status: 'loading', reveal: null, error: '' });
   const request = useRef<AbortController | null>(null);
   const load = useCallback(async (mode?: 'fixed') => {
@@ -44,7 +44,7 @@ function useRevealData(day: Challenge) {
     setState(s => ({ ...s, status: 'loading', error: '', phase: 'thinking' }));
     try {
       async function read(path: string) {
-        const response = await fetch(path, { cache: 'no-store', signal: controller.signal, headers: path.includes('mode=basic') ? {} : { Accept: 'application/x-ndjson' } });
+        const response = requestReveal ? await requestReveal() : await fetch(path, { cache: 'no-store', signal: controller.signal, headers: path.includes('mode=basic') ? {} : { Accept: 'application/x-ndjson' } });
         if (response.ok && response.headers.get('content-type')?.includes('ndjson') && response.body) {
           const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
           let buffer = '';
@@ -70,6 +70,10 @@ function useRevealData(day: Challenge) {
       }
       // Show code's identities and effects first. Agent and retrieval latency cannot hold them back.
       const basic = await read('/api/challenge/reveal?mode=basic');
+      if (requestReveal) {
+        if (!controller.signal.aborted) setState({ status: 'ready', reveal: basic, error: '' });
+        return;
+      }
       if (!controller.signal.aborted) setState({ status: 'loading', reveal: basic, error: '' });
       const reveal = await read(`/api/challenge/reveal${mode ? '?mode=fixed' : ''}`);
       if (!controller.signal.aborted) setState({ status: 'ready', reveal, error: '' });
@@ -160,8 +164,8 @@ function Rules({ reveal }: { reveal: RevealPayload }) {
   </section>;
 }
 
-export default function Reveal({ day, busy, act }: { day: Challenge; busy: boolean; act: (action: Action) => Promise<boolean> }) {
-  const { status, reveal, error, load, phase } = useRevealData(day);
+export default function Reveal({ requestReveal, day, busy, act }: { requestReveal?: () => Promise<Response>; day: Challenge; busy: boolean; act: (action: Action) => Promise<boolean> }) {
+  const { status, reveal, error, load, phase } = useRevealData(day, requestReveal);
   const goodDay = !!reveal && reveal.summary.balance === 1000 && reveal.summary.interview === 'BOOKED' && reveal.summary.bank === 'RESOLVED';
   const cat = { animation: status === 'loading' ? phase ?? 'thinking' as const : goodDay ? 'excited' as const : 'talking' as const, active: status === 'loading', caption: status === 'loading' ? 'Checking the calls…' : 'Debrief agent' };
   const heading = useRef<HTMLHeadingElement>(null);
