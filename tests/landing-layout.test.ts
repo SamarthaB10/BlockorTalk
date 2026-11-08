@@ -10,21 +10,25 @@ describe('landing sprite containment', () => {
     expect(html.match(/data-scene-slot=/g)).toHaveLength(3);
     expect(html).toContain('data-scene-slot="0"');
     expect(html).not.toContain('nova-actor');
-    expect(html.match(/<img /g)).toHaveLength(1);
     expect(html).toContain('src="/sprites/purple/idle/idle_01.png"');
-    expect(html).not.toContain('/sprites/red/');
-    expect(html).not.toContain('/sprites/green/');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('OPEN DASHBOARD');
     expect(html).toContain('id="intro"');
     expect(html).not.toContain('nova-section-sprite');
   });
-  it('shows the original three companion columns', () => {
+  it('shows the three agents and the one job each does', () => {
     const html = renderToStaticMarkup(createElement(Landing));
+    expect(html).toContain('Meet your team.');
     expect(html.match(/<article>/g)).toHaveLength(3);
-    expect(html).toContain('Planner · Prepare your day');
-    expect(html).toContain('Detector · Examine the evidence');
-    expect(html).toContain('Debrief · Learn your next move');
+    expect(html).toContain('/sprites/red/idle/idle_01.png');
+    expect(html).toContain('/sprites/green/idle/idle_01.png');
+    expect(html).toContain('>Planner</h3>');
+    expect(html).toContain('Sets the callers and tasks for the day.');
+    expect(html).toContain('>Detector</h3>');
+    expect(html).toContain('Checks the call for scam signals.');
+    expect(html).toContain('>Debrief</h3>');
+    expect(html).toContain('Explains the result and the next move.');
+    expect(html).not.toContain('One agent. Three moments.');
     expect(html).not.toContain('team-preview');
     expect(html).toContain('aria-controls="nova-drawer"');
     expect(html).toContain('Previous rule');
