@@ -10,7 +10,7 @@ export class ChallengeError extends Error {
 }
 
 // Reject likely personal data before it reaches the model or stored transcript.
-function safeText(text: string) {
+export function safeText(text: string) {
   if (/\b(?:(?:my|the)\s+)?(?:pin|password|passcode|code|social security number|ssn|date of birth|birthday|address|phone number)\s*(?:is|:|=)\s*\S+/i.test(text)) return '[personal details removed]';
   return text.replace(/\b(?:\d[ -]?){7,}\b/g, '[details removed]')
     .replace(/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/gi, '[details removed]')
