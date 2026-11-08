@@ -44,6 +44,25 @@ export interface BrowserSession {
 export type AgentIds = Record<ChallengeCallerId, string>;
 
 const E164 = /^\+[1-9]\d{7,14}$/;
+const AGENT_ID = /^agent_\w+$/;
+const TOKEN_URL = "https://api.elevenlabs.io/v1/convai/conversation/token";
+
+/**
+ * Plain-fetch route to the browser-voice token endpoint. The Worker uses this
+ * instead of the SDK's getWebrtcToken so the request is exactly the documented
+ * GET with the key in `xi-api-key`, nothing else.
+ */
+export interface TokenFetch {
+  fetch: (url: string, init: RequestInit) => Promise<Response>;
+  apiKey: () => string | undefined;
+}
+
+/** Thrown for a non-OK token response; carries the status and parsed body for logging. */
+export class VoiceUpstreamError extends Error {
+  constructor(readonly statusCode: number, readonly body: unknown) {
+    super(`ElevenLabs returned ${statusCode}`);
+  }
+}
 
 export class ElevenLabsVoiceAdapter implements VoiceAdapter {
   constructor(
@@ -51,6 +70,7 @@ export class ElevenLabsVoiceAdapter implements VoiceAdapter {
     private readonly agentIds: AgentIds,
     /** ElevenLabs phone-number ID of the imported Photon SIP-trunk line. */
     private readonly phoneNumberId: string | undefined,
+    private readonly tokenFetch?: TokenFetch,
   ) {}
 
   async placeCall(req: PlaceCallRequest): Promise<{ conversationId: string }> {
@@ -80,9 +100,25 @@ export class ElevenLabsVoiceAdapter implements VoiceAdapter {
   }
 
   async createBrowserSession(req: BrowserSessionRequest): Promise<BrowserSession> {
-    const agentId = this.agentIds[req.callerId];
-    const res = await this.client.conversationalAi.conversations.getWebrtcToken({ agentId });
-    return { agentId, conversationToken: res.token };
+    const agentId = String(this.agentIds[req.callerId] ?? "").trim();
+    if (!AGENT_ID.test(agentId)) {
+      throw new VoiceRequestError(`No valid ElevenLabs agent ID for ${req.callerId}`);
+    }
+    if (!this.tokenFetch) {
+      const res = await this.client.conversationalAi.conversations.getWebrtcToken({ agentId });
+      return { agentId, conversationToken: res.token };
+    }
+    const apiKey = this.tokenFetch.apiKey()?.trim();
+    if (!apiKey) throw new VoiceRequestError("ELEVENLABS_API_KEY is not set");
+    const res = await this.tokenFetch.fetch(`${TOKEN_URL}?agent_id=${encodeURIComponent(agentId)}`, {
+      method: "GET",
+      headers: { "xi-api-key": apiKey },
+    });
+    const body: unknown = await res.json().catch(() => undefined);
+    if (!res.ok) throw new VoiceUpstreamError(res.status, body);
+    const token = (body as { token?: unknown } | undefined)?.token;
+    if (typeof token !== "string" || !token) throw new VoiceUpstreamError(res.status, undefined);
+    return { agentId, conversationToken: token };
   }
 
   async deleteConversation(conversationId: string): Promise<void> {

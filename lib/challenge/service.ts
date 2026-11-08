@@ -102,9 +102,11 @@ export function createChallengeService({ connectionString, reply, now = Date.now
         } else if (action?.type === 'voice_turns') {
           // Yui's browser-voice call is spoken, so its transcript only exists in the browser. Accept it once,
           // after the call has ended and before the verdict, so the reveal has something to show.
-          if (day.phase !== 'verdict' || day.callerId !== 'recruiter' || day.turns.length > 2) throw new ChallengeError('This call has no voice transcript to save.');
+          if (day.phase !== 'verdict' || day.callerId !== 'recruiter' || day.voiceSaved) throw new ChallengeError('This call has no voice transcript to save.');
+          day.voiceSaved = true;
           if (!Array.isArray(action.turns) || action.turns.length > 40) throw new ChallengeError('That voice transcript is too long.', 400);
-          const start = Date.parse(day.startedAt);
+          // A call can start in text and switch to voice: spoken turns come after the typed ones.
+          const start = Date.parse(day.turns.at(-1)?.at ?? day.startedAt);
           const span = Math.max(0, Date.parse(day.endedAt ?? day.startedAt) - start);
           const spoken = action.turns.filter(turn => (turn.role === 'assistant' || turn.role === 'user') && typeof turn.text === 'string' && turn.text.trim());
           // The disclosure and opening line are already in day.turns; drop spoken repeats of them.

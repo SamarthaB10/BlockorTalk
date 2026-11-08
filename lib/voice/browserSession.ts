@@ -1,4 +1,4 @@
-import type { VoiceAdapter } from "./adapter";
+import { VoiceRequestError, type VoiceAdapter } from "./adapter";
 import { CHALLENGE_CALLER_IDS, type ChallengeCallerId } from "./personas";
 
 export interface BrowserSessionDeps {
@@ -30,7 +30,13 @@ export function browserSessionHandler(deps: BrowserSessionDeps) {
       // missing agent (404) without exposing the vendor's message.
       const code = (err as { statusCode?: unknown })?.statusCode;
       const upstreamStatus = typeof code === "number" ? code : undefined;
-      console.error("browser voice session failed", upstreamStatus ?? "no status");
+      // The vendor's error code (e.g. invalid_agent_id) names the cause in the Worker log.
+      // Its message text, the key and the token are never logged or returned.
+      const detail = (err as { body?: { detail?: { code?: unknown; param?: unknown } } })?.body?.detail;
+      const vendorCode = typeof detail?.code === "string" ? detail.code : undefined;
+      const param = typeof detail?.param === "string" ? detail.param : undefined;
+      const local = err instanceof VoiceRequestError ? err.message : undefined;
+      console.error("browser voice session failed", upstreamStatus ?? "no status", vendorCode ?? local ?? "", param ?? "");
       return Response.json(
         { error: "voice session unavailable", ...(upstreamStatus ? { upstreamStatus } : {}) },
         { status: 502, headers: NO_STORE },

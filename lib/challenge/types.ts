@@ -33,6 +33,8 @@ export type Challenge = {
   codeVisible: boolean;
   callbackStep: 0 | 1 | 2 | 3;
   events: VerifyRecord[];
+  /** Set once Yui's spoken transcript has been saved, so it can't be appended twice. */
+  voiceSaved?: boolean;
   /** The detective reveal, cached after the day completes. Not sent with day responses. */
   reveal?: import('./reveal.ts').RevealPayload;
 };

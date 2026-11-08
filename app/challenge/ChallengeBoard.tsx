@@ -110,8 +110,10 @@ export default function ChallengeBoard() {
   // Yui's voice call is spoken in the browser, so its transcript is sent to the day once, when the call ends.
   const voiceLog = useRef<VoiceTurn[]>([]);
   const voiceSaved = useRef(false);
-  const setVoice =(next: VoiceState) => { voiceRef.current = next; setVoiceState(next); };
-  const spokenReplies = voiceTurns.filter(turn => turn.role === 'user').length;
+  const setVoice = (next: VoiceState) => { voiceRef.current = next; setVoiceState(next); };
+  // Replies already typed in this call still count when it switches to voice.
+  const [replyBase, setReplyBase] = useState(0);
+  const spokenReplies = replyBase + voiceTurns.filter(turn => turn.role === 'user').length;
 
   useEffect(() => {
     fetch('/api/challenge').then(async response => {
@@ -165,7 +167,9 @@ export default function ChallengeBoard() {
     void hangUp();
     const attempt = attemptRef.current;
     const current = () => attempt === attemptRef.current;
-    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError(''); repliesRef.current = 0; voiceLog.current = []; voiceSaved.current = false;
+    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError(''); voiceLog.current = []; voiceSaved.current = false;
+    const base = fresh ? 0 : day?.replies ?? 0;
+    repliesRef.current = base; setReplyBase(base);
     if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
     if (!current()) return;
     let token: string | undefined;
@@ -245,7 +249,7 @@ export default function ChallengeBoard() {
   useEffect(() => { if (portal) portalDialog.current?.showModal(); }, [portal]);
 
   return <main className="challenge">
-    <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span></>}</header>
+    <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span><button className="start-over" disabled={busy} onClick={() => { void hangUp(); setMode('text'); setVoice('connecting'); setVoiceTurns([]); setError(''); setDay(null); }}>Start over</button></>}</header>
     {error && <p role="alert" className="error">{error} <button onClick={() => location.reload()}>Reload saved day</button></p>}
     {loading ? <p role="status">Loading your saved day…</p> : !day ? <section className="intro">
       <div className="intro-copy"><p className="eyebrow">THREE CALLS. TWO STORIES.</p><h1>Keep your $1,000.<br />Finish both tasks.</h1>

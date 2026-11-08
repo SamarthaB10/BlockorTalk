@@ -36,3 +36,4 @@ body:has(.challenge) { margin:0; background:#000; }
 .challenge .ui-toast { top:96px; bottom:auto; z-index:2; }
 .challenge .on-call .call-state.still span { animation:none; }
 .challenge .switch-voice { width:100%; text-align:left; min-height:64px; margin:8px 0 16px; }.switch-voice span { display:block; color:var(--muted); font-size:14px; }
+.challenge .start-over { border-radius:100px; padding:4px 16px; min-height:44px; font-size:14px; letter-spacing:.04em; }
