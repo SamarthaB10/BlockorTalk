@@ -61,3 +61,9 @@ The conversation pane uses one shared palette for every caller: background #100e
 ## Pixel phone
 
 Every scenario card carries the same original pixel phone (`app/components/PixelPhone.tsx`): a 20×32 SVG grid drawn with crisp edges in graphite #0b0b10, soft white #f2f0ea, periwinkle #9c9bff with shade #7473e0, and a cyan #6fd8e8 screen showing spaced signal bars and a two-frame waveform. Widths stay multiples of 20px so art pixels stay whole: 60px on scenario cards, 40px in lists and on Play. All callers share one phone, so the art never hints at call type; it replaces mascots on caller cards. Hover or focus is an incoming call: the phone lifts 3px with a soft periwinkle shadow, the screen brightens to #a9f0fa, the phone buzzes in short bursts, the waveform steps between frames and the signal pixel blinks once. Pressing a card answers it: the phone tilts up toward you and the screen lights fully. Reduced motion keeps it still.
+
+## Scenarios: the contacts phone
+
+The Scenarios view is one large phone (conversation-pane palette) whose Contacts list holds every practice caller, sorted A to Z with letter headers. Topic groups (Money, Work, Shopping & prizes, Phone & tech, Government) filter the list; each real caller shares its topic with a scam caller, so a group never hints at call type. Behind the phone on wide screens, "Who's calling?" sits as a low-contrast Sora wordmark that blurs up into place once.
+
+Rows rise toward the pointer in a springy wave: each row has its own spring (K 70, C 12.5, four sub-steps per frame, dt capped at 50 ms) and leans slightly with its velocity; the loop stops when every row settles. The list rises in from the bottom on load. Shuffle call rings a random visible contact for 900 ms, then starts its voice call. Opening a contact shows the pixel phone at 80px, the "AI practice caller" label, Play by voice and the team-only Call my phone. Reduced motion removes the wave, the entrances and the ring.

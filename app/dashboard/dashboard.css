@@ -208,3 +208,42 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 
 .hub-news-item { display:grid; align-content:start; gap:16px; min-width:0; }
 .hub-news-item:nth-of-type(even) .hub-newspaper { background:#bcbcbc; }
+
+/* Scenarios picker: one big phone, contacts are the practice callers. Palette from the conversation pane (DESIGN.md). */
+.hub .contacts-stage{position:relative;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;width:100%;max-width:1400px;margin:8px auto 32px;}
+.hub .contacts-wordmark{position:absolute;top:18%;left:0;right:0;margin:0;text-align:center;font:500 clamp(56px,10.5vw,176px)/1 'Sora',sans-serif;letter-spacing:-.045em;color:#f1ecff;opacity:.14;white-space:nowrap;pointer-events:none;animation:contacts-word 1400ms cubic-bezier(.2,.8,.2,1) 150ms both;}
+@keyframes contacts-word{from{opacity:0;transform:translateY(4vh);filter:blur(14px);}to{opacity:.14;transform:none;filter:none;}}
+.hub .contacts-phone{position:relative;width:min(420px,100%);margin:0;padding:14px;border-radius:52px;background:linear-gradient(160deg,#1d1838,#0b0918);border:1px solid #8b7cf855;box-shadow:0 30px 80px -30px rgb(124 58 237 / .55),inset 0 0 0 2px #00000080;}
+.hub .contacts-screen{position:relative;height:min(760px,78dvh);display:flex;flex-direction:column;border-radius:40px;background:#100e19;color:#f1ecff;overflow:hidden;padding:22px 0 0;}
+.hub .contacts-screen::before{content:"";position:absolute;top:10px;left:50%;width:96px;height:24px;border-radius:14px;background:#000;transform:translateX(-50%);}
+.hub .contacts-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:28px 22px 10px;}
+.hub .contacts-head h2{margin:0;font-size:32px;font-weight:600;letter-spacing:-.03em;}
+.hub .contacts-shuffle,.hub .contact-call{border:0;border-radius:999px;background:#cbb4ff;color:#100e19!important;font-weight:600;min-height:44px;padding:0 18px;}
+.hub .contacts-shuffle:disabled,.hub .contact-call:disabled{opacity:.5;}
+.hub .contacts-groups{display:flex;gap:6px;overflow-x:auto;padding:4px 22px 8px;scrollbar-width:none;}
+.hub .contacts-groups::-webkit-scrollbar{display:none;}
+.hub .contacts-groups button{flex-shrink:0;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid #bdb0d740;background:transparent;color:#bdb0d7;font-size:13px;}
+.hub .contacts-groups button span{opacity:.7;font-variant-numeric:tabular-nums;margin-left:2px;}
+.hub .contacts-groups button[aria-pressed=true]{background:#f1ecff;border-color:#f1ecff;color:#100e19;}
+.hub .contacts-count{margin:0;padding:2px 22px 8px;font-size:12px;color:#bdb0d7;}
+.hub .contacts-list{list-style:none;margin:0;padding:0 14px 24px;overflow-y:auto;flex:1;scrollbar-color:#3a3159 transparent;}
+.hub .contacts-list li{animation:contact-rise 700ms cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 35ms + 120ms);}
+.hub .contacts-letter{margin:12px 8px 4px;font-size:12px;font-weight:600;color:#a8e8ef;}
+.hub .contacts-list button{display:flex;align-items:center;gap:14px;width:100%;min-height:60px;padding:8px;border:0;border-radius:16px;background:rgb(37 30 53 / calc(var(--lift,0) * .9));color:inherit;text-align:left;transform-origin:left center;will-change:transform;}
+.hub .contacts-list button:focus-visible{outline:2px solid #a8e8ef;outline-offset:2px;}
+.hub .contacts-list strong{display:block;font-size:16px;font-weight:600;}
+.hub .contacts-list small{display:block;font-size:12px;color:#bdb0d7;line-height:1.4;}
+.hub .contact-avatar{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border-radius:50%;background:#251e35;color:#cbb4ff;font-weight:600;box-shadow:0 0 0 1px #cbb4ff33;}
+.hub .contact-card>.pixel-phone{--pixel-phone-width:80px;margin-top:8px;}
+.hub .is-ringing .contact-avatar{background:#cbb4ff;color:#100e19;animation:pp-ring 900ms cubic-bezier(.36,.07,.19,.97) infinite;box-shadow:0 0 0 6px #cbb4ff33;}
+.hub .contact-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:40px 24px 24px;text-align:center;overflow-y:auto;}
+.hub .contact-card h2{margin:6px 0 0;font-size:30px;font-weight:600;letter-spacing:-.03em;}
+.hub .contact-card p{margin:0;color:#bdb0d7;font-size:14px;max-width:32ch;}
+.hub .contact-card .contact-label{font-size:12px;color:#a8e8ef;}
+.hub .contact-card .contact-call{width:100%;margin-top:14px;}
+.hub .contact-card .hub-link{color:#f1ecff;}
+.hub .contact-back{align-self:flex-start;border:0;background:transparent;color:#cbb4ff;min-height:44px;padding:0;font-size:15px;}
+@keyframes contact-rise{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:none;}}
+@media(max-width:560px){.hub .contacts-phone{padding:8px;border-radius:40px;}.hub .contacts-screen{height:72dvh;border-radius:32px;}}
+@media(max-width:760px){.hub .contacts-wordmark{display:none;}}
+@media(prefers-reduced-motion:reduce){.hub .contacts-wordmark{animation:none;}.hub .contacts-list li{animation:none;}.hub .is-ringing .contact-avatar{animation:none;}}

@@ -14,9 +14,10 @@ test('the pixel phone is one crisp, labelled drawing, the same for every caller'
   expect(renderToStaticMarkup(createElement(PixelPhone))).toBe(html);
 });
 
-test('every scenario card on the dashboard shows a pixel phone instead of a mascot', () => {
+test('the Scenarios view is one contacts phone listing every caller, with no mascots', () => {
   const html = renderToStaticMarkup(createElement(Dashboard, { initialView: 'Scenarios' }));
-  expect(html.match(/class="pixel-phone"/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
+  expect(html).toContain('class="contacts-phone"');
+  expect(html.match(/data-contact="true"/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
   expect(html).not.toContain('hub-scenario-mascot');
 });
 
