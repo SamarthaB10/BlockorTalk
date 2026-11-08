@@ -19,17 +19,20 @@ export default function NewsAlerts({ alerts, status, planning, note, onPractice 
   note: AlertNote | null;
   onPractice(link: string): void;
 }) {
-  return <section className="hub-library">
+  return <section className="hub-library hub-newspapers" aria-label="Consumer alerts">
     {status && <p role="status">{status} <a href="https://consumer.ftc.gov/consumer-alerts">Read FTC alerts ↗</a></p>}
-    {alerts.map(item => <article className="hub-card" key={item.link}>
-      <span className="hub-chip">FTC · Consumer alert</span>
-      <h2>{item.title}</h2>
-      <p>{item.summary}</p>
+    {alerts.map((item, index) => <article className="hub-news-item" key={item.link}>
+      <a className="hub-newspaper" href={item.link} target="_blank" rel="noreferrer" aria-labelledby={`news-title-${index}`}>
+        <img src={index % 2 === 0 ? '/news/newspaper-pixel.png' : '/news/newspaper-stack.png'} alt="" width={index % 2 === 0 ? 980 : 415} height={index % 2 === 0 ? 980 : 739} loading="lazy" />
+        <div className="hub-newspaper-headline">
+          <h2 id={`news-title-${index}`}>{item.title}</h2>
+          <span className="hub-newspaper-source">Read the source ↗<span className="ui-sr-only"> (opens in a new tab)</span></span>
+        </div>
+      </a>
       {planning === item.link && !note?.error && <p role="status">The Drill Planner is choosing a practice call…</p>}
       {note?.link === item.link && note.pick && <PickNote pick={note.pick} />}
       {note?.link === item.link && note.error && <p role="alert">{note.error}</p>}
       <button type="button" className="hub-primary" disabled={Boolean(planning)} onClick={() => onPractice(item.link)}>Practice this call ↗</button>
-      <a className="hub-link" href={item.link} target="_blank" rel="noreferrer">Read the source ↗</a>
     </article>)}
   </section>;
 }

@@ -21,15 +21,13 @@ const progress = progressView([
 ], new Date('2026-11-08T18:00:00Z'));
 
 describe('Progress screen', () => {
-  it('leads with the summary and one recommended drill, then six compact skill cards', () => {
+  it('leads with the summary and six skill cards without a drill recommendation', () => {
     const html = renderToStaticMarkup(createElement(ProgressBoard, { progress, selected: null, onSelect: () => {} }));
     expect(html).toContain('Your progress');
     expect(html).toMatch(/<strong>\d<\/strong> skills? demonstrated/);
     expect(html).toContain('<strong>1</strong> skill needs practice');
-    expect(html.indexOf('Recommended next')).toBeLessThan(html.indexOf('Skill log'));
-    expect(html).toContain('Practice protecting codes');
-    expect(html).toContain('You recognized urgency, but the last caller’s code request caught you off guard.');
-    expect(html).toContain('Start 60-second drill');
+    expect(html).not.toContain('Recommended next');
+    expect(html).not.toContain('60-second');
     for (const name of ['Verify independently', 'Protect codes and secrets', 'Resist urgency', 'Challenge authority', 'Inspect payment requests', 'Exit safely']) expect(html).toContain(name);
     expect(html).toContain('2 successful decisions · 2 scenarios');
     expect(html).toContain('Independent');

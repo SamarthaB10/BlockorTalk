@@ -16,15 +16,16 @@ const real: SkillCall = {
 const progress = progressView(withExamples('player-a', [real]), NOW);
 const noop = () => {};
 
-describe('drills stay on the dashboard', () => {
-  it('starts the 60-second drill with a button, not a link to /play', () => {
-    const html = renderToStaticMarkup(createElement(ProgressBoard, { progress, selected: null, onSelect: noop, onStartDrill: noop, onOpenEvidence: noop }));
-    expect(html).toMatch(/<button type="button" class="hub-primary">Start 60-second drill/);
+describe('evidence stays on the dashboard', () => {
+  it('shows skill evidence without drill controls', () => {
+    const html = renderToStaticMarkup(createElement(ProgressBoard, { progress, selected: null, onSelect: noop, onOpenEvidence: noop }));
+    expect(html).not.toContain('60-second');
+    expect(html).not.toContain('Recommended next');
     expect(html).not.toMatch(/href="\/play\//);
   });
 
   it('opens real evidence with a button and shows example evidence without a link', () => {
-    const html = renderToStaticMarkup(createElement(ProgressBoard, { progress, selected: 'verify', onSelect: noop, onStartDrill: noop, onOpenEvidence: noop }));
+    const html = renderToStaticMarkup(createElement(ProgressBoard, { progress, selected: 'verify', onSelect: noop, onOpenEvidence: noop }));
     expect(html).toContain('see the moment in the transcript</button>');
     expect(html).not.toContain('href="/play/results/');
     expect(html).toMatch(/example quiz/);
@@ -32,7 +33,7 @@ describe('drills stay on the dashboard', () => {
 
   it('still links out when no handlers are given (the /play pages)', () => {
     const html = renderToStaticMarkup(createElement(ProgressBoard, { progress, selected: 'verify', onSelect: noop }));
-    expect(html).toMatch(/href="\/play\/[a-z-]+\?drill=/);
+    expect(html).not.toContain('?drill=');
     expect(html).toContain('href="/play/results/real-1#step-2"');
   });
 
@@ -52,9 +53,9 @@ describe('the debrief on the dashboard', () => {
   };
   const view = buildResults(call, null, true, { skill: null, next: progress.recommended });
 
-  it('offers the next drill and the way back as buttons, with no links off the page', () => {
-    const html = renderToStaticMarkup(createElement(CallResults, { view, onNextDrill: noop, onDone: noop }));
-    expect(html).toContain('Start 60-second drill</button>');
+  it('offers the way back without drill controls', () => {
+    const html = renderToStaticMarkup(createElement(CallResults, { view, onDone: noop }));
+    expect(html).not.toContain('60-second');
     expect(html).toContain('Back to your progress</button>');
     expect(html).not.toMatch(/href="\/(play|me|leaderboard)/);
   });
@@ -62,6 +63,6 @@ describe('the debrief on the dashboard', () => {
   it('keeps its links on /play/results', () => {
     const html = renderToStaticMarkup(createElement(CallResults, { view }));
     expect(html).toContain('href="/play"');
-    expect(html).toMatch(/href="\/play\/[a-z-]+\?drill=/);
+    expect(html).not.toContain('?drill=');
   });
 });
