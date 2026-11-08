@@ -45,12 +45,38 @@ function showsCode(call: Pick<LiveCall, 'callerId'>, turn: Turn) {
   return call.callerId === 'fraud_team' && turn.role === 'assistant' && ((CODE_REQUEST_LINES as readonly string[]).includes(turn.text) || /\bcode\b/i.test(turn.text));
 }
 
-export function createChallengeService({ connectionString, reply, now = Date.now, scheduleRisk }: { connectionString: string; reply: Reply; now?: () => number; scheduleRisk?: (id: string) => void }) {
+export interface ChallengeStore {
+  create(day: Challenge): Promise<void>;
+  update(id: string, work: (day: Challenge) => Promise<Challenge>): Promise<Challenge>;
+  saveReveal(id: string, reveal: NonNullable<Challenge['reveal']>): Promise<void>;
+}
+
+function postgresStore(connectionString: string): ChallengeStore {
   async function withClient<T>(work: (client: pg.Client) => Promise<T>) {
     const client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
     await client.connect();
     try { return await work(client); } finally { await client.end(); }
   }
+  return {
+    async create(day) { await withClient(client => client.query('INSERT INTO tell_challenges (id, state) VALUES ($1, $2)', [day.id, JSON.stringify(day)])); },
+    async update(id, work) {
+      return withClient(async client => {
+        await client.query('BEGIN');
+        try {
+          const result = await client.query('SELECT state FROM tell_challenges WHERE id = $1 FOR UPDATE', [id]);
+          if (!result.rowCount) throw new ChallengeError('This day was not found. Start a new challenge.', 404);
+          const day = await work(result.rows[0].state as Challenge);
+          await client.query('UPDATE tell_challenges SET state = $2, updated_at = now() WHERE id = $1', [id, JSON.stringify(day)]);
+          await client.query('COMMIT');
+          return day;
+        } catch (error) { await client.query('ROLLBACK'); throw error; }
+      });
+    },
+    async saveReveal(id, reveal) { await withClient(client => client.query(`UPDATE tell_challenges SET state = jsonb_set(state, '{reveal}', $2::jsonb), updated_at = now() WHERE id = $1`, [id, JSON.stringify(reveal)])); },
+  };
+}
+
+export function createChallengeService({ connectionString = '', store = postgresStore(connectionString), reply, now = Date.now, scheduleRisk, trackRisk = true }: { trackRisk?: boolean; connectionString?: string; store?: ChallengeStore; reply: Reply; now?: () => number; scheduleRisk?: (id: string) => void }) {
   function end(call: LiveCall, reason: EndReason) {
     call.phase = 'verdict';
     call.endedAt = new Date(now()).toISOString();
@@ -157,12 +183,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
   }
 
   async function update(id: string, action?: Action) {
-    return withClient(async client => {
-      await client.query('BEGIN');
-      try {
-        const result = await client.query('SELECT state FROM tell_challenges WHERE id = $1 FOR UPDATE', [id]);
-        if (!result.rowCount) throw new ChallengeError('This day was not found. Start a new challenge.', 404);
-        const day = result.rows[0].state as Challenge;
+    const updated = await store.update(id, async day => {
         // Upgrade saved issue-5 days without losing their verdict or transcript.
         day.calls ??= day.verdict ? [{ callerId: 'recruiter', verdict: day.verdict, turns: day.turns, cost: 0, leaked: [] }] : [];
         day.leaked ??= [];
@@ -197,7 +218,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if ((day.voiceSession || action.sessionId || live) && action.sessionId !== day.voiceSession) throw new ChallengeError('That transcript belongs to a different voice session.');
           // Live snapshots grow cumulatively. Retries, out-of-order snapshots and the final save
           // only append messages not previously accepted; scoring still sees the original text.
-          if (day.voiceSaved) { await client.query('COMMIT'); return day; }
+          if (day.voiceSaved) return day;
           if (day.phase !== 'verdict' && !(live && day.phase === 'call')) throw new ChallengeError('This call has no voice transcript to save.');
           if (!Array.isArray(action.turns) || action.turns.length > 40) throw new ChallengeError('That voice transcript is too long.', 400);
           // A call can start in text and switch to voice: spoken turns come after the typed ones.
@@ -251,29 +272,25 @@ export function createChallengeService({ connectionString, reply, now = Date.now
             }
           }
         }
-        queueRisk(day);
-        await client.query('UPDATE tell_challenges SET state = $2, updated_at = now() WHERE id = $1', [id, JSON.stringify(day)]);
-        await client.query('COMMIT');
-        scheduleRisk?.(id);
+        if (trackRisk) queueRisk(day);
         return day;
-      } catch (error) { await client.query('ROLLBACK'); throw error; }
     });
+    scheduleRisk?.(id);
+    return updated;
   }
   return {
     async start(): Promise<Challenge> {
       const startedAt = new Date(now()).toISOString();
       const day: Challenge = { id: crypto.randomUUID(), balance: 1000, interview: 'OPEN', bank: 'OPEN', callerId: 'recruiter', phase: 'call', startedAt, replies: 0,
         turns: [{ role: 'system', text: DISCLOSURE, at: startedAt }, { role: 'assistant', text: CALLERS.recruiter.opening, at: startedAt, source: 'script' }], events: [], calls: [], leaked: [], codeVisible: false, callbackStep: 0 };
-      queueRisk(day);
-      await withClient(client => client.query('INSERT INTO tell_challenges (id, state) VALUES ($1, $2)', [day.id, JSON.stringify(day)]));
+      if (trackRisk) queueRisk(day);
+      await store.create(day);
       scheduleRisk?.(day.id);
       return day;
     },
     get: (id: string) => update(id),
     /** Caches the reveal in the saved day. A concurrent action may overwrite it; the next request recomputes. */
-    async saveReveal(id: string, reveal: NonNullable<Challenge['reveal']>) {
-      await withClient(client => client.query(`UPDATE tell_challenges SET state = jsonb_set(state, '{reveal}', $2::jsonb), updated_at = now() WHERE id = $1`, [id, JSON.stringify(reveal)]));
-    },
+    saveReveal: store.saveReveal,
     act: (id: string, action: Action) => update(id, action),
   };
 }
