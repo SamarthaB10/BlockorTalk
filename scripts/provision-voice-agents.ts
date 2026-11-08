@@ -4,6 +4,7 @@
  * found again by its stored ID, else by its exact name, and updated in place.
  *
  *   npm run voice:provision
+ *   npm run voice:provision -- --only card_coach   (one agent; leaves the others untouched)
  *
  * Optional env:
  *   TELL_PUBLIC_URL        public https origin; attaches the report_beat tool
@@ -37,8 +38,14 @@ async function main() {
     console.warn("No TELL_PUBLIC_URL + TELL_TOOL_SECRET_ID: agents get no live report_beat tool yet.");
   }
 
+  const onlyAt = process.argv.indexOf("--only");
+  const only = onlyAt > -1 ? process.argv[onlyAt + 1] : undefined;
+  if (only && !CHALLENGE_CALLER_IDS.includes(only as (typeof CHALLENGE_CALLER_IDS)[number])) {
+    throw new Error(`--only must be one of: ${CHALLENGE_CALLER_IDS.join(", ")}`);
+  }
+
   const ids = loadIds();
-  for (const id of CHALLENGE_CALLER_IDS) {
+  for (const id of CHALLENGE_CALLER_IDS.filter((c) => !only || c === only)) {
     const body = buildAgentConfig(id, opts);
     let agentId = ids[id];
     if (!agentId) {

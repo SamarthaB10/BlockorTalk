@@ -9,6 +9,9 @@ import { BEATS, PERSONAS, SHARED_GUARDRAILS, type ChallengeCallerId } from "./pe
  */
 export const DEFAULT_VOICE_LLM: ElevenLabs.Llm = "gemini-2.5-flash";
 
+/** Speech model for every agent (matches what the live agents run on). */
+export const VOICE_TTS_MODEL: ElevenLabs.TtsConversationalModel = "eleven_v4_turbo";
+
 /** Header the `report_beat` server tool sends; its value is an ElevenLabs workspace secret. */
 export const BEAT_SECRET_HEADER = "X-Tell-Tool-Secret";
 export const BEAT_ROUTE_PATH = "/api/voice/beat";
@@ -121,7 +124,8 @@ export function buildAgentConfig(
           tools,
         },
       },
-      tts: { voiceId: p.voiceId },
+      // Same speech model for every agent, so voice quality never hints at the call type.
+      tts: { voiceId: p.voiceId, modelId: VOICE_TTS_MODEL },
       conversation: { maxDurationSeconds: DRILL_MAX_SECONDS },
     },
     platformSettings: {
