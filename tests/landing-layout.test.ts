@@ -14,7 +14,14 @@ describe('landing sprite containment', () => {
     expect(html).not.toContain('nova-actor');
     expect(html).toContain('src="/sprites/purple/idle/idle_01.png"');
     expect(html).toContain('href="/dashboard"');
-    expect(html).toContain('OPEN DASHBOARD');
+    expect(html).not.toContain('OPEN DASHBOARD');
+    expect(html).not.toContain('>Dashboard<');
+    expect(html).not.toContain('>Leaderboard<');
+    expect(html).not.toContain('>Scenarios<');
+    expect(html).not.toContain('>News<');
+    expect(html).not.toContain('nova-pad');
+    expect(html).not.toContain('view=Scenarios');
+    expect(html).not.toContain('view=News');
     expect(html).toContain('id="intro"');
     expect(html).not.toContain('nova-section-sprite');
   });
