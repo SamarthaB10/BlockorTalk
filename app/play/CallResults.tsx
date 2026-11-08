@@ -1,11 +1,20 @@
 import type { ResultsView } from '../../lib/season/results';
+import type { Recommendation } from '../../lib/skills/log';
 
 /**
  * The results screen after each call (BS-11). Presentational only: the server builds the view.
  * Order: Call type, Scored moments, skill update and next drill, right/wrong, Blokbuks and rank,
  * Scored calls left, then the transcript. Every right/wrong carries a text label, never colour alone.
  */
-export default function CallResults({ view }: { view: ResultsView }) {
+/**
+ * Inside the dashboard, pass `onNextDrill` and `onDone` so the next drill and the way back stay on that
+ * page; on /play/results the links work as before.
+ */
+export default function CallResults({ view, onNextDrill, onDone }: {
+  view: ResultsView;
+  onNextDrill?: (next: Recommendation) => void;
+  onDone?: () => void;
+}) {
   return (
     <section className="call-results" aria-labelledby="call-results-headline">
       <p className="call-results-eyebrow">{view.heading}</p>
@@ -38,7 +47,9 @@ export default function CallResults({ view }: { view: ResultsView }) {
         <p className="call-results-skill-label">{view.next.title}</p>
         <p className="call-results-why">{view.next.reason}</p>
         <p className="call-results-note">A new story: {view.next.scenario}. The caller may be real or a scam.</p>
-        <a className="call-results-link is-primary" href={view.next.href}>Start 60-second drill</a>
+        {onNextDrill
+          ? <button type="button" className="call-results-link is-primary" onClick={() => onNextDrill(view.next!)}>Start 60-second drill</button>
+          : <a className="call-results-link is-primary" href={view.next.href}>Start 60-second drill</a>}
       </section>}
 
       <div className="call-results-score" role="status">
@@ -53,14 +64,16 @@ export default function CallResults({ view }: { view: ResultsView }) {
 
       <p className="call-results-left">{view.callsLeft}</p>
 
-      <nav className="call-results-actions" aria-label="What next">
+      {onDone ? <nav className="call-results-actions" aria-label="What next">
+        <button type="button" className="call-results-link is-primary" onClick={onDone}>Back to your progress</button>
+      </nav> : <nav className="call-results-actions" aria-label="What next">
         <a className="call-results-link is-primary" href="/play">Play another</a>
         <a className="call-results-link" href="/dashboard?view=Progress">Your progress</a>
         {view.analysisUnlocked
           ? <a className="call-results-link" href="/me">See my analysis</a>
           : <span className="call-results-locked">Play one more call to unlock your analysis</span>}
         <a className="call-results-link" href="/leaderboard">Leaderboard</a>
-      </nav>
+      </nav>}
 
       {view.transcript.length > 0 && <details className="call-results-transcript" open>
         <summary>The call</summary>
