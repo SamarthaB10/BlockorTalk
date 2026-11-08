@@ -10,6 +10,8 @@ import type { Reply, Turn } from "../challenge/types.ts";
 import { SCENARIOS, type ScenarioId } from "./catalog.ts";
 import { leakedSecrets } from "./leaks.ts";
 
+if (typeof window !== "undefined") throw new Error("lib/practice/script.ts is server-only");
+
 export type CallType = "Real" | "Scam" | "Hijacked";
 export type Verdict = "Real" | "Scam" | "Unverified";
 export interface PracticeTurn { role: "caller" | "you"; text: string }
@@ -47,8 +49,13 @@ const SCRIPT: Record<ScenarioId, { type: CallType; opening: string; beats: reado
   },
 };
 
+/** Server-only: who the scenario's caller really is. Used to score history; never sent before a verdict. */
+export function callTypeOf(id: ScenarioId): CallType {
+  return SCRIPT[id].type;
+}
+
 export function isScenarioId(id: unknown): id is ScenarioId {
-  return typeof id === "string" && id in SCRIPT;
+  return typeof id === "string" && Object.hasOwn(SCRIPT, id);
 }
 
 /** Opening lines for a text call: the fixed disclosure, then the caller. */
