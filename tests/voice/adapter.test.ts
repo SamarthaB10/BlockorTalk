@@ -8,7 +8,6 @@ const AGENTS: AgentIds = {
   onboarding: "agent_o",
   fraud_team: "agent_f",
   bank_callback: "agent_b",
-  card_coach: "agent_c",
 };
 
 const KAI_CARD = {
