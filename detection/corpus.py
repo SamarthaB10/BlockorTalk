@@ -38,6 +38,7 @@ class Item:
     split: str
     source: str
     y_pred: int | None = None
+    scam_type: str | None = None
 
 
 @dataclass
@@ -200,6 +201,7 @@ def _item(row: dict, split: str) -> Item:
         split=split,
         source=row.get("source", split),
         y_pred=None if prediction is None else int(prediction),
+        scam_type=row.get("scam_type"),
     )
 
 
@@ -223,7 +225,8 @@ def _read_dialogue_csv(path: Path, split: str, source: str, label_column: str) -
         for row in csv.DictReader(handle):
             text = row["dialogue"]
             label = int(row[label_column])
-            items.append(Item(text=text, label=label, split=split, source=source))
+            items.append(Item(text=text, label=label, split=split, source=source,
+                              scam_type=row.get("type") if label else None))
     if not items:
         raise ValueError(f"{path} has no dialogues")
     return items

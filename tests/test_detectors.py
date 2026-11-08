@@ -12,6 +12,7 @@ import io
 from detection import evaluate
 import json
 import threading
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from detection.nvidia import NvidiaClient, NvidiaEmbeddings
 
@@ -28,6 +29,69 @@ class FakeLLM:
 
 
 class DetectorInterfaceTests(unittest.TestCase):
+    def test_evaluation_resumes_completed_items_without_vendor_access(self):
+        class LLM:
+            model = "fake-v1"
+            offline = False
+
+            def classify(self, text, examples):
+                if self.offline:
+                    raise RuntimeError("vendor unavailable")
+                return {"label": "scam" if "officer" in text else "legit",
+                        "scam_type": None, "confidence": 0.9, "red_flags": []}
+
+        llm = LLM()
+        def factory(corpus, mode):
+            return contextlib.nullcontext([NemotronDetector(llm)])
+
+        with tempfile.TemporaryDirectory() as directory:
+            args = ["--fixture", str(Path(__file__).parent / "fixtures/trainable.json"),
+                    "--detectors", "all", "--output", str(Path(directory) / "result.json")]
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(evaluate.main(args, detector_factory=factory), 0)
+                llm.offline = True
+                self.assertEqual(evaluate.main(args, detector_factory=factory), 0)
+            saved = json.loads((Path(directory) / "result.json").read_text())
+            self.assertEqual(len(saved["reports"][0]["groups"]["synthetic_test"]), 2)
+
+    def test_baseline_locates_repeated_phrases_and_model_avoids_ambiguous_quotes(self):
+        corpus = load_fixture(Path(__file__).parent / "fixtures/trainable.json")
+        result = TfidfBaseline().fit(corpus.train).detect(
+            "the officer demands a wire transfer right now; right now")
+        self.assertEqual([f["span"]["start"] for f in result["red_flags"] if f["tactic"] == "urgency"],
+                         [36, 47])
+        ambiguous = NemotronDetector(FakeLLM()).detect("User: right now? Caller: pay me right now")
+        self.assertIsNone(ambiguous["label"])
+        self.assertEqual(ambiguous["red_flags"], [])
+
+    def test_baseline_supplies_a_type_learned_from_training_annotations(self):
+        from dataclasses import replace
+        corpus = load_fixture(Path(__file__).parent / "fixtures/trainable.json")
+        train = [replace(i, scam_type="impersonation" if i.label else None) for i in corpus.train]
+        result = TfidfBaseline().fit(train).detect("the officer demands a wire transfer right now")
+        self.assertEqual(result["scam_type"], "impersonation")
+
+    def test_comparison_metrics_match_a_mixed_error_fixture(self):
+        corpus = load_fixture(Path(__file__).parent / "fixtures/metrics.json")
+
+        class LLM:
+            def classify(self, text, examples):
+                item = next(i for _, items in corpus.held_out() for i in items if i.text == text)
+                return {"label": "scam" if item.y_pred else "legit", "scam_type": None,
+                        "confidence": 0.9, "red_flags": []}
+
+        def factory(corpus, mode):
+            return contextlib.nullcontext([NemotronDetector(LLM())])
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = evaluate.main(["--fixture", str(Path(__file__).parent / "fixtures/metrics.json"),
+                                    "--detectors", "all"], detector_factory=factory)
+        self.assertEqual(status, 0)
+        for metric in ["accuracy: 0.7500", "precision: 0.6667", "recall: 1.0000", "f1: 0.8000",
+                       "confusion_matrix: [[1, 1], [0, 2]]", "detection_rate: 0.7500", "false_alarm_rate: 0.2500"]:
+            self.assertIn(metric, output.getvalue())
+
     def test_uncertain_and_invalid_vendor_answers_never_expose_a_label(self):
         class LLM:
             def __init__(self, payload):

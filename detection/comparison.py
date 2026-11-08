@@ -1,55 +1,84 @@
 """Confidence-aware evaluation. Abstentions remain visible and never count as correct."""
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import statistics
 import sys
 import time
+import threading
+from pathlib import Path
+from detection.metrics import classification_scores
 
 
-def score(corpus, detector, workers=1, clock=time.perf_counter):
+class Checkpoint:
+    def __init__(self, path, namespace):
+        self.path = path
+        self.namespace = namespace
+        self.lock = threading.Lock()
+        self.rows = {}
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:
+                    entry = json.loads(line)
+                    if entry["namespace"] == namespace:
+                        self.rows[entry["key"]] = entry["row"]
+                except (json.JSONDecodeError, KeyError):
+                    # An interrupted append may leave a partial final line.
+                    continue
+
+    def save(self, key, row):
+        with self.lock, self.path.open("a", encoding="utf-8") as output:
+            output.write(json.dumps({"namespace": self.namespace, "key": key, "row": row}) + "\n")
+            output.flush()
+            self.rows[key] = row
+
+
+def score(corpus, detector, workers=1, clock=time.perf_counter, checkpoint=None):
     def detect(item):
+        identity = hashlib.sha256(json.dumps([item.text, item.source, item.label]).encode()).hexdigest()
+        key = detector.name + ":" + identity
+        if checkpoint is not None and key in checkpoint.rows:
+            return checkpoint.rows[key]
         started = clock()
         result = detector.detect(item.text)
-        return {"id": hashlib.sha256(item.text.encode()).hexdigest(), "source": item.source,
-                "actual": item.label, "result": result, "seconds": clock() - started}
+        row = {"id": hashlib.sha256(item.text.encode()).hexdigest(), "source": item.source,
+               "actual": item.label, "result": result, "seconds": clock() - started}
+        if checkpoint is not None:
+            checkpoint.save(key, row)
+        return row
 
     groups = {}
-    with ThreadPoolExecutor(max_workers=workers) as executor:
+    executor = ThreadPoolExecutor(max_workers=workers)
+    try:
         for split, items in corpus.held_out():
-            rows = []
-            for row in executor.map(detect, items):
-                rows.append(row)
-                if len(rows) % 50 == 0:
-                    print(f"{detector.name}: {split} {len(rows)}/{len(items)}", file=sys.stderr, flush=True)
+            rows = [None] * len(items)
+            futures = {executor.submit(detect, item): index for index, item in enumerate(items)}
+            for completed, future in enumerate(as_completed(futures), 1):
+                rows[futures[future]] = future.result()
+                if completed % 50 == 0:
+                    print(f"{detector.name}: {split} {completed}/{len(items)}", file=sys.stderr, flush=True)
             groups[split] = rows
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
     return {"detector": detector.name, "groups": groups}
 
 
 def format_comparison(corpus, report):
     groups = report["groups"]
-    matrix = [[0, 0, 0], [0, 0, 0]]
-    for row in groups["synthetic_test"]:
-        label = row["result"]["label"]
-        column = {"legit": 0, "scam": 1, None: 2}[label]
-        matrix[row["actual"]][column] += 1
-    tn, fp, ua = matrix[0]
-    fn, tp, ub = matrix[1]
-    precision = tp / (tp + fp) if tp + fp else 0
-    recall = tp / (tp + fn + ub) if tp + fn + ub else 0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0
-    total = sum(sum(row) for row in matrix)
+    rows = groups["synthetic_test"]
+    metrics = classification_scores([row["actual"] for row in rows],
+        [{"legit": 0, "scam": 1, None: None}[row["result"]["label"]] for row in rows])
     times = [row["seconds"] for rows in groups.values() for row in rows]
-    shown_matrix = matrix if ua + ub else [matrix[0][:2], matrix[1][:2]]
+    shown_matrix = metrics["confusion_matrix"]
     lines = [f"detector: {report['detector']}", f"train: {len(corpus.train)}"]
     lines.extend(f"{split}: {len(rows)}" for split, rows in groups.items())
     lines.extend([
         f"median_detection_seconds: {statistics.median(times):.4f}", "", "Synthetic test",
-        f"accuracy: {(tn + tp) / total:.4f}", f"precision: {precision:.4f}",
-        f"recall: {recall:.4f}", f"f1: {f1:.4f}", f"confusion_matrix: {shown_matrix}",
+        f"accuracy: {metrics['accuracy']:.4f}", f"precision: {metrics['precision']:.4f}",
+        f"recall: {metrics['recall']:.4f}", f"f1: {metrics['f1']:.4f}", f"confusion_matrix: {shown_matrix}",
     ])
-    if ua + ub:
+    if len(shown_matrix[0]) == 3:
         lines.append("prediction_columns: legit, scam, uncertain (rows: legit, scam)")
     for split, heading, metric in (("real_calls", "Real calls", "detection_rate"),
                                     ("hard_negatives", "Hard negatives", "false_alarm_rate")):
@@ -77,8 +106,19 @@ def run(corpus, args, detector_factory, clock):
         raise ValueError("each scoring split must be non-empty")
     reports = []
     with detector_factory(corpus, args.detectors) as detectors:
+        path = args.checkpoint or (args.output.with_suffix(".jsonl") if args.output else None)
+        checkpoint = None
+        if path:
+            code = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(Path(__file__).parent.glob("*.py"))))
+            identity = [code.hexdigest(),
+                        [(i.text, i.label, i.source, i.scam_type) for i in corpus.train],
+                        [(d.name, getattr(getattr(d, "llm", None), "model", None),
+                          getattr(getattr(getattr(d, "pool", None), "embeddings", None), "model", None))
+                         for d in detectors]]
+            namespace = hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+            checkpoint = Checkpoint(path, namespace)
         for detector in detectors:
-            report = score(corpus, detector, args.workers, clock)
+            report = score(corpus, detector, args.workers, clock, checkpoint)
             reports.append(report)
             print(format_comparison(corpus, report), flush=True)
     if args.output:

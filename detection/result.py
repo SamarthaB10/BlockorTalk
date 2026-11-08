@@ -36,7 +36,16 @@ def result_from_quotes(text, payload):
         quote = flag.get("text")
         if not isinstance(quote, str) or not quote or quote not in text:
             return abstain()
-        start = text.index(quote)
+        start = flag.get("start")
+        if start is None:
+            # A vendor quote must identify one occurrence. Guessing the first can
+            # highlight a player's question instead of the caller's demand.
+            start = text.find(quote)
+            if text.find(quote, start + 1) != -1:
+                return abstain()
+        elif (isinstance(start, bool) or not isinstance(start, int) or start < 0
+              or text[start:start + len(quote)] != quote):
+            return abstain()
         anchored.append({"tactic": flag["tactic"], "span": {
             "start": start, "end": start + len(quote), "text": quote,
         }})

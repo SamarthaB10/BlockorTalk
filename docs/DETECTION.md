@@ -43,6 +43,11 @@ is a reproducible smoke sample per split (seed 7), explicitly labeled as such. T
 full corpus is leakage-checked before sampling. Historical issue #3 fixture commands
 without `--detectors` retain their canned binary report; use `--detectors all` to
 exercise the new confidence-aware comparison. Neither path trains Nemotron.
+With `--output`, completed items are appended to a neighboring `.jsonl` checkpoint.
+Rerun the same command to resume after a transport failure. `--checkpoint` sets a
+different location. Checkpoints are keyed by code, models, training corpus and
+scoring-item identity; changed code or data cannot silently reuse older predictions.
+Median times include the original measured calls for resumed items.
 
 The live detector model defaults to `nvidia/nemotron-3.5-super-vl-120b-a12b`;
 `NEMOTRON_DETECTOR_MODEL` overrides it. Embeddings use
@@ -76,9 +81,12 @@ At confidence below 0.6, or with malformed/unsupported output, the detector emit
 Transport failures fail the command with a nonzero exit code rather than inventing
 a result. No vendor body or database exception is printed.
 
-The baseline's confidence comes from logistic regression. Its binary training
-labels cannot teach scam types, so its `scam_type` is null and its tactic spans are
-explicit keyword explanations, not learned tactic predictions.
+The baseline's confidence comes from binary logistic regression. A second logistic
+classifier learns scam types (`ssn`, `refund`, `support`, `reward`) from the training
+CSV's type annotations. A fixture without type annotations reports `unknown` for a
+scam. Its tactic spans are explicit keyword explanations, not learned tactic predictions.
+Baseline spans preserve regex match offsets. A model quote occurring multiple times
+is rejected rather than guessing a speaker; the prompt requests unique surrounding words.
 
 Reports include synthetic accuracy, precision, recall, F1 and confusion matrix;
 real-call detection rate; hard-negative false-alarm rate; median detection seconds

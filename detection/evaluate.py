@@ -15,6 +15,7 @@ from pathlib import Path
 from detection.baseline import TfidfBaseline
 from detection.corpus import LeakageError, assert_no_leakage, load_fixture, load_real_corpus
 from detection.metrics import classification_scores, positive_rate
+from detection.nvidia import NvidiaError
 
 
 def legacy_fixture_main(argv: list[str] | None = None) -> int:
@@ -118,11 +119,12 @@ def main(argv=None, *, detector_factory=None, clock=time.perf_counter):
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--limit", type=int, help="Smoke run: maximum scored items per split (seed 7)")
     parser.add_argument("--output", type=Path, help="Save structured results, timings and abstentions as JSON")
+    parser.add_argument("--checkpoint", type=Path, help="Resume completed items from this JSONL file")
     args = parser.parse_args(argv)
     if args.workers < 1 or (args.limit is not None and args.limit < 1):
         parser.error("workers and limit must be positive")
     # Keep issue 3's canned-prediction fixture CLI stable. Live runs now default to all three.
-    if args.fixture and args.detectors is None and not args.limit and not args.output:
+    if args.fixture and args.detectors is None and not args.limit and not args.output and not args.checkpoint:
         return legacy_fixture_main(["--fixture", str(args.fixture)])
     args.detectors = args.detectors or "all"
     try:
@@ -132,6 +134,9 @@ def main(argv=None, *, detector_factory=None, clock=time.perf_counter):
         from detection.runtime import open_detectors
         return run(corpus, args, detector_factory or open_detectors, clock)
     except LeakageError as error:
+        print(error, file=sys.stderr)
+        return 1
+    except NvidiaError as error:
         print(error, file=sys.stderr)
         return 1
     except Exception as error:

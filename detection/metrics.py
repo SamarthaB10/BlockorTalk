@@ -21,19 +21,26 @@ def confusion_counts(y_true: list[int], y_pred: list[int]) -> tuple[int, int, in
     return tn, fp, fn, tp
 
 
-def classification_scores(y_true: list[int], y_pred: list[int]) -> dict[str, float | list[list[int]]]:
-    tn, fp, fn, tp = confusion_counts(y_true, y_pred)
-    total = tn + fp + fn + tp
+def classification_scores(y_true: list[int], y_pred: list[int | None]) -> dict[str, float | list[list[int]]]:
+    if len(y_true) != len(y_pred) or not y_true or any(y not in (0, 1) for y in y_true):
+        raise ValueError("predictions and binary labels must be the same non-empty length")
+    decided = [(actual, predicted) for actual, predicted in zip(y_true, y_pred) if predicted is not None]
+    tn, fp, fn, tp = (confusion_counts([a for a, _ in decided], [p for _, p in decided])
+                      if decided else (0, 0, 0, 0))
+    unknown_legit = sum(a == 0 and p is None for a, p in zip(y_true, y_pred))
+    unknown_scam = sum(a == 1 and p is None for a, p in zip(y_true, y_pred))
+    total = len(y_true)
     accuracy = (tn + tp) / total
     precision = tp / (tp + fp) if (tp + fp) else 0.0
-    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    recall = tp / (tp + fn + unknown_scam) if (tp + fn + unknown_scam) else 0.0
     f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
     return {
         "accuracy": accuracy,
         "precision": precision,
         "recall": recall,
         "f1": f1,
-        "confusion_matrix": [[tn, fp], [fn, tp]],
+        "confusion_matrix": ([[tn, fp, unknown_legit], [fn, tp, unknown_scam]]
+                             if unknown_legit + unknown_scam else [[tn, fp], [fn, tp]]),
     }
 
 

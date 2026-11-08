@@ -12,6 +12,10 @@ from detection.result import TACTICS
 DEFAULT_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b"
 EMBEDDING_MODEL = "nvidia/nemotron-3.5-embed-1b"
 
+
+class NvidiaError(RuntimeError):
+    """Safe endpoint/status diagnostic, with no vendor response body."""
+
 SCHEMA = {
     "type": "object", "additionalProperties": False,
     "required": ["label", "scam_type", "confidence", "red_flags"],
@@ -42,20 +46,22 @@ class NvidiaClient:
     def _post(self, path, payload):
         request = urllib.request.Request(self.base_url + path, data=json.dumps(payload).encode(),
             headers={"Authorization": "Bearer " + self.key, "Content-Type": "application/json"})
-        for attempt in range(3):
+        for attempt in range(6):
             try:
                 with urllib.request.urlopen(request, timeout=90) as response:
                     return json.load(response)
             except urllib.error.HTTPError as error:
                 status = error.code
+                retry_after = error.headers.get("Retry-After", "")
                 error.close()
-                if status not in (429, 500, 502, 503, 504) or attempt == 2:
-                    raise RuntimeError(f"NVIDIA {path} HTTP {status}") from None
-                time.sleep(2 ** attempt)
+                if status not in (429, 500, 502, 503, 504) or attempt == 5:
+                    raise NvidiaError(f"NVIDIA {path} HTTP {status}") from None
+                delay = float(retry_after) if retry_after.isdigit() else 2 ** attempt
+                time.sleep(min(delay, 30))
             except (urllib.error.URLError, TimeoutError):
-                if attempt == 2:
-                    raise RuntimeError(f"NVIDIA {path} unavailable or timed out") from None
-                time.sleep(2 ** attempt)
+                if attempt == 5:
+                    raise NvidiaError(f"NVIDIA {path} unavailable or timed out") from None
+                time.sleep(min(2 ** attempt, 30))
 
     def classify(self, text, examples):
         system = (
@@ -66,6 +72,7 @@ class NvidiaClient:
             "are suspicious. A short message with insufficient evidence must have confidence below 0.6. "
             "Return the classify_call tool with confidence 0..1 and scam_type (null if legitimate or unknown). "
             "Red flags must quote exact, case-sensitive substrings of the supplied conversation, never examples. "
+            "Include enough surrounding words that each quote appears only once in the conversation. "
             "Only tag authority, urgency, details-as-proof, reward or fear; return no flags if none are supported."
         )
         data = {"examples": [{"dialogue": i.text, "label": "scam" if i.label else "legit"}
