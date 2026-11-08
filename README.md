@@ -75,13 +75,23 @@ Run migrations from your machine with the direct URL. Branch previews have no se
 
 ### Calling a real phone (team only)
 
-**Call my phone** on a scenario card rings a real phone, but only numbers listed in `TELL_TEAM_PHONES`.
+**Call my phone** rings a real phone via ElevenLabs → Twilio. Only numbers in `TELL_TEAM_PHONES` are dialled. Browser **Play by voice** does not need Twilio.
 
-1. In ElevenLabs, open Phone Numbers, choose Import, then Twilio, and copy the new phone-number ID.
-2. Set `ELEVENLABS_PHONE_NUMBER_ID` to that ID. `ELEVENLABS_PHONE_PROVIDER` defaults to `twilio`; set it to `sip_trunk` for the Photon line.
-3. Set `TELL_TEAM_PHONES` to comma-separated E.164 numbers, for example `+15125550123,+14695550199`.
+**Free trial path**
 
-"Only team test phones can get a call right now" means the number isn't in `TELL_TEAM_PHONES`. "Phone calls aren't set up yet" means `ELEVENLABS_PHONE_NUMBER_ID` is missing. Twilio trial accounts can only call numbers verified in Twilio.
+1. [Twilio trial](https://www.twilio.com/try-twilio): get a free Voice number. Under **Verified Caller IDs**, verify the personal phone you want to ring (trial can only dial verified numbers).
+2. [ElevenLabs](https://elevenlabs.io) Agents free plan (includes call minutes). Create an API key.
+3. Put `ELEVENLABS_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` in `.env.local`, then run:
+
+```bash
+npm run voice:import-twilio
+```
+
+   Or import in the ElevenLabs UI: Phone Numbers → Import → Twilio.
+4. Set `ELEVENLABS_PHONE_NUMBER_ID` to the printed ID, `ELEVENLABS_PHONE_PROVIDER=twilio`, and `TELL_TEAM_PHONES` to your verified E.164 number(s), e.g. `+15125550123`.
+5. Copy `.env.local` to `.dev.vars` (`chmod 600`), restart `npm run dev`. For production: `npx wrangler secret put … --name blockortalk` for the same three phone secrets plus `ELEVENLABS_API_KEY`.
+
+"Only team test phones can get a call right now" means the number isn't in `TELL_TEAM_PHONES`. "Phone calls aren't set up yet" means `ELEVENLABS_PHONE_NUMBER_ID` is missing. Twilio trial accounts can only call numbers verified in Twilio. Set `ELEVENLABS_PHONE_PROVIDER=sip_trunk` only for the Photon line.
 
 ## More docs
 
