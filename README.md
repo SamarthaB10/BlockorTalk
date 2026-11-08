@@ -11,6 +11,11 @@ Tell trains people to spot phone scams by calling their real phone with AI calle
 
 Stack: Next.js · NVIDIA Nemotron · ElevenLabs Agents · Photon Spectrum Voice · TigerData
 
+Presenter risk meter: start a Challenge day, open `/presenter` in another tab,
+and select **Connect current day**. Copy that screen's link to a second device.
+See [the presenter guide](docs/PRESENTER.md) for privacy, scoring, and the remaining
+live latency and stage checks for issue #10.
+
 ## Run locally
 
 Install Node.js 24 and run `npm install`. Copy `.env.example` to `.env.local` and set `DATABASE_URL`, `DATABASE_URL_DIRECT`, `NVIDIA_API_KEY`, and `ELEVENLABS_API_KEY`. Use the pooled database URL for the app and the direct URL for migrations. Keep this file private.

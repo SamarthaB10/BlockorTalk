@@ -39,9 +39,12 @@ export type Challenge = {
   voiceSaved?: boolean;
   /** Number of raw cumulative voice messages already ingested; retries cannot append them twice. */
   voiceReceived?: number;
+  /** New browser connections get a fresh stream cursor; stale uploads cannot rejoin it. */
+  voiceSession?: string;
   /** The detective reveal, cached after the day completes. Not sent with day responses. */
   reveal?: import('./reveal.ts').RevealPayload;
 };
-export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; turns: VoiceTurnInput[] } | { type: 'voice_live'; callerId: CallerId; startedAt: string; turns: VoiceTurnInput[] };
+type VoiceSessionInput = { sessionId: string; callerId: CallerId; startedAt: string };
+export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; sessionId?: string; turns: VoiceTurnInput[] } | ({ type: 'voice_start' } & VoiceSessionInput) | ({ type: 'voice_live'; turns: VoiceTurnInput[] } & VoiceSessionInput);
 export type ReplyRequest = { turns: Turn[]; options: readonly string[] };
 export type Reply = (request: ReplyRequest) => Promise<string>;

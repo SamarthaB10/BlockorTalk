@@ -91,14 +91,14 @@ export default function Presenter() {
       <section className="presenter-caller" aria-label="Current claimed caller">
         <div><p className="presenter-eyebrow">{snapshot?.phase === 'complete' ? 'Day complete · last caller' : snapshot?.phase === 'call' ? 'On the line' : 'Current caller'}</p>
           <h1>{snapshot?.callerName ?? 'Connecting…'}</h1><p>{snapshot?.organization ?? 'Waiting for the Challenge day'}</p></div>
-        <SpritePlayer personality="detector" animation={animation} active={Boolean(working || speaking)} scale={1} />
+        {snapshot && (snapshot.phase === 'call' || snapshot.phase === 'verdict') && <SpritePlayer personality="detector" animation={animation} active={Boolean(working || speaking)} scale={1} />}
       </section>
       <section className="presenter-meter" aria-label="Live risk">
         <p className="presenter-eyebrow">Call risk</p>
         <div className="presenter-value"><span>{snapshot?.risk ?? '—'}</span><small>/100</small></div>
         <div className="presenter-bar" role="meter" aria-label="Call risk" aria-valuemin={0} aria-valuemax={100}
           {...(snapshot?.risk != null ? { 'aria-valuenow': snapshot.risk } : { 'aria-valuetext': 'No confident prediction yet' })}>
-          <div style={{ width: `${snapshot?.risk ?? 0}%` }} /></div>
+          <div style={{ transform: `scaleX(${(snapshot?.risk ?? 0) / 100})` }} /></div>
         <p className="presenter-status" role="status">{error || (snapshot ? late ? 'Detector is catching up · last received score shown' : statusText[snapshot.status] : 'Connecting to the Challenge day')}</p>
         <p className="presenter-turn">{snapshot?.scoredTurn != null ? `Last scored: turn ${snapshot.scoredTurn}` : 'No turn scored yet'}{snapshot?.currentTurn != null && ` · Current: turn ${snapshot.currentTurn}`}</p>
       </section>

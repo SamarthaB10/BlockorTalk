@@ -27,11 +27,16 @@ alive using the Worker's request lifecycle. Inference happens after the player
 response and outside the day transaction. Persisted leases prevent concurrent
 requests from scoring the same prefix twice. An interrupted lease expires after
 30 seconds; a later request can resume it. Presenter polling also resumes work.
+Two workers drain available prefixes, with at most two in flight per day. Current
+call work has priority over archived calls, so an earlier call's backlog does not
+serialize the next caller. There is no fixed three-prefix batch cutoff.
 
 Voice messages are uploaded as cumulative snapshots while the call continues.
 The service accepts each new message once, scores original fictional secrets
 before redaction, and retains the existing final-save path. A late snapshot for
 a previous call is rejected. A final save cannot double-count a live upload.
+Reconnecting establishes a new voice-session cursor while retaining prior turns;
+messages from the previous connection are rejected instead of losing new replies.
 
 Risk is `100 × confidence` for a scam prediction and `100 × (1 − confidence)` for
 a legitimate prediction, rounded to an integer. Below 60% confidence there is no
@@ -68,3 +73,15 @@ for risk fields or tactics. Live NVIDIA validation remains required if 429s pers
 Run the service tests against an isolated Postgres schema with `TEST_DATABASE_URL`
 set: `node --test tests/challenge-risk.test.mjs`. Run route and vendor-boundary tests
 with `npx vitest run tests/presenter-routes.test.ts tests/reveal-detector.test.ts`.
+
+## Acceptance status
+
+The November 7, 2026 live smoke check returned a correct scam prediction in
+3.37 seconds, before presenter polling. That does not meet the three-second
+end-to-end target. Hosted latency/capacity and the two-device/projector checks
+remain acceptance gates; #10 must stay open until they pass.
+
+The implementation review found and corrected four code issues: reconnects losing
+voice turns, serial prefix scoring, a fixed batch cutoff leaving backlog, and a
+mascot shown between calls. The standards review corrected width animation and
+internal-call test assertions, and consolidated voice serialization and call identity.

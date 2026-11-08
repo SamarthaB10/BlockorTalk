@@ -11,13 +11,15 @@ export type RiskPoint = {
   risk: number | null; label: 'scam' | 'legit' | null; tactics: Tactic[];
   lease?: string; leaseUntil?: number; retryAt?: number; attempts: number;
 };
-export type RiskCall = { callerId: CallerId; startedAt: string; series: RiskPoint[]; firstCorrectTurn: number | null; firstCorrectSeconds: number | null };
+type CallIdentity = { callerId: CallerId; startedAt: string };
+export type RiskCall = CallIdentity & { series: RiskPoint[]; firstCorrectTurn: number | null; firstCorrectSeconds: number | null };
 export type RiskState = { token: string; calls: RiskCall[]; cooldownUntil?: number };
+const sameCall = (a: CallIdentity, b: CallIdentity) => a.callerId === b.callerId && a.startedAt === b.startedAt;
 
 /** Enqueue only metadata in the day transaction; the saved, redacted turns remain the source. */
 export function queueRisk(day: Challenge) {
   day.risk ??= { token: crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', ''), calls: [] };
-  let call = day.risk.calls.find(call => call.callerId === day.callerId && call.startedAt === day.startedAt);
+  let call = day.risk.calls.find(call => sameCall(call, day));
   if (!call) {
     call = { callerId: day.callerId, startedAt: day.startedAt, series: [], firstCorrectTurn: null, firstCorrectSeconds: null };
     day.risk.calls.push(call);
@@ -29,8 +31,8 @@ export function queueRisk(day: Challenge) {
 }
 
 function transcriptFor(day: Challenge, call: RiskCall, point: RiskPoint): Transcript {
-  const saved = day.calls.find(saved => saved.callerId === call.callerId && (saved.startedAt ?? saved.turns[0]?.at) === call.startedAt);
-  const turns: Turn[] = saved?.turns ?? (day.callerId === call.callerId && day.startedAt === call.startedAt ? day.turns : []);
+  const saved = day.calls.find(saved => sameCall({ callerId: saved.callerId, startedAt: saved.startedAt ?? saved.turns[0]?.at }, call));
+  const turns: Turn[] = saved?.turns ?? (sameCall(day, call) ? day.turns : []);
   if (turns.length < point.turn) throw new Error('Risk transcript no longer available');
   return { id: `${day.id}:${call.callerId}:${call.startedAt}:${point.turn}`, persona_id: call.callerId, verdict: null,
     turns: turns.slice(0, point.turn).map((turn, index) => ({ turn: index + 1, speaker: turn.role === 'user' ? 'player' : 'caller', text: turn.text,
@@ -64,7 +66,7 @@ export function createRiskService({ connectionString, detect, now = Date.now }: 
         const result = await client.query('SELECT state FROM tell_challenges WHERE id = $1', [id]);
         const day = result.rows[0]?.state as Challenge | undefined;
         if (!day?.risk || day.risk.token !== token) return null;
-        const call = day.risk.calls.find(call => call.callerId === day.callerId && call.startedAt === day.startedAt);
+        const call = day.risk.calls.find(call => sameCall(call, day));
         const last = call?.series.at(-1);
         const scored = call?.series.findLast(point => point.status === 'done');
         return {
@@ -78,50 +80,59 @@ export function createRiskService({ connectionString, detect, now = Date.now }: 
       } finally { await client.end(); }
     },
     async score(id: string) {
-      // Three prefixes fit within the Worker's background lifetime at the detector's 7-second cap.
-      for (let n = 0; n < 3; n++) {
-        const job = await mutate(id, day => {
-          const calls = day.risk?.calls ?? [];
-          if ((day.risk?.cooldownUntil ?? 0) > now()) return null;
-          if (calls.some(call => call.series.some(point => point.status === 'scoring' && (point.leaseUntil ?? 0) > now()))) return null;
-          for (const call of calls) {
-            const point = call.series.find(point => (point.status === 'pending' && (point.retryAt ?? 0) <= now()) || (point.status === 'scoring' && (point.leaseUntil ?? 0) <= now()));
-            if (!point) continue;
-            const transcript = transcriptFor(day, call, point);
-            point.status = 'scoring'; point.lease = crypto.randomUUID(); point.leaseUntil = now() + 30000; point.attempts++;
-            return { callerId: call.callerId, startedAt: call.startedAt, turn: point.turn, lease: point.lease, transcript };
-          }
-          return null;
-        });
-        if (!job) return;
-        let result: Detection | undefined;
-        let limited: DetectorRateLimitError | undefined;
-        try { result = await detect(job.transcript); }
-        catch (error) { if (error instanceof DetectorRateLimitError) limited = error; }
-        await mutate(id, day => {
-          const call = day.risk?.calls.find(call => call.callerId === job.callerId && call.startedAt === job.startedAt);
-          const point = call?.series.find(point => point.turn === job.turn && point.lease === job.lease);
-          if (!call || !point) return;
-          point.status = result ? 'done' : 'unavailable';
-          delete point.lease; delete point.leaseUntil;
-          if (limited && day.risk) {
-            day.risk.cooldownUntil = Math.max(limited.retryAt, now() + Math.min(30000 * 2 ** (point.attempts - 1), 300000));
-            if (point.attempts < 3) { point.status = 'pending'; point.retryAt = day.risk.cooldownUntil; }
-          }
-          if (result && Number.isFinite(result.confidence) && result.confidence >= .6 && result.confidence <= 1 && (result.label === 'scam' || result.label === 'legit')) {
-            point.label = result.label;
-            point.risk = Math.round(100 * (result.label === 'scam' ? result.confidence : 1 - result.confidence));
-            point.tactics = [...new Set(result.red_flags.filter(flag => {
-              const turn = job.transcript.turns.find(turn => turn.turn === flag.turn);
-              return TACTICS.includes(flag.tactic) && turn?.text.slice(flag.span.start, flag.span.end) === flag.span.text;
-            }).map(flag => flag.tactic as Tactic))];
-          }
-          const expected = call.callerId === 'recruiter' ? 'legit' : 'scam';
-          const first = call.series.find(point => point.status === 'done' && point.label === expected);
-          call.firstCorrectTurn = first?.turn ?? null;
-          call.firstCorrectSeconds = first ? Math.max(0, (Date.parse(first.at) - Date.parse(call.startedAt)) / 1000) : null;
-        });
+      async function drain() {
+        while (true) {
+          const job = await mutate(id, day => {
+            const calls = day.risk?.calls ?? [];
+            if ((day.risk?.cooldownUntil ?? 0) > now()) return null;
+            const active = calls.flatMap(call => call.series).filter(point => point.status === 'scoring' && (point.leaseUntil ?? 0) > now()).length;
+            if (active >= 2) return null;
+            // Current-call prefixes have priority over archived backlog. Each prefix has its own lease.
+            const ordered = [...calls.filter(call => sameCall(call, day)), ...calls.filter(call => !sameCall(call, day))];
+            for (const call of ordered) {
+              const point = call.series.find(point => (point.status === 'pending' && (point.retryAt ?? 0) <= now()) || (point.status === 'scoring' && (point.leaseUntil ?? 0) <= now()));
+              if (!point) continue;
+              const transcript = transcriptFor(day, call, point);
+              point.status = 'scoring'; point.lease = crypto.randomUUID(); point.leaseUntil = now() + 30000; point.attempts++;
+              return { callerId: call.callerId, startedAt: call.startedAt, turn: point.turn, lease: point.lease, transcript };
+            }
+            return null;
+          });
+          if (!job) return;
+          let result: Detection | undefined;
+          let limited: DetectorRateLimitError | undefined;
+          try { result = await detect(job.transcript); }
+          catch (error) { if (error instanceof DetectorRateLimitError) limited = error; }
+          await mutate(id, day => {
+            const call = day.risk?.calls.find(call => sameCall(call, job));
+            const point = call?.series.find(point => point.turn === job.turn && point.lease === job.lease);
+            if (!call || !point) return;
+            point.status = result ? 'done' : 'unavailable';
+            delete point.lease; delete point.leaseUntil;
+            if (limited && day.risk) {
+              day.risk.cooldownUntil = Math.max(day.risk.cooldownUntil ?? 0, limited.retryAt, now() + Math.min(30000 * 2 ** (point.attempts - 1), 300000));
+              if (point.attempts < 3) { point.status = 'pending'; point.retryAt = day.risk.cooldownUntil; }
+            }
+            if (result && Number.isFinite(result.confidence) && result.confidence >= .6 && result.confidence <= 1 && (result.label === 'scam' || result.label === 'legit')) {
+              point.label = result.label;
+              point.risk = Math.round(100 * (result.label === 'scam' ? result.confidence : 1 - result.confidence));
+              point.tactics = [...new Set(result.red_flags.filter(flag => {
+                const turn = job.transcript.turns.find(turn => turn.turn === flag.turn);
+                return TACTICS.includes(flag.tactic) && turn?.text.slice(flag.span.start, flag.span.end) === flag.span.text;
+              }).map(flag => flag.tactic as Tactic))];
+            }
+            const expected = call.callerId === 'recruiter' ? 'legit' : 'scam';
+            const first = call.series.find(point => point.status === 'done' && point.label === expected);
+            call.firstCorrectTurn = first?.turn ?? null;
+            call.firstCorrectSeconds = first ? Math.max(0, (Date.parse(first.at) - Date.parse(call.startedAt)) / 1000) : null;
+          });
+        }
       }
+      // One slow player prefix cannot serialize the caller's response. Both workers drain to empty,
+      // including turns arriving during inference; a runtime interruption leaves reclaimable leases.
+      const results = await Promise.allSettled([drain(), drain()]);
+      const failed = results.find(result => result.status === 'rejected');
+      if (failed?.status === 'rejected') throw failed.reason;
     },
   };
 }

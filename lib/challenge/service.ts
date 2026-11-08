@@ -100,9 +100,13 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (day.callerId === 'recruiter' && (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.some(event => event.surface === 'portal')))) day.interview = 'BOOKED';
           day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked, startedAt: day.startedAt, endedAt: day.endedAt, endReason: day.endReason });
           day.phase = day.callerId === 'fraud_team' ? 'complete' : 'between';
+        } else if (action?.type === 'voice_start') {
+          if (day.phase !== 'call' || action.callerId !== day.callerId || action.startedAt !== day.startedAt) throw new ChallengeError('That transcript belongs to a different call.');
+          if (day.voiceSession !== action.sessionId) { day.voiceSession = action.sessionId; day.voiceReceived = 0; day.voiceSaved = false; }
         } else if (action?.type === 'voice_turns' || action?.type === 'voice_live') {
           const live = action.type === 'voice_live';
           if (live && (action.callerId !== day.callerId || action.startedAt !== day.startedAt)) throw new ChallengeError('That transcript belongs to a different call.');
+          if ((day.voiceSession || action.sessionId || live) && action.sessionId !== day.voiceSession) throw new ChallengeError('That transcript belongs to a different voice session.');
           // Live snapshots grow cumulatively. Retries, out-of-order snapshots and the final save
           // only append messages not previously accepted; scoring still sees the original text.
           if (day.voiceSaved) { await client.query('COMMIT'); return day; }
@@ -141,7 +145,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (day.phase !== 'between') throw new ChallengeError('Give this caller a verdict before the next call.');
           const callerId = CALL_ORDER[CALL_ORDER.indexOf(day.callerId) + 1];
           const at = new Date(now()).toISOString();
-          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false, voiceSaved: false, voiceReceived: 0,
+          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false, voiceSaved: false, voiceReceived: 0, voiceSession: undefined,
             turns: [{ role: 'system', text: DISCLOSURE, at }, { role: 'assistant', text: CALLERS[callerId].opening, at, source: 'script' }] });
         } else if (action?.type === 'bank') {
           day.events.push({ type: 'Verify', surface: 'bank', at: new Date(now()).toISOString() });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Action, Challenge } from '../../lib/challenge/types';
+import type { Action, Challenge, VoiceTurnInput } from '../../lib/challenge/types';
 import { CALLERS, CALL_ORDER, CALLBACK_LINES, FAKE_SECRETS } from '../../lib/challenge/scenarios';
 import { Sheet, Toast, Stamp } from '../components/ui';
 // Browser-safe voice modules only: never personas.ts, adapter.ts or agentConfig.ts (they hold the prompts).
@@ -21,6 +21,7 @@ type Mode = 'text' | 'voice';
 /** connecting → live → ended, or failed / mic-denied. Never a spinner: every state is a still line of text. */
 type VoiceState = 'connecting' | 'live' | 'ended' | 'failed' | 'mic-denied';
 type VoiceTurn = { role: TurnRole; message: string };
+const voiceSnapshot = (turns: VoiceTurn[]): VoiceTurnInput[] => turns.slice(0, 40).map(turn => ({ role: turn.role === 'user' ? 'user' : 'assistant', text: turn.message.slice(0, 1000) }));
 const REPLY_CAP = 12;
 
 function usePrefersReducedMotion() {
@@ -112,6 +113,7 @@ export default function ChallengeBoard() {
   // Live snapshots are cumulative: a failed upload is recovered by the next turn or final save.
   const voiceLog = useRef<VoiceTurn[]>([]);
   const voiceUploads = useRef<Promise<void>>(Promise.resolve());
+  const voiceSession = useRef<string | undefined>(undefined);
   const voiceSaved = useRef(false);
   const [savingVoice, setSavingVoice] = useState(false);
   const [voiceSaveError, setVoiceSaveError] = useState(false);
@@ -155,10 +157,11 @@ export default function ChallengeBoard() {
     if (voiceSaved.current || !voiceLog.current.length) return;
     voiceSaved.current = true;
     setSavingVoice(true); setVoiceSaveError(false);
+    const sessionId = voiceSession.current;
     try {
       await voiceUploads.current;
-      const turns = voiceLog.current.slice(0, 40).map(turn => ({ role: turn.role === 'user' ? 'user' : 'assistant', text: turn.message.slice(0, 1000) }));
-      const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'voice_turns', turns }) });
+      const turns = voiceSnapshot(voiceLog.current);
+      const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'voice_turns', sessionId, turns }) });
       const result = await response.json() as { day: Challenge | null };
       if (!response.ok || !result.day) throw new Error('Voice transcript not saved.');
       setDay(result.day);
@@ -187,6 +190,10 @@ export default function ChallengeBoard() {
     if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
     if (!current()) return;
     const callStartedAt = dayRef.current?.startedAt;
+    const sessionId = crypto.randomUUID();
+    voiceSession.current = sessionId;
+    if (!callStartedAt || !(await act({ type: 'voice_start', sessionId, callerId, startedAt: callStartedAt }))) { if (current()) setVoice('failed'); return; }
+    if (!current()) return;
     let token: string | undefined;
     try {
       const response = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callerId }) });
@@ -201,10 +208,10 @@ export default function ChallengeBoard() {
           if (!current()) return;
           voiceLog.current.push(turn);
           setVoiceTurns(turns => [...turns, turn]);
-          const turns = voiceLog.current.slice(0, 40).map(turn => ({ role: turn.role === 'user' ? 'user' : 'assistant', text: turn.message.slice(0, 1000) }));
+          const turns = voiceSnapshot(voiceLog.current);
           if (callStartedAt) voiceUploads.current = voiceUploads.current.then(async () => {
             await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(5000),
-              body: JSON.stringify({ type: 'voice_live', callerId, startedAt: callStartedAt, turns }) });
+              body: JSON.stringify({ type: 'voice_live', sessionId, callerId, startedAt: callStartedAt, turns }) });
           }).catch(() => { /* The next cumulative snapshot retries the missing messages. */ });
           if (turn.role !== 'user') { if (callerId === 'fraud_team' && /\bcode\b/i.test(turn.message)) setVoiceCode(true); return; }
           repliesRef.current += 1;

@@ -12,7 +12,7 @@ export function json(value: unknown, status = 200, headers: Record<string, strin
 /** Player responses never include presenter capability, scores or cached reveal. */
 export function playerView(day: Challenge | null) {
   if (!day) return day;
-  const { reveal: _reveal, risk: _risk, voiceReceived: _voiceReceived, ...rest } = day;
+  const { reveal: _reveal, risk: _risk, voiceReceived: _voiceReceived, voiceSession: _voiceSession, ...rest } = day;
   return rest;
 }
 function failure(error: unknown) {
@@ -43,9 +43,11 @@ export function createChallengeHandlers(service: () => ReturnType<typeof createC
           return json({ day: playerView(day) }, 201, { 'Set-Cookie': `${COOKIE}=${day.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secure}` });
         }
         const voice = (action.type === 'voice_turns' || action.type === 'voice_live') && 'turns' in action && Array.isArray(action.turns) && action.turns.length <= 40 && action.turns.every((turn: unknown) => !!turn && typeof turn === 'object' && 'text' in turn && typeof turn.text === 'string' && turn.text.length <= 1000 && 'role' in turn && (turn.role === 'assistant' || turn.role === 'user'));
-        const live = action.type !== 'voice_live' || ('callerId' in action && ['recruiter', 'onboarding', 'fraud_team'].includes(String(action.callerId)) && 'startedAt' in action && typeof action.startedAt === 'string');
+        const voiceSession = 'sessionId' in action && typeof action.sessionId === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(action.sessionId);
+        const live = voiceSession && 'callerId' in action && ['recruiter', 'onboarding', 'fraud_team'].includes(String(action.callerId)) && 'startedAt' in action && typeof action.startedAt === 'string';
         const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next'].includes(String(action.type)) ||
-          (action.type === 'reply' && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) || (voice && live) ||
+          (action.type === 'reply' && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) ||
+          (voice && (action.type === 'voice_live' ? live : !('sessionId' in action) || voiceSession)) || (action.type === 'voice_start' && live) ||
           (action.type === 'verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict));
         if (!valid) return json({ error: 'Invalid challenge action.' }, 400);
         const id = session(request);

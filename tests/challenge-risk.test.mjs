@@ -72,7 +72,9 @@ test('live spoken turns are scored before hang-up and a final save never duplica
   const { service, risk } = await fixture(t, async () => ({ source: 'fake', label: 'legit', scam_type: null, confidence: .9, red_flags: [] }));
   let day = await service.start();
   const turns = [{ role: 'assistant', text: 'Tuesday at 10 AM works. Check the candidate portal.' }, { role: 'user', text: 'Yes, thank you.' }];
-  const action = { type: 'voice_live', callerId: day.callerId, startedAt: day.startedAt, turns };
+  const sessionId = crypto.randomUUID();
+  await service.act(day.id, { type: 'voice_start', callerId: day.callerId, startedAt: day.startedAt, sessionId });
+  const action = { type: 'voice_live', callerId: day.callerId, startedAt: day.startedAt, sessionId, turns };
   day = await service.act(day.id, action);
   assert.equal(day.phase, 'call');
   assert.equal(day.replies, 1);
@@ -83,7 +85,7 @@ test('live spoken turns are scored before hang-up and a final save never duplica
   await service.act(day.id, { type: 'end' });
   turns.push({ role: 'assistant', text: 'Glad to help. Goodbye.' });
   await service.act(day.id, { ...action, turns });
-  day = await service.act(day.id, { type: 'voice_turns', turns });
+  day = await service.act(day.id, { type: 'voice_turns', sessionId, turns });
   assert.equal(day.turns.length, 5, 'a live upload racing hang-up must survive the final flush');
   await service.act(day.id, { type: 'verdict', verdict: 'Real' });
   await service.act(day.id, { type: 'next' });
@@ -121,7 +123,7 @@ test('a slow detector holds no game lock and concurrent workers do not score a t
   const { service, risk } = await fixture(t, async transcript => {
     scored.push(transcript.id);
     entered();
-    await waiting;
+    if (scored.length === 1) await waiting;
     return { source: 'fake', label: 'legit', scam_type: null, confidence: .9, red_flags: [] };
   });
   const day = await service.start();
@@ -136,9 +138,58 @@ test('a slow detector holds no game lock and concurrent workers do not score a t
     ]);
     assert.equal(updated.replies, 1);
     await risk.score(day.id);
-    assert.equal(scored.length, 1, 'another worker must respect the persisted lease');
+    assert.equal(new Set(scored).size, scored.length, 'another worker must respect each persisted lease');
   } finally { clearTimeout(timer); release(); }
   await background;
   assert.equal(new Set(scored).size, 3);
   assert.equal(scored.length, 3);
+});
+
+test('a resumed voice session keeps its new turns and rejects messages from the old session', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t, async () => ({ source: 'fake', label: null, scam_type: null, confidence: .5, red_flags: [] }));
+  let day = await service.start();
+  await service.act(day.id, { type: 'end' });
+  await service.act(day.id, { type: 'verdict', verdict: 'Real' });
+  day = await service.act(day.id, { type: 'next' });
+  const identity = { callerId: day.callerId, startedAt: day.startedAt };
+  const first = crypto.randomUUID();
+  const second = crypto.randomUUID();
+  await service.act(day.id, { type: 'voice_start', ...identity, sessionId: first });
+  await service.act(day.id, { type: 'voice_live', ...identity, sessionId: first, turns: [{ role: 'assistant', text: 'Can we confirm the equipment shipment?' }, { role: 'user', text: 'Tell me more.' }] });
+  await service.act(day.id, { type: 'voice_start', ...identity, sessionId: second });
+  day = await service.act(day.id, { type: 'voice_live', ...identity, sessionId: second, turns: [{ role: 'user', text: '4729' }] });
+  assert.equal(day.replies, 2);
+  assert.deepEqual(day.leaked, ['gift_card_code']);
+  await assert.rejects(service.act(day.id, { type: 'voice_live', ...identity, sessionId: first, turns: [] }), /different voice session/);
+});
+
+test('a caller prefix can finish while the preceding player prefix is still scoring', { skip: !databaseUrl }, async t => {
+  let release;
+  const waiting = new Promise(resolve => { release = resolve; });
+  const { service, risk } = await fixture(t, async transcript => {
+    const turn = transcript.turns.at(-1).turn;
+    if (turn === 3) await waiting;
+    if (turn === 4) release();
+    return { source: 'fake', label: 'legit', scam_type: null, confidence: .9, red_flags: [] };
+  });
+  const day = await service.start();
+  await risk.score(day.id);
+  await service.act(day.id, { type: 'reply', text: 'Yes, Tuesday works.' });
+  const background = risk.score(day.id);
+  let timer;
+  try {
+    await Promise.race([background, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('The caller prefix waited behind the player prefix')), 5000); })]);
+  } finally { clearTimeout(timer); release(); await background; }
+  const saved = await service.get(day.id);
+  assert.deepEqual(saved.risk.calls[0].series.map(point => point.status), ['done', 'done', 'done']);
+});
+
+test('one background run drains more than three queued prefixes without another presenter poll', { skip: !databaseUrl }, async t => {
+  const { service, risk } = await fixture(t, async () => ({ source: 'fake', label: 'legit', scam_type: null, confidence: .9, red_flags: [] }));
+  const day = await service.start();
+  for (let n = 0; n < 3; n++) await service.act(day.id, { type: 'reply', text: 'Tell me more.' });
+  await risk.score(day.id);
+  const saved = await service.get(day.id);
+  assert.equal(saved.risk.calls[0].series.length, 7);
+  assert.ok(saved.risk.calls[0].series.every(point => point.status === 'done'));
 });
