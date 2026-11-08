@@ -27,6 +27,8 @@ test('the page is Block or Talk, with four moves and no product catalog', () => 
   assert.match(html, /Rhea Okafor/);
   assert.match(html, /Mara Elling/);
   assert.match(html, /href="\/challenge"/);
+  assert.match(html, /frameDir/);
+  assert.doesNotMatch(html, /pointermove|Math\.sin\(t/);
   assert.match(html, /@font-face/);
   assert.match(html, /Schibsted Grotesk/);
   assert.match(html, /IBM Plex Mono/);
