@@ -19,9 +19,10 @@ import ProgressPanel from './ProgressPanel';
 import ProfilePanel from './ProfilePanel';
 import { isSkillId, type SkillId } from '../../lib/skills/catalog';
 
+import NewsAlerts, { PickNote, type Alert, type AlertNote } from './NewsAlerts';
+
 type View = DashboardView;
 type Turn = { role: 'caller' | 'you'; text: string };
-type Alert = { title: string; link: string; summary: string; date?: string };
 
 export default function Dashboard({ initialView = 'Home', returnTo = null, skill = null }: { initialView?: View; returnTo?: string | null; skill?: SkillId | null }) {
   const [skillParam, setSkillParam] = useState<SkillId | null>(skill);
@@ -107,7 +108,29 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     } catch (failure) { if (attempt === connection.current) { setError(failure instanceof Error ? failure.message : 'Voice did not connect.'); setEnded(true); } }
     finally { if (attempt === connection.current) setConnecting(false); }
   }
-  function navigate(next: View) { stopVoice(); setView(next); setScenario(null); setError(''); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
+  const [planning, setPlanning] = useState<string | null>(null);
+  const [alertNote, setAlertNote] = useState<AlertNote | null>(null);
+  /** "Practice this call": the Drill Planner picks the catalog scenario for this alert, then it starts by voice. */
+  async function practiceAlert(link: string) {
+    const attempt = connection.current;
+    setPlanning(link); setAlertNote(null); setError('');
+    try {
+      const response = await fetch('/api/practice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'plan', focus: link }) });
+      const value = await response.json() as { error?: string; plan?: { path: 'agent' | 'fixed'; reason: string; drill: { id: string; org: string; category?: string } } };
+      if (!response.ok || !value.plan || !scenarioVoiceVariables(value.plan.drill.id)) throw new Error(value.error ?? 'The Drill Planner is unavailable. Try again in a moment.');
+      const { drill, reason, path } = value.plan;
+      const note = { link, pick: { link, id: drill.id, category: drill.category ?? drill.org, reason, path } };
+      setAlertNote(note);
+      // Long enough to read the pick before the call screen replaces the alert list.
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (attempt !== connection.current) return;
+      navigate('Scenarios'); setAlertNote(note);
+      void practiceVoice(drill.id);
+    } catch (failure) {
+      if (attempt === connection.current) setAlertNote({ link, error: failure instanceof Error ? failure.message : 'The Drill Planner is unavailable. Try again in a moment.' });
+    } finally { setPlanning(null); }
+  }
+  function navigate(next: View) { stopVoice(); setView(next); setScenario(null); setError(''); setAlertNote(null); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
   return <main className="hub">
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
@@ -121,19 +144,9 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     </section>}
     {view === 'Scenarios' && !scenario && <form className="hub-card hub-phone" onSubmit={event => event.preventDefault()}><label htmlFor="test-phone">Test on a real phone</label><input id="test-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="(512) 555-0123" value={testPhone} onChange={event => setTestPhone(event.target.value)} /><p>Team test numbers only. Choose “Call my phone” on a scenario and an AI practice caller rings this number, opening with the practice disclosure.</p></form>}
     {view === 'Scenarios' && !scenario && <section className="hub-library">{SCENARIOS.map((item, index) => <article className="hub-card hub-scenario" key={item.id}><ScenarioMascot index={index} /><h2>{item.caller}</h2><p>{item.org}</p><p>{item.card}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button>{phoneButton(item.id)}</article>)}{scenarioCatalog.map((item, index) => <article className="hub-card hub-scenario" key={item.id}><ScenarioMascot index={index + SCENARIOS.length} /><h2>{SCENARIO_CALLERS[item.id]}</h2><p>{item.category}</p><p>{item.org}</p><p>{item.card.facts[0]}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button>{phoneButton(item.id)}</article>)}</section>}
-    {view === 'Scenarios' && scenario && !SCENARIOS.some(item => item.id === scenario) && (() => { const row = scenarioCatalog.find(item => item.id === scenario)!; return <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); }}>← All scenarios</button><h2>{SCENARIO_CALLERS[row.id]} · {row.org}</h2><p>{row.card.facts[0]} Use fictional details only. Your practice code is {row.secrets[0]?.value}; keep it to yourself.</p><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'AI practice caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation></section>; })()}
+    {view === 'Scenarios' && scenario && !SCENARIOS.some(item => item.id === scenario) && (() => { const row = scenarioCatalog.find(item => item.id === scenario)!; return <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setAlertNote(null); }}>← All scenarios</button><h2>{SCENARIO_CALLERS[row.id]} · {row.org}</h2>{alertNote?.pick?.id === row.id && <PickNote pick={alertNote.pick} />}<p>{row.card.facts[0]} Use fictional details only. Your practice code is {row.secrets[0]?.value}; keep it to yourself.</p><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'AI practice caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation></section>; })()}
     {view === 'Scenarios' && scenario && SCENARIOS.some(item => item.id === scenario) && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'Caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{ended && turns.length > 0 && <><h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy} onClick={() => void giveVerdict(scenario as ScenarioId, verdict)}>{verdict}</button>)}</div></>}</>}</section>}
-    {view === 'News' && <section className="hub-library hub-newspapers" aria-label="Consumer alerts">
-      {newsState && <p role="status">{newsState} <a href="https://consumer.ftc.gov/consumer-alerts">Read FTC alerts ↗</a></p>}
-      {alerts.map((item, index) => <a className="hub-newspaper" key={item.link} href={item.link} target="_blank" rel="noreferrer" aria-labelledby={`news-title-${index}`}>
-        <img src={index % 2 === 0 ? '/news/newspaper-pixel.png' : '/news/newspaper-stack.png'} alt="" width={index % 2 === 0 ? 980 : 415} height={index % 2 === 0 ? 980 : 739} loading="lazy" />
-        <div className="hub-newspaper-headline">
-
-          <h2 id={`news-title-${index}`}>{item.title}</h2>
-          <span className="hub-newspaper-source">Read the source ↗<span className="ui-sr-only"> (opens in a new tab)</span></span>
-        </div>
-      </a>)}
-    </section>}
+    {view === 'News' && <NewsAlerts alerts={alerts} status={newsState} planning={planning} note={alertNote} onPractice={link => void practiceAlert(link)} />}
     {view === 'Leaderboard' && <Leaderboard embedded />}
     {view === 'Progress' && <ProgressPanel initialSkill={skillParam} onSignIn={() => navigate('Profile')} />}
     {view === 'Profile' && <ProfilePanel returnTo={returnTo} />}
