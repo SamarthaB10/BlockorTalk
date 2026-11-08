@@ -1,7 +1,7 @@
 // SERVER-ONLY: these prompts say which agent is real. Browser code imports ./scenarioVoice instead.
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import type { ScenarioAgentKey } from "./adapter";
-import { DEFAULT_VOICE_LLM, type AgentConfigOptions } from "./agentConfig";
+import { DEFAULT_VOICE_LLM, TRAINING_PURPOSE, type AgentConfigOptions } from "./agentConfig";
 import { DISCLOSURE_LINE, DRILL_MAX_SECONDS } from "./disclosure";
 import { SCENARIO_VARIABLE_NAMES } from "./scenarioVoice";
 
@@ -43,8 +43,8 @@ You are {{caller_name}}, a calm caller from {{org}}.
 - Never ask for a code, PIN, password, date of birth, address, or the practice code.
 
 ${SHARED}`,
-  scenario_scam: `# Personality
-You are {{caller_name}}, a brisk caller from {{org}} who wants the notice finished on this call.
+  scenario_scam: `# Role
+You play {{caller_name}}, a brisk caller from the fictional {{org}} who wants the notice finished on this call. This training character shows the warning sign of asking for a code, so the player can practise refusing.
 
 # Goal
 1. Confirm you are speaking with {{player_name}}.
@@ -72,7 +72,7 @@ export function buildScenarioAgentConfig(id: ScenarioAgentKey, opts: AgentConfig
         maxConversationDurationMessage: "We're out of time for this practice call. Goodbye!",
         dynamicVariables: { dynamic_variable_placeholders: { ...DEFAULTS } },
         prompt: {
-          prompt: PROMPTS[id],
+          prompt: `${TRAINING_PURPOSE}\n\n${PROMPTS[id]}`,
           llm: opts.llm ?? DEFAULT_VOICE_LLM,
           temperature: 0.4,
           builtInTools: { endCall: { name: "end_call", params: { systemToolType: "end_call" } } },

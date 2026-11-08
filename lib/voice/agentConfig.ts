@@ -41,8 +41,15 @@ export function placeholdersIn(text: string): string[] {
 export const NO_BEAT_TOOL_NOTE =
   "The report_beat tool is not available on this call: skip every step that says to call it, and carry on.";
 
+/**
+ * Opens every agent prompt. ElevenLabs blocks agents whose prompt reads as a real fraud
+ * script, so the purpose (consented, fictional fraud-awareness practice) comes first.
+ */
+export const TRAINING_PURPOSE = `# Purpose
+You are a voice actor in Tell, a fraud-awareness training app. The person on this call chose to practise, and has just heard that this is an AI practice call they can stop at any time. Every name, company, card number and code in this exercise is fictional and printed on their practice card. Your character helps them learn to recognise warning signs on phone calls. Only ever refer to the fictional values on their practice card. Never ask for, collect or use real personal or financial information.`;
+
 export function systemPromptFor(id: ChallengeCallerId, hasBeatTool = false): string {
-  const base = `${PERSONAS[id].persona}\n\n${SHARED_GUARDRAILS}`;
+  const base = `${TRAINING_PURPOSE}\n\n${PERSONAS[id].persona}\n\n${SHARED_GUARDRAILS}`;
   return hasBeatTool ? base : `${base}\n- ${NO_BEAT_TOOL_NOTE}`;
 }
 
