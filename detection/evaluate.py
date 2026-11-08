@@ -116,7 +116,7 @@ def main(argv=None, *, detector_factory=None, clock=time.perf_counter):
     parser = argparse.ArgumentParser(description="Compare baseline, zero-shot and retrieval detectors.")
     parser.add_argument("--fixture", type=Path)
     parser.add_argument("--detectors", choices=("all", "baseline"))
-    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--limit", type=int, help="Smoke run: maximum scored items per split (seed 7)")
     parser.add_argument("--output", type=Path, help="Save structured results, timings and abstentions as JSON")
     parser.add_argument("--checkpoint", type=Path, help="Resume completed items from this JSONL file")

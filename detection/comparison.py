@@ -109,6 +109,14 @@ def run(corpus, args, detector_factory, clock):
     if any(not items for _, items in corpus.held_out()):
         raise ValueError("each scoring split must be non-empty")
     reports = []
+    def save_report(complete):
+        if args.output:
+            temporary = args.output.with_name(args.output.name + ".tmp")
+            temporary.write_text(json.dumps({"complete": complete, "smoke_limit": args.limit,
+                                             "reports": reports}, indent=2), encoding="utf-8")
+            temporary.replace(args.output)
+
+    save_report(False)
     with detector_factory(corpus, args.detectors) as detectors:
         path = args.checkpoint or (args.output.with_suffix(".jsonl") if args.output else None)
         checkpoint = None
@@ -124,8 +132,6 @@ def run(corpus, args, detector_factory, clock):
         for detector in detectors:
             report = score(corpus, detector, args.workers, clock, checkpoint)
             reports.append(report)
+            save_report(len(reports) == len(detectors))
             print(format_comparison(corpus, report), flush=True)
-    if args.output:
-        args.output.write_text(json.dumps({"smoke_limit": args.limit, "reports": reports}, indent=2),
-                               encoding="utf-8")
     return 0

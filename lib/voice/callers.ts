@@ -5,13 +5,14 @@
  * Persona prompts live in personas.ts, which must stay server-only.
  */
 
-export type ChallengeCallerId = "recruiter" | "onboarding" | "fraud_team" | "bank_callback";
+export type ChallengeCallerId = "recruiter" | "onboarding" | "fraud_team" | "bank_callback" | "card_coach";
 
 export const CHALLENGE_CALLER_IDS: readonly ChallengeCallerId[] = [
   "recruiter",
   "onboarding",
   "fraud_team",
   "bank_callback",
+  "card_coach",
 ];
 
 const IDENTITY = ["player_name", "date_of_birth", "home_address"] as const;
@@ -22,6 +23,8 @@ export const CALLER_VARIABLE_NAMES: Record<ChallengeCallerId, readonly string[]>
   onboarding: [...IDENTITY, "interview_role", "deposit_amount", "gift_card_code"],
   fraud_team: [...IDENTITY, "card_ending", "recent_charge", "live_code"],
   bank_callback: [...IDENTITY, "card_ending"],
+  // One agent plays every battle card: the card's caller, line and pushback arrive as variables.
+  card_coach: [...IDENTITY, "persona_name", "persona_org", "scammer_line", "pushback", "secret_label", "secret_value"],
 };
 
 export class VoiceRequestError extends Error {}

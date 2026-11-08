@@ -76,7 +76,7 @@ describe("anti-shortcut: voice", () => {
   });
 
   it("every agent has its own voice", () => {
-    expect(new Set(CHALLENGE_CALLER_IDS.map((id) => PERSONAS[id].voiceId)).size).toBe(4);
+    expect(new Set(CHALLENGE_CALLER_IDS.map((id) => PERSONAS[id].voiceId)).size).toBe(CHALLENGE_CALLER_IDS.length);
   });
 });
 

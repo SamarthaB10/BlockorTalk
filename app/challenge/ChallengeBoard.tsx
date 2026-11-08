@@ -8,6 +8,7 @@ import { Sheet, Toast, Stamp } from '../components/ui';
 import { startBrowserCall, type BrowserCallHandle, type TurnRole } from '../../lib/voice/browserCall';
 import { BROWSER_VOICE_VARIABLES } from '../../lib/voice/scenarioCards';
 import SpritePlayer from '../components/SpritePlayer';
+import Reveal from './Reveal';
 import './challenge.css';
 
 const moves = [
@@ -106,6 +107,9 @@ export default function ChallengeBoard() {
   const handleRef = useRef<BrowserCallHandle | null>(null);
   const voiceStatus = useRef<HTMLParagraphElement>(null);
   const repliesRef = useRef(0);
+  // Yui's voice call is spoken in the browser, so its transcript is sent to the day once, when the call ends.
+  const voiceLog = useRef<VoiceTurn[]>([]);
+  const voiceSaved = useRef(false);
   const setVoice = (next: VoiceState) => { voiceRef.current = next; setVoiceState(next); };
   // Replies already typed in this call still count when it switches to voice.
   const [replyBase, setReplyBase] = useState(0);
@@ -140,9 +144,21 @@ export default function ChallengeBoard() {
   const attemptRef = useRef(0);
   const hangUp = useCallback(() => { attemptRef.current += 1; const live = handleRef.current; handleRef.current = null; setCallHandle(null); return live?.end().catch(() => {}); }, []);
   useEffect(() => () => { void hangUp(); }, [hangUp]);
+  async function saveVoiceTurns() {
+    if (voiceSaved.current || !voiceLog.current.length) return;
+    voiceSaved.current = true;
+    try {
+      const turns = voiceLog.current.slice(0, 40).map(turn => ({ role: turn.role === 'user' ? 'user' : 'assistant', text: turn.message }));
+      const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'voice_turns', turns }) });
+      const result = await response.json() as { day: Challenge | null };
+      if (response.ok && result.day) setDay(result.day);
+    } catch { /* the reveal still works from the opening lines */ }
+  }
+  /** Ends the call on the server, then saves the spoken transcript (it needs the call to be over first). */
+  async function endCall() { if (await act({ type: 'end' })) await saveVoiceTurns(); }
   /** Hang-up by the player (Disconnect, "stop drill", the reply cap): end the session, then the call. */
   function endVoiceCall() {
-    if (voiceRef.current === 'live') { setVoice('ended'); void act({ type: 'end' }); }
+    if (voiceRef.current === 'live') { setVoice('ended'); void endCall(); }
     void hangUp();
   }
 
@@ -151,7 +167,7 @@ export default function ChallengeBoard() {
     void hangUp();
     const attempt = attemptRef.current;
     const current = () => attempt === attemptRef.current;
-    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError('');
+    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError(''); voiceLog.current = []; voiceSaved.current = false;
     const base = fresh ? 0 : day?.replies ?? 0;
     repliesRef.current = base; setReplyBase(base);
     if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
@@ -168,6 +184,7 @@ export default function ChallengeBoard() {
         callerId: 'recruiter', conversationToken: token, variables: BROWSER_VOICE_VARIABLES.recruiter,
         onTurn: turn => {
           if (!current()) return;
+          voiceLog.current.push(turn);
           setVoiceTurns(turns => [...turns, turn]);
           if (turn.role !== 'user') return;
           repliesRef.current += 1;
@@ -176,7 +193,7 @@ export default function ChallengeBoard() {
         onEnded: () => {
           if (!current()) return;
           handleRef.current = null; setCallHandle(null);
-          if (voiceRef.current === 'live') { setVoice('ended'); void act({ type: 'end' }); }
+          if (voiceRef.current === 'live') { setVoice('ended'); void endCall(); }
           else if (voiceRef.current === 'connecting') setVoice('failed');
         },
         onMicDenied: () => { if (current()) setVoice('mic-denied'); },
@@ -207,7 +224,7 @@ export default function ChallengeBoard() {
     }
   }, [active, seconds, busy, error]); // The server also enforces the deadline after reload.
   // The day left the call (time cap, reload, verdict): the voice session ends with it.
-  useEffect(() => { if (!active && day && (handleRef.current || voiceRef.current === 'connecting')) { setVoice('ended'); void hangUp(); } }, [active, hangUp]);
+  useEffect(() => { if (!active && day && (handleRef.current || voiceRef.current === 'connecting')) { setVoice('ended'); void hangUp(); void saveVoiceTurns(); } }, [active, hangUp]);
   useEffect(() => {
     if (day?.phase === 'verdict') verdictHeading.current?.focus();
     else if (active && !busy && !voiceMode) replyInput.current?.focus();
@@ -271,6 +288,7 @@ export default function ChallengeBoard() {
           <button className="app-tile" disabled={busy} onClick={() => void act({ type: 'portal' })}>Bluebonnet portal <span>Open candidate portal ↗</span></button><button className="app-tile" disabled={busy} onClick={() => void act({ type: 'bank' })}>Corvanta Bank <span>Open your bank app ↗</span></button>
         </aside>
       </div>
+      {day.phase === 'complete' && <Reveal day={day} />}
     </>}
     <nav className="moves" aria-label="Your four moves">{moves.map(([move, hint]) => <button key={move} disabled={busy || !active || (voiceMode && (move === 'Probe' || move === 'Protect'))} onClick={() => {
       if (move === 'Disconnect') { if (handleRef.current) endVoiceCall(); else { if (voiceMode) { void hangUp(); setVoice('ended'); } void act({ type: 'end' }); } }
