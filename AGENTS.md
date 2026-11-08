@@ -36,7 +36,6 @@ What runs where:
   - `DATABASE_URL_DIRECT`: the direct URL, used for migrations and index loads.
   - `NVIDIA_API_KEY` and `ELEVENLABS_API_KEY`.
   - For voice: `TELL_TOOL_SECRET`, `ELEVENLABS_WEBHOOK_SECRET` and `ELEVENLABS_PHONE_NUMBER_ID`.
-  - For Carrier insights: `TELL_INSIGHTS_SECRET`.
 
   Locally they live in `.env.local`, or in `.dev.vars` for Workers dev. Never open or print these files.
 - **Database client.** Database code uses `pg` and opens a client per request. There is no ORM.

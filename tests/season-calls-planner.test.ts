@@ -29,6 +29,16 @@ test('missing dependencies, invalid model lines, contact data, secret values and
 });
 
 
+test('a missed tactic is named only as pressure, never as a past call or a score', async () => {
+  let system = '';
+  const plan = createCallPlanner({ examples: async () => examples, model: { chat: async request => { system = request.messages[0].content; return model(safe).chat(); } } });
+  expect(await plan(scenario, 'real', { press: true })).toEqual(safe);
+  expect(system).toContain('missed this assigned pressure lever');
+  expect(system).not.toContain('score');
+  expect(await plan(scenario, 'real')).toEqual(safe);
+  expect(system).not.toContain('missed this assigned pressure lever');
+});
+
 test('neutral real-world facts do not disclose the assigned caller identity', async () => {
   const lines = ['This practice notice uses a real-world example.', ...safe.slice(1)];
   expect(await createCallPlanner({ examples: async () => examples, model: model(lines) })(scenario, 'real')).toEqual(lines);

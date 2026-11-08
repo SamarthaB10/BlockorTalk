@@ -28,9 +28,9 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
       <main className="insights">
         <h1>Carrier insights</h1>
         <form className="insights-lock" method="post" action="/api/insights/unlock">
-          <label htmlFor="insights-secret">Enter the access secret</label>
-          <input id="insights-secret" name="secret" type="password" autoComplete="off" required />
-          {query.error && <p className="insights-error" role="alert">That secret did not work.</p>}
+          <label htmlFor="insights-password">Enter the password</label>
+          <input id="insights-password" name="password" type="password" autoComplete="off" required />
+          {query.error && <p className="insights-error" role="alert">That password did not work.</p>}
           <button className="ui-button ui-button--primary" type="submit">Open</button>
         </form>
       </main>

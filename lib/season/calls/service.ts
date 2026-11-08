@@ -1,4 +1,6 @@
 import type { Scenario } from '../scenarios/types';
+import type { CallRow } from '../analysis';
+import { weakestTactic } from '../finishedCalls';
 import type { CallStore, CallRecord, Transaction } from './store';
 import type { PublicCall, CallAction } from './types';
 import { leakedSecrets } from '../../practice/leaks';
@@ -23,12 +25,17 @@ function deliveredLink(call: CallRecord) {
 }
 export function createCallService(deps: {
   store: CallStore; scenario(id: string): Promise<Scenario | null>;
-  plan(scenario: Scenario, version: 'real' | 'scam'): Promise<[string, string, string]>;
+  plan(scenario: Scenario, version: 'real' | 'scam', hint?: { press: boolean }): Promise<[string, string, string]>;
   finishCall: FinishCall; now?: () => Date; random?: () => number;
+  /** Finished calls for this player. A failure must not stop the call from starting. */
+  finished?: (playerId: string) => Promise<CallRow[]>;
+  /** Runs after a verdict is committed. A failure must not fail the call. */
+  onFinished?: (playerId: string) => Promise<unknown>;
 }) {
   const now = deps.now ?? (() => new Date());
   async function update(playerId: string, id: string, action?: CallAction) {
     let expiredReply = false;
+    let finishedNow = false;
     const call = await deps.store.update(playerId, id, async (call, tx) => {
       const at = now();
       if (call.phase === 'call' && at.getTime() - Date.parse(call.startedAt) >= 180000) {
@@ -64,20 +71,32 @@ export function createCallService(deps: {
         call.verdict = action.verdict;
         call.result = await deps.finishCall(tx, call);
         call.phase = 'complete';
+        finishedNow = true;
       }
     });
     if (!call) throw new CallError(404, 'Call not found.');
     if (expiredReply) throw new CallError(409, 'This call has ended.');
-    return call;
+    return { call, finishedNow };
   }
   return {
-    get: (playerId: string, id: string) => update(playerId, id),
-    act: (playerId: string, id: string, action: CallAction) => update(playerId, id, action),
+    get: async (playerId: string, id: string) => (await update(playerId, id)).call,
+    async act(playerId: string, id: string, action: CallAction) {
+      const { call, finishedNow } = await update(playerId, id, action);
+      if (deps.onFinished && finishedNow) {
+        try { await deps.onFinished(playerId); } catch (error) { console.error('analysis refresh failed', error); }
+      }
+      return call;
+    },
     async start(playerId: string, scenarioId: string) {
       const scenario = await deps.scenario(scenarioId);
       if (!scenario) throw new CallError(404, 'Call scenario not found.');
       const version = (deps.random ?? Math.random)() < 0.5 ? 'real' : 'scam';
-      const lines = [...await deps.plan(scenario, version), version === 'real' ? scenario.versions.real.next_step : scenario.versions.scam.ask_line] as CallRecord['lines'];
+      let press = false;
+      if (deps.finished) {
+        try { press = weakestTactic(await deps.finished(playerId)) === scenario.tactic; }
+        catch (error) { console.error('finished calls unavailable', error); }
+      }
+      const lines = [...await deps.plan(scenario, version, { press }), version === 'real' ? scenario.versions.real.next_step : scenario.versions.scam.ask_line] as CallRecord['lines'];
       return deps.store.start(playerId, { id: crypto.randomUUID(), scenario, version, lines, phase: 'call', turns: [{ role: 'caller', text: lines[0], step: 1 }], replies: [], verifyEvents: [], leaks: [] }, now());
     },
   };

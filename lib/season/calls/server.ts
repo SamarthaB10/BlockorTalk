@@ -9,6 +9,8 @@ import { createCallHandlers } from './routes';
 import { currentPlayer } from '../../players/routes';
 import { playerStore } from '../../players/store';
 import { createTransactionalFinalizer } from './finalizer';
+import { createFinishedCallReader } from '../finishedCalls';
+import { refreshPlayerAnalysis } from '../meServer';
 
 export async function authenticatePlayer(request: Request, connectionString = process.env.DATABASE_URL ?? '', at = new Date()): Promise<string | null> {
   // Keep the UI helper stable while sharing the canonical session implementation.
@@ -24,7 +26,9 @@ export function createProductionCallHandlers(env = process.env, finishCall: Fini
   const connectionString = env.DATABASE_URL ?? '';
   const scenarios = createScenarioStore(connectionString);
   const corpus = createScenarioCorpus(connectionString);
+  const readFinished = createFinishedCallReader(connectionString);
   const service = createCallService({ store: createCallStore(connectionString, () => new Date()), scenario: scenarios.get,
-    plan: createCallPlanner({ examples: corpus.examples, model: createNemotronClient(env) }), finishCall });
+    plan: createCallPlanner({ examples: corpus.examples, model: createNemotronClient(env) }), finishCall,
+    finished: readFinished, onFinished: playerId => refreshPlayerAnalysis(playerId, env) });
   return createCallHandlers({ service, authenticate: request => authenticatePlayer(request, connectionString), speech: createPracticeSpeech(env) });
 }
