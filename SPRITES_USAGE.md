@@ -18,7 +18,7 @@ The same three colorways share one drawing. A black chibi cat in a hoodie, with 
 
 `docs/SPEC.md` also names people and test roles. They do not get mascots.
 
-- **Caller personas** are the voices on the practice call. The nine practice personas plus Nina and Marcus are the 11 personas in Persona QA: Derek, Priya, Kevin, Maria, Tom, Dana, James, Ava, Ray, Nina, and Marcus. During a call every one of them is labelled "AI practice caller". The real persona and the call type (scam, legit, or hijacked) are revealed only after the user's verdict. Do not assign them colorways.
+- **Caller personas** are the voices on the practice call. The nine practice personas plus Yui and Ren are the 11 personas in Persona QA: Derek, Priya, Kevin, Maria, Tom, Dana, Kai, Ava, Ray, Yui, and Ren. During a call every one of them is labelled "AI practice caller". The real persona and the call type (scam, legit, or hijacked) are revealed only after the user's verdict. Do not assign them colorways.
 - **Receiver personalities** are simulated users for Persona QA: aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one still to be chosen. They are not on-screen characters.
 - **Call type is not a color.** The spec requires the scenario card and the caller label to look the same for scam, legit, and hijacked calls, so the screen does not give away the answer. Do not show the red cat for a scam, the green cat for a legit caller, or the purple cat for a hijacked caller.
 
