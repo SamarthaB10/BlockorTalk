@@ -60,6 +60,10 @@ export type PlayerAnalysis =
     finished: number;
     byTactic: Tally[];
     byCategory: Tally[];
+    /** The spec's "Commonly missed": top 2 by Tactic and by Category, most misses first. */
+    commonlyMissed: { tactics: Tally[]; categories: Tally[] };
+    /** The spec's "What you do right": top 2 by Tactic and by Category, most right first. */
+    doneRight: { tactics: Tally[]; categories: Tally[] };
     /** Real callers the Player called a scam. */
     rejectedReal: number;
     weakest: { tactic: Tactic; missed: number; of: number } | null;
@@ -78,12 +82,26 @@ function tally(calls: readonly Finished[], keyOf: (call: Finished) => string): T
   return [...byKey.values()].sort((a, b) => byText(a.key, b.key));
 }
 
-/** `rows` are one Player's calls. */
+const rate = (entry: Tally, of: 'missed' | 'right') => entry[of] / (entry.missed + entry.right);
+
+function topMissed(tallies: readonly Tally[]): Tally[] {
+  return tallies.filter(e => e.missed > 0).sort((a, b) => b.missed - a.missed || rate(b, 'missed') - rate(a, 'missed') || byText(a.key, b.key)).slice(0, 2);
+}
+
+function topRight(tallies: readonly Tally[]): Tally[] {
+  return tallies.filter(e => e.right > 0).sort((a, b) => b.right - a.right || rate(b, 'right') - rate(a, 'right') || byText(a.key, b.key)).slice(0, 2);
+}
+
+/**
+ * `rows` are one Player's calls (the caller filters by Player). Synthetic demo rows are ignored
+ * here, so they can never unlock or skew a real Player's analysis.
+ */
 export function playerAnalysis(rows: readonly CallRow[], scenarios: readonly Scenario[]): PlayerAnalysis {
-  const calls = finished(rows);
+  const calls = finished(rows.filter(call => !call.synthetic));
   if (calls.length < ANALYSIS_UNLOCK_CALLS) return { locked: true, finished: calls.length, needed: ANALYSIS_UNLOCK_CALLS - calls.length };
 
   const byTactic = tally(calls, call => call.tactic);
+  const byCategory = tally(calls, call => call.category);
   // Most misses, then the higher miss rate, then name, so the answer never depends on input order.
   const worst = byTactic
     .filter(entry => entry.missed > 0)
@@ -92,17 +110,22 @@ export function playerAnalysis(rows: readonly CallRow[], scenarios: readonly Sce
 
   const played = new Map<string, number>();
   for (const call of calls) played.set(call.scenarioId, (played.get(call.scenarioId) ?? 0) + 1);
+  // Within the weakest Tactic, prefer the Category the Player missed most, then the scenario played least.
+  const missedIn = new Map<string, number>();
+  for (const call of calls) if (call.tactic === weakest?.tactic && isMiss(call.outcome)) missedIn.set(call.category, (missedIn.get(call.category) ?? 0) + 1);
   const tryNext = weakest
     ? scenarios
       .filter(scenario => scenario.tactic === weakest.tactic)
-      .sort((a, b) => (played.get(a.id) ?? 0) - (played.get(b.id) ?? 0) || byText(a.id, b.id))[0]?.id ?? null
+      .sort((a, b) => (missedIn.get(b.category) ?? 0) - (missedIn.get(a.category) ?? 0) || (played.get(a.id) ?? 0) - (played.get(b.id) ?? 0) || byText(a.id, b.id))[0]?.id ?? null
     : null;
 
   return {
     locked: false,
     finished: calls.length,
     byTactic,
-    byCategory: tally(calls, call => call.category),
+    byCategory,
+    commonlyMissed: { tactics: topMissed(byTactic), categories: topMissed(byCategory) },
+    doneRight: { tactics: topRight(byTactic), categories: topRight(byCategory) },
     rejectedReal: calls.filter(call => call.outcome === 'false alarm').length,
     weakest,
     tryNext,

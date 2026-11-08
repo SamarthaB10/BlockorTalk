@@ -67,7 +67,7 @@ describe('playerAnalysis', () => {
     ]);
     expect(result.rejectedReal).toBe(1);
   });
-  it('aims Try next at the weakest Tactic, on the scenario played least', () => {
+  it('aims Try next at the weakest Tactic, in the Category they missed', () => {
     const rows = [
       row({ scenarioId: 'delivery', verdict: 'Real' }),
       row({ scenarioId: 'delivery', verdict: 'Real' }),
@@ -76,7 +76,33 @@ describe('playerAnalysis', () => {
     const result = playerAnalysis(rows, scenarios);
     if (result.locked) throw new Error('should be unlocked');
     expect(result.weakest).toEqual({ tactic: 'Urgency', missed: 2, of: 2 });
+    expect(result.tryNext).toBe('delivery');
+  });
+  it('lists the top 2 commonly missed and done right, ranked', () => {
+    const rows = [
+      row({ scenarioId: 'delivery', leaked: true }),
+      row({ scenarioId: 'delivery', leaked: true }),
+      row({ scenarioId: 'irs', category: 'Government (IRS or SSN)', tactic: 'Authority', leaked: true }),
+      row({ scenarioId: 'bank', category: 'Bank fraud alert', tactic: 'Details as proof', leaked: true }),
+      row({ scenarioId: 'bank', category: 'Bank fraud alert', tactic: 'Details as proof', version: 'real', verdict: 'Real' }),
+      row({ scenarioId: 'phishing', category: 'Phishing link texted mid-call' }),
+      row({ scenarioId: 'phishing', category: 'Phishing link texted mid-call' }),
+    ];
+    const result = playerAnalysis(rows, scenarios);
+    if (result.locked) throw new Error('should be unlocked');
+    expect(result.commonlyMissed.tactics.map(e => e.key)).toEqual(['Urgency', 'Authority']);
+    expect(result.commonlyMissed.categories.map(e => e.key)).toEqual(['Delivery or customs fee', 'Government (IRS or SSN)']);
+    expect(result.doneRight.tactics.map(e => e.key)).toEqual(['Urgency', 'Details as proof']);
+    expect(result.doneRight.categories.map(e => e.key)).toEqual(['Phishing link texted mid-call', 'Bank fraud alert']);
+  });
+  it('prefers the missed Category over a scenario the Player has played less', () => {
+    const rows = [row({ scenarioId: 'phishing', category: 'Phishing link texted mid-call', leaked: true }), row({ scenarioId: 'phishing', category: 'Phishing link texted mid-call', leaked: true })];
+    const result = playerAnalysis(rows, scenarios);
+    if (result.locked) throw new Error('should be unlocked');
     expect(result.tryNext).toBe('phishing');
+  });
+  it('ignores synthetic rows, so they cannot unlock or skew a real analysis', () => {
+    expect(playerAnalysis([row(), row({ synthetic: true })], scenarios)).toEqual({ locked: true, finished: 1, needed: 1 });
   });
   it('has no weakest spot or Try next when nothing was missed', () => {
     const result = playerAnalysis([row(), row()], scenarios);
