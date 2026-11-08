@@ -16,7 +16,8 @@
     "detect:eval": "python -m detection.evaluate",
     "migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "test:voice": "vitest run tests/voice",
-    "voice:provision": "tsx scripts/provision-voice-agents.ts"
+    "voice:provision": "tsx scripts/provision-voice-agents.ts",
+    "practice:index": "node --env-file=.env.local scripts/practice-index.mjs"
   },
   "repository": {
     "type": "git",
