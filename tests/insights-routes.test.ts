@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CallRow, Tactic, Verdict, Version } from '../lib/season/analysis';
 import { createInsightsHandlers, INSIGHTS_COOKIE, type InsightsStore, type StoredSummary } from '../lib/insights/routes';
+import { insightsHandlers } from '../lib/insights/server';
+import { INSIGHTS_PASSWORD } from '../lib/insights/access';
 
-const SECRET = 'correct horse battery staple';
+const PASSWORD = 'correct horse battery staple';
 const NOW = Date.parse('2026-11-08T12:00:00Z');
 const minutes = (n: number) => new Date(NOW - n * 60_000).toISOString();
 
@@ -27,7 +29,7 @@ const syntheticRows = [
   ...calls({ players: 3, category: 'Prize or sweepstakes', tactic: 'Reward', version: 'real', verdict: 'Scam', synthetic: true }), // hidden
 ];
 
-function fixture(options: { secret?: string | undefined; summary?: StoredSummary | null; llm?: () => Promise<string | null>; now?: number; storeFails?: boolean } = {}) {
+function fixture(options: { password?: string | undefined; summary?: StoredSummary | null; llm?: () => Promise<string | null>; now?: number; storeFails?: boolean } = {}) {
   let stored: StoredSummary | null = options.summary ?? null;
   const saved: StoredSummary[] = [];
   const analystCalls: unknown[] = [];
@@ -40,7 +42,7 @@ function fixture(options: { secret?: string | undefined; summary?: StoredSummary
     async saveSummary(summary) { stored = summary; saved.push(summary); },
   };
   const handlers = createInsightsHandlers({
-    secret: 'secret' in options ? options.secret : SECRET,
+    password: 'password' in options ? options.password : PASSWORD,
     store,
     analyst: async (groups, synthetic) => { analystCalls.push({ groups, synthetic }); return options.llm ? options.llm() : 'Bank fraud alerts that lean on details as proof are the most common fall.'.replace(/\n/g, ' '); },
     now: () => options.now ?? NOW,
@@ -50,9 +52,9 @@ function fixture(options: { secret?: string | undefined; summary?: StoredSummary
     return new Request(`https://tell.test${path}`, { ...rest, headers: { ...(cookie ? { cookie } : {}), ...(rest.headers as Record<string, string> | undefined) } });
   };
   /** Sign in the way a browser does and return the cookie header to send back. */
-  async function signIn(secret = SECRET) {
+  async function signIn(password = PASSWORD) {
     const response = await handlers.unlock(request('/api/insights/unlock', {
-      method: 'POST', headers: { origin: 'https://tell.test', 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ secret }).toString(),
+      method: 'POST', headers: { origin: 'https://tell.test', 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ password }).toString(),
     }));
     const setCookie = response.headers.get('set-cookie');
     return { response, setCookie, cookie: setCookie ? setCookie.split(';')[0]! : undefined };
@@ -71,7 +73,7 @@ describe('access', () => {
     expect(analystCalls).toEqual([]);
   });
 
-  it('a wrong secret sets no cookie and sends the Player back to the prompt', async () => {
+  it('a wrong password sets no cookie and sends the Player back to the prompt', async () => {
     const { signIn } = fixture();
     const { response, setCookie } = await signIn('guess');
     expect(setCookie).toBeNull();
@@ -79,7 +81,7 @@ describe('access', () => {
     expect(response.headers.get('location')).toBe('https://tell.test/insights?error=1');
   });
 
-  it('the right secret sets an HttpOnly cookie that does not contain the secret', async () => {
+  it('the right password sets an HttpOnly cookie that does not contain the password', async () => {
     const { signIn } = fixture();
     const { response, setCookie } = await signIn();
     expect(response.status).toBe(303);
@@ -88,8 +90,8 @@ describe('access', () => {
     expect(setCookie).toMatch(/HttpOnly/i);
     expect(setCookie).toMatch(/SameSite=Strict/i);
     expect(setCookie).toMatch(/Secure/i);
-    expect(setCookie).not.toContain(SECRET);
-    expect(setCookie).not.toContain(encodeURIComponent(SECRET));
+    expect(setCookie).not.toContain(PASSWORD);
+    expect(setCookie).not.toContain(encodeURIComponent(PASSWORD));
   });
 
   it('the cookie opens the totals; a tampered cookie does not', async () => {
@@ -97,21 +99,21 @@ describe('access', () => {
     const { cookie } = await signIn();
     expect((await handlers.GET(request('/api/insights', { cookie }))).status).toBe(200);
     expect((await handlers.GET(request('/api/insights', { cookie: `${INSIGHTS_COOKIE}=${'0'.repeat(64)}` }))).status).toBe(401);
-    expect((await handlers.GET(request('/api/insights', { cookie: `${INSIGHTS_COOKIE}=${SECRET}` }))).status).toBe(401);
+    expect((await handlers.GET(request('/api/insights', { cookie: `${INSIGHTS_COOKIE}=${PASSWORD}` }))).status).toBe(401);
   });
 
   it('refuses a sign-in from another origin', async () => {
     const { handlers, request } = fixture();
     const response = await handlers.unlock(request('/api/insights/unlock', {
-      method: 'POST', headers: { origin: 'https://evil.test', 'content-type': 'application/x-www-form-urlencoded' }, body: `secret=${encodeURIComponent(SECRET)}`,
+      method: 'POST', headers: { origin: 'https://evil.test', 'content-type': 'application/x-www-form-urlencoded' }, body: `password=${encodeURIComponent(PASSWORD)}`,
     }));
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toBeNull();
   });
 
-  it('fails closed when no secret is configured, even for an empty submission or a cookie made from an empty secret', async () => {
-    for (const secret of [undefined, '']) {
-      const { handlers, request, signIn } = fixture({ secret });
+  it('fails closed with an empty password, even for an empty submission or a cookie made from an empty password', async () => {
+    for (const password of [undefined, '']) {
+      const { handlers, request, signIn } = fixture({ password });
       const { setCookie } = await signIn('');
       expect(setCookie).toBeNull();
       const forged = `${INSIGHTS_COOKIE}=${'a'.repeat(64)}`;
@@ -122,7 +124,7 @@ describe('access', () => {
   it('does not set a Secure cookie on plain http (local dev)', async () => {
     const { handlers } = fixture();
     const response = await handlers.unlock(new Request('http://localhost:5173/api/insights/unlock', {
-      method: 'POST', headers: { origin: 'http://localhost:5173', 'content-type': 'application/x-www-form-urlencoded' }, body: `secret=${encodeURIComponent(SECRET)}`,
+      method: 'POST', headers: { origin: 'http://localhost:5173', 'content-type': 'application/x-www-form-urlencoded' }, body: `password=${encodeURIComponent(PASSWORD)}`,
     }));
     expect(response.headers.get('set-cookie')).not.toMatch(/Secure/i);
   });
@@ -232,7 +234,7 @@ describe('the summary', () => {
       async latestSummary(synthetic) { return synthetic ? null : fresh(1, false); },
       async saveSummary() {},
     };
-    const other = createInsightsHandlers({ secret: SECRET, store, analyst: async (g, s) => { analystCalls.push({ g, s }); return 'Synthetic summary.'; }, now: () => NOW });
+    const other = createInsightsHandlers({ password: PASSWORD, store, analyst: async (g, s) => { analystCalls.push({ g, s }); return 'Synthetic summary.'; }, now: () => NOW });
     const body = await (await other.GET(request('/api/insights?synthetic=1', { cookie }))).json() as any;
     expect(body.summary).toMatchObject({ text: 'Synthetic summary.', synthetic: true });
     void handlers;
@@ -265,12 +267,12 @@ describe('the summary', () => {
 
   it('does not call the model when no group is visible', async () => {
     const hiddenOnly = createInsightsHandlers({
-      secret: SECRET,
+      password: PASSWORD,
       store: { async loadCalls() { return calls({ players: 2, category: 'Tech support', tactic: 'Fear', version: 'scam', verdict: 'Scam' }); }, async latestSummary() { return fresh(60); }, async saveSummary() { throw new Error('should not save'); } },
       analyst: async () => { throw new Error('should not be called'); },
       now: () => NOW,
     });
-    const unlock = await hiddenOnly.unlock(new Request('https://tell.test/api/insights/unlock', { method: 'POST', headers: { origin: 'https://tell.test', 'content-type': 'application/x-www-form-urlencoded' }, body: `secret=${encodeURIComponent(SECRET)}` }));
+    const unlock = await hiddenOnly.unlock(new Request('https://tell.test/api/insights/unlock', { method: 'POST', headers: { origin: 'https://tell.test', 'content-type': 'application/x-www-form-urlencoded' }, body: `password=${encodeURIComponent(PASSWORD)}` }));
     const cookie = unlock.headers.get('set-cookie')!.split(';')[0]!;
     const body = await (await hiddenOnly.GET(new Request('https://tell.test/api/insights', { headers: { cookie } }))).json() as any;
     expect(body.summary.text).toMatch(/no group/i);
@@ -311,6 +313,27 @@ describe('CSV', () => {
       const body = await (await handlers.GET(request(`/api/insights${query}`, { cookie }))).json() as any;
       const rows = (await (await handlers.CSV(request(`/api/insights/csv${query}`, { cookie }))).text()).trimEnd().split('\r\n').slice(1);
       expect(rows.map(r => r.split(',').slice(1, 4).join(','))).toEqual(body.groups.map((g: any) => `${g.category},${g.tactic},${g.outcome}`));
+    }
+  });
+});
+
+describe('production password', () => {
+  const unlock = (password: string) => insightsHandlers({} as NodeJS.ProcessEnv).unlock(new Request('https://tell.test/api/insights/unlock', {
+    method: 'POST', headers: { origin: 'https://tell.test', 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ password }).toString(),
+  }));
+
+  it('opens with "tmobile" and needs no Worker secret', async () => {
+    expect(INSIGHTS_PASSWORD).toBe('tmobile');
+    const response = await unlock('tmobile');
+    expect(response.headers.get('location')).toBe('https://tell.test/insights');
+    expect(response.headers.get('set-cookie')).toMatch(/^tell_insights=[a-f0-9]{64};.*HttpOnly/);
+  });
+
+  it('rejects anything else', async () => {
+    for (const wrong of ['', 'TMobile', 'tmobile ', 'secret']) {
+      const response = await unlock(wrong);
+      expect(response.headers.get('location'), wrong).toBe('https://tell.test/insights?error=1');
+      expect(response.headers.get('set-cookie')).toBeNull();
     }
   });
 });
