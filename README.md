@@ -63,6 +63,10 @@ Manual checks: play each verdict path, check the portal, type `stop drill`, send
 The board must keep its balance, tasks and verdict. The portal must show Tuesday
 at 10 AM and say Bluebonnet never charges for equipment.
 
+## Dataset-based practice
+
+Open `/practice` for Nemotron-generated finance and seasonal-package calls, with text replies or ElevenLabs speech. Run `npm run practice:index` first to register the existing prompt pool and separate held-out examples in Tiger DB. See [the setup, split and data-use notes](docs/GROUNDED_PRACTICE.md).
+
 ## Detective reveal (issue #9)
 
 After the third verdict, `/challenge` shows Yui, Ren and Kai's identities and
