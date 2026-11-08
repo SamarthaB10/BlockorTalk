@@ -7,6 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
+    "persona:qa": "node --env-file=.env.local --import tsx scripts/persona-qa.ts",
     "dev": "vite dev",
     "build": "vite build",
     "start": "vite preview",
