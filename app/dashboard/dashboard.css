@@ -85,3 +85,54 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
   .hub-podium .hub-card,.hub-podium .is-first{min-height:0;}
   .hub-podium .is-first{order:-1;}
 }
+
+/* Progress: summary, one recommended drill, the Skill Log and one skill's evidence. Calm markers, words first. */
+.hub-progress{display:grid;gap:24px;width:100%;max-width:1100px;margin:0 auto;}
+.hub-progress-eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#625e58;margin:0 0 12px;}
+.hub-progress-summary ul{display:flex;flex-wrap:wrap;gap:8px 32px;list-style:none;margin:0;padding:0;font-size:18px;color:#1e1c1a;}
+.hub-progress-summary strong{font-variant-numeric:tabular-nums;font-size:24px;font-weight:600;margin-right:4px;}
+.hub-progress-summary p{color:#69645e;margin:12px 0 0;}
+.hub-recommend{background:#e8e2d8;}
+.hub-recommend blockquote{font-size:18px;line-height:1.5;margin:0;padding-left:14px;border-left:3px solid #2a2624;}
+.hub-recommend .hub-primary{width:auto;min-width:260px;}
+.hub-skill-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;list-style:none;margin:0;padding:0;}
+.hub-skill{height:100%;gap:10px;}
+.hub-skill.is-open{border-color:#2a2624;}
+.hub-skill h3{font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin:0;}
+.hub-skill div{display:grid;gap:2px;}
+.hub-skill-label{font-size:12px!important;font-weight:600;color:#1e1c1a!important;}
+.hub-skill-count{color:#1e1c1a!important;font-variant-numeric:tabular-nums;}
+.hub-skill-guidance{font-size:13px!important;}
+.hub-skill>.hub-link{margin-top:auto;}
+.hub .skill-state{display:inline-flex;align-items:center;gap:8px;font-size:18px;font-weight:500;}
+.hub .skill-flag{font-size:14px;font-weight:500;color:#7a3a14;}
+.hub .skill-dot{width:10px;height:10px;border-radius:50%;border:2px solid #9a948c;flex-shrink:0;}
+.hub .skill-dot[data-state="Practiced"]{border-color:#2a2624;}
+.hub .skill-dot[data-state="Demonstrated"]{background:#8a847b;border-color:#8a847b;}
+.hub .skill-dot[data-state="Independent"]{background:#2a2624;border-color:#2a2624;}
+.hub-skill-history{width:100%;scroll-margin-top:24px;}
+.hub-skill-history ol{list-style:none;margin:8px 0 0;padding:0;display:grid;width:100%;}
+.hub-skill-history li{padding:16px 0;border-top:1px solid #1e1c1a18;display:grid;gap:4px;}
+.hub-skill-history .hub-link{justify-self:start;}
+.hub-skill-when{color:#1e1c1a!important;}
+.hub-progress-note{max-width:760px;margin:0 auto;}
+.hub-progress-note .hub-primary{width:auto;}
+.hub-profile{display:grid;gap:18px;width:min(760px,100%);margin:0 auto;}
+.hub .player-signup{border:0;padding:0;color:#1e1c1a;width:100%;}
+.hub .player-signup h2{margin:0 0 12px;}
+.hub .player-signup p{color:#69645e;}
+.hub .player-message:empty{display:none;}
+.hub .player-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+.hub .player-fields>div{min-width:0;}
+.hub .player-fields label{display:block;margin-bottom:8px;font-size:12px;color:#1e1c1a;}
+.hub .player-fields input{width:100%;min-height:48px;padding:12px;font:inherit;color:#1e1c1a;background:#fff;border:1px solid #aaa49b;border-radius:8px;}
+.hub .player-help{margin:8px 0 0;color:#77736e;font-size:13px;}
+.hub .player-error{margin:8px 0 0;color:#7a3a14;}
+.hub .player-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
+.hub .player-signup .ui-button{color:#1e1c1a;background:transparent;border:1px solid #1e1c1a33;border-radius:10px;min-height:48px;padding:12px 18px;font:inherit;cursor:pointer;}
+.hub .player-signup .ui-button--primary{background:#2a2624;color:#fff;border-color:#2a2624;}
+.hub-analysis{padding-top:16px;border-top:1px solid #1e1c1a18;width:100%;}
+.hub-analysis h3{margin:0 0 8px;font-size:18px;font-weight:500;}
+.hub-analysis ul{margin:8px 0 0;padding-left:1.2rem;color:#69645e;}
+@media(max-width:1000px){.hub-skill-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:640px){.hub-skill-grid,.hub .player-fields{grid-template-columns:1fr;}.hub-recommend .hub-primary{min-width:0;width:100%;}.hub .player-actions{flex-direction:column;}}

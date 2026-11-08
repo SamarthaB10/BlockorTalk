@@ -44,8 +44,9 @@ test('reply controls give immediate access to fictional context and match the se
  const html=renderToStaticMarkup(createElement(CallScreen,{scenarioId:'bank',initialCall:call}));
  expect(html).toContain('maxLength="1000"');expect(html).toContain('href="#play-fictional-card"');expect(html.indexOf('View fictional card and fake secrets')).toBeLessThan(html.indexOf('Type your reply'));
 });
-test('signup return intent targets the profile route supplied by the shared shell',()=>{
- expect(signupLocation('/play/bank')).toBe('/profile?returnTo=%2Fplay%2Fbank');
+test('signed-out Players sign in on the dashboard, never on /profile',()=>{
+ expect(signupLocation('/play/business')).toMatch(/^\/dashboard\?view=Profile/);
+ expect(signupLocation('/play/business')).not.toContain('/profile');
 });
 test('Play surfaces leave branding to the shared shell and keep call wayfinding local',()=>{
  const catalog=renderToStaticMarkup(createElement(PlayCatalog,{model:{scenarios:[],blokbuks:0,scoredCallsLeft:5,nextCallScored:false,season:null,serverNow:call.startedAt}}));

@@ -4,6 +4,7 @@
  * Blokbuks and right/wrong come from the stored result (BS-07); this module only words them.
  */
 import { rankScores, type Score } from './routes';
+import type { Recommendation, SkillUpdate } from '../skills/log';
 
 /** The parts of a stored call the results screen reads. */
 export interface FinishedCallView {
@@ -17,6 +18,8 @@ export interface FinishedCallView {
   callsLeft: number;
   verdict?: 'Real' | 'Scam' | 'Unverified';
   replies: { step: number; text: string }[];
+  /** The whole conversation, shown after the Verdict with an anchor per caller step. */
+  turns?: { role: 'caller' | 'player'; text: string; step: number }[];
   result?: {
     callId: string;
     moments: Array<{ n: number; kind: 'reply' | 'verdict'; step?: number; verdict?: string; right: boolean; why: string } & Record<string, unknown>>;
@@ -51,6 +54,11 @@ export interface ResultsView {
   scoredByRules: boolean;
   callsLeft: string;
   analysisUnlocked: boolean;
+  /** The debrief's one skill update for this call, decided by code from the Player's decisions. */
+  skill: SkillUpdate | null;
+  /** The recommended next drill, from the whole Skill Log. */
+  next: Recommendation | null;
+  transcript: { id?: string; who: 'Caller' | 'You'; text: string }[];
 }
 
 export type RankChange = { from: number | null; to: number };
@@ -82,7 +90,8 @@ function callsLeftText(left: number) {
 }
 
 /** Build the results screen for a finished call. Throws if the call has no result yet. */
-export function buildResults(call: FinishedCallView, rank: RankChange | null, analysisUnlocked: boolean): ResultsView {
+export function buildResults(call: FinishedCallView, rank: RankChange | null, analysisUnlocked: boolean,
+  skills: { skill: SkillUpdate | null; next: Recommendation | null } = { skill: null, next: null }): ResultsView {
   const result = call.result;
   if (call.phase !== 'complete' || !result) throw new Error('This call has no result yet.');
   const scored = call.scored && result.total !== null;
@@ -107,7 +116,20 @@ export function buildResults(call: FinishedCallView, rank: RankChange | null, an
     scoredByRules: result.scoredBy === 'rules',
     callsLeft: callsLeftText(call.callsLeft),
     analysisUnlocked,
+    skill: skills.skill,
+    next: skills.next,
+    transcript: transcriptOf(call.turns ?? []),
   };
+}
+
+/** The call as it happened, with `step-N` on the caller line that opened each step. */
+function transcriptOf(turns: NonNullable<FinishedCallView['turns']>): ResultsView['transcript'] {
+  const anchored = new Set<number>();
+  return turns.map(turn => {
+    const first = turn.role === 'caller' && !anchored.has(turn.step);
+    if (first) anchored.add(turn.step);
+    return { ...(first ? { id: `step-${turn.step}` } : {}), who: turn.role === 'caller' ? 'Caller' as const : 'You' as const, text: turn.text };
+  });
 }
 
 /**

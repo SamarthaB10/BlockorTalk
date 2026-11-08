@@ -1,6 +1,6 @@
 import { Conversation } from "@elevenlabs/client";
 // Browser code: import only ./callers here, never ./personas or ./adapter (they hold the prompts).
-import { callVariables, type ChallengeCallerId } from "./callers";
+import { callVariables } from "./callers";
 
 export type TurnRole = "agent" | "user";
 
@@ -25,8 +25,10 @@ export type StartSessionFn = (options: any) => Promise<BrowserSessionLike>;
 
 export interface BrowserCallOptions {
   anonymous?: boolean;
-  callerId: ChallengeCallerId;
+  callerId: string;
   conversationToken: string;
+  /** Declared variable names for a catalog call; Challenge callers use their own. */
+  variableNames?: readonly string[];
   /** Scenario-card values; validated against the caller's declared variables. */
   variables: Record<string, string>;
   onTurn(turn: { role: TurnRole; message: string }): void;
@@ -49,7 +51,7 @@ function isMicDenial(err: unknown): boolean {
  * dynamic variables are sent; no prompt or voice overrides (spec decision).
  */
 export async function startBrowserCall(opts: BrowserCallOptions): Promise<BrowserCallHandle | undefined> {
-  const dynamicVariables = callVariables(opts.callerId, opts.variables);
+  const dynamicVariables = callVariables(opts.callerId, opts.variables, opts.variableNames);
   const start: StartSessionFn = opts.startSession ?? ((o) => Conversation.startSession(o));
 
   let session: BrowserSessionLike | undefined;

@@ -30,8 +30,11 @@ export interface PlaceCallRequest {
   variables: Record<string, string>;
 }
 
+/** The two shared catalog agents. Which one answers is chosen on the server and never sent to the browser. */
+export type ScenarioAgentKey = "scenario_real" | "scenario_scam";
+
 export interface BrowserSessionRequest {
-  callerId: ChallengeCallerId;
+  callerId: ChallengeCallerId | ScenarioAgentKey;
 }
 
 export interface BrowserSession {
@@ -41,7 +44,7 @@ export interface BrowserSession {
 }
 
 /** ElevenLabs agent IDs per Challenge caller, written by `npm run voice:provision`. */
-export type AgentIds = Record<ChallengeCallerId, string>;
+export type AgentIds = Record<ChallengeCallerId, string> & Partial<Record<ScenarioAgentKey, string>>;
 
 const E164 = /^\+[1-9]\d{7,14}$/;
 const AGENT_ID = /^agent_\w+$/;
