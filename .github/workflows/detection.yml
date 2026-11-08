@@ -2,7 +2,7 @@ name: Detection
 
 on:
   pull_request:
-    paths: ['detection/**', 'tests/test_detection.py', 'tests/test_detectors.py', 'tests/fixtures/**', 'requirements.txt', 'migrations/007_detection_examples.sql', '.github/workflows/detection.yml']
+    paths: ['detection/**', 'tests/test_detection.py', 'tests/test_detectors.py', 'tests/test_nvidia_transport.py', 'tests/fixtures/**', 'requirements.txt', 'migrations/007_detection_examples.sql', '.github/workflows/detection.yml']
   push:
     branches: [main]
 
@@ -30,4 +30,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python -m unittest tests.test_detection tests.test_detectors
+      - run: python -m unittest tests.test_detection tests.test_detectors tests.test_nvidia_transport

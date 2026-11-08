@@ -5,6 +5,12 @@ import os
 import time
 import urllib.error
 import urllib.request
+import random
+import math
+import threading
+import sys
+from email.utils import parsedate_to_datetime
+from datetime import timezone
 from concurrent.futures import ThreadPoolExecutor
 
 from detection.result import TACTICS
@@ -15,6 +21,56 @@ EMBEDDING_MODEL = "nvidia/nemotron-3.5-embed-1b"
 
 class NvidiaError(RuntimeError):
     """Safe endpoint/status diagnostic, with no vendor response body."""
+
+
+class _RequestGate:
+    def __init__(self, clock, rpm):
+        self.clock = clock
+        self.interval = 60 / rpm
+        self.next_at = 0.0
+        self.last_at = None
+        self.lock = threading.Lock()
+
+    def wait(self):
+        while (remaining := self.next_at - self.clock.monotonic()) > 0:
+            self.clock.sleep(min(remaining, 30))
+        self.last_at = self.clock.monotonic()
+        self.next_at = self.last_at + self.interval
+
+    def defer(self, seconds):
+        self.next_at = max(self.next_at, self.clock.monotonic() + seconds)
+
+
+_GATES = {}
+_GATES_LOCK = threading.Lock()
+
+
+def _request_gate(base_url, clock, rpm):
+    with _GATES_LOCK:
+        key = (base_url, id(clock))
+        if key not in _GATES:
+            _GATES[key] = _RequestGate(clock, rpm)
+        gate = _GATES[key]
+    with gate.lock:
+        # A second client may reduce the shared budget, never bypass it.
+        gate.interval = max(gate.interval, 60 / rpm)
+        if gate.last_at is not None:
+            gate.next_at = max(gate.next_at, gate.last_at + gate.interval)
+    return gate
+
+
+def _retry_after_seconds(value, now):
+    try:
+        seconds = float(value)
+        return max(0.0, seconds) if math.isfinite(seconds) and seconds >= 0 else None
+    except (TypeError, ValueError):
+        try:
+            date = parsedate_to_datetime(value)
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=timezone.utc)
+            return max(0.0, date.timestamp() - now)
+        except (TypeError, ValueError, OverflowError):
+            return None
 
 SCHEMA = {
     "type": "object", "additionalProperties": False,
@@ -35,34 +91,50 @@ SCHEMA = {
 
 
 class NvidiaClient:
-    def __init__(self, env=None):
+    def __init__(self, env=None, *, clock=time, opener=None, jitter=random.random):
         env = os.environ if env is None else env
         self.key = env.get("NVIDIA_API_KEY")
         if not self.key:
             raise ValueError("NVIDIA_API_KEY is required")
         self.model = env.get("NEMOTRON_DETECTOR_MODEL", DEFAULT_MODEL)
         self.base_url = env.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
+        self.clock = clock
+        self.opener = opener or urllib.request.urlopen
+        self.jitter = jitter
+        rpm = float(env.get("NVIDIA_DETECTOR_RPM", "30"))
+        if not math.isfinite(rpm) or rpm <= 0:
+            raise ValueError("NVIDIA_DETECTOR_RPM must be a positive finite number")
+        self.gate = _request_gate(self.base_url, clock, rpm)
 
     def _post(self, path, payload):
         request = urllib.request.Request(self.base_url + path, data=json.dumps(payload).encode(),
             headers={"Authorization": "Bearer " + self.key, "Content-Type": "application/json"})
         for attempt in range(6):
-            try:
-                with urllib.request.urlopen(request, timeout=90) as response:
-                    return json.load(response)
-            except urllib.error.HTTPError as error:
-                status = error.code
-                retry_after = error.headers.get("Retry-After", "")
-                error.close()
-                if status not in (429, 500, 502, 503, 504) or attempt == 5:
-                    raise NvidiaError(f"NVIDIA {path} HTTP {status}") from None
-                delay = (float(retry_after) if retry_after.isdigit() else
-                         30 if status == 429 else 2 ** attempt)
-                time.sleep(min(delay, 30))
-            except (urllib.error.URLError, TimeoutError):
-                if attempt == 5:
-                    raise NvidiaError(f"NVIDIA {path} unavailable or timed out") from None
-                time.sleep(min(2 ** attempt, 30))
+            # Keep dispatch and response handling together: no peer can slip a
+            # request through before a 429 establishes the shared cooldown.
+            with self.gate.lock:
+                self.gate.wait()
+                try:
+                    with self.opener(request, timeout=90) as response:
+                        return json.load(response)
+                except urllib.error.HTTPError as error:
+                    status = error.code
+                    retry_after = error.headers.get("Retry-After", "")
+                    error.close()
+                    if status not in (429, 500, 502, 503, 504):
+                        raise NvidiaError(f"NVIDIA {path} HTTP {status}") from None
+                    delay = _retry_after_seconds(retry_after, self.clock.time())
+                    if delay is None:
+                        delay = min(30 * 2 ** attempt, 300) if status == 429 else 2 ** attempt
+                    self.gate.defer(delay + delay * 0.25 * self.jitter())
+                    print(f"NVIDIA {path}: HTTP {status}; shared cooldown at least {delay:.1f}s "
+                          f"(attempt {attempt + 1}/6)", file=sys.stderr, flush=True)
+                    if attempt == 5:
+                        raise NvidiaError(f"NVIDIA {path} HTTP {status}") from None
+                except (urllib.error.URLError, TimeoutError):
+                    self.gate.defer(2 ** attempt)
+                    if attempt == 5:
+                        raise NvidiaError(f"NVIDIA {path} unavailable or timed out") from None
 
     def classify(self, text, examples):
         system = (
@@ -90,6 +162,8 @@ class NvidiaClient:
         })
         try:
             message = response["choices"][0]["message"]
+            if not isinstance(message, dict):
+                return None
             calls = message.get("tool_calls", [])
             if len(calls) != 1 or calls[0]["function"]["name"] != "classify_call":
                 return None

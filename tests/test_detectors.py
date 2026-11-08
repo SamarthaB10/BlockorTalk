@@ -29,6 +29,23 @@ class FakeLLM:
 
 
 class DetectorInterfaceTests(unittest.TestCase):
+    def test_failed_evaluation_saves_completed_detectors_as_an_incomplete_report(self):
+        from detection.nvidia import NvidiaError
+        class OfflineLLM:
+            def classify(self, text, examples):
+                raise NvidiaError("NVIDIA /chat/completions HTTP 429")
+        def factory(corpus, mode):
+            return contextlib.nullcontext([TfidfBaseline().fit(corpus.train), NemotronDetector(OfflineLLM())])
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "partial.json"
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                status = evaluate.main(["--fixture", str(Path(__file__).parent / "fixtures/trainable.json"),
+                                        "--detectors", "all", "--output", str(output)], detector_factory=factory)
+            self.assertEqual(status, 1)
+            saved = json.loads(output.read_text())
+            self.assertFalse(saved["complete"])
+            self.assertEqual([r["detector"] for r in saved["reports"]], ["tfidf-logistic-regression"])
+
     def test_evaluation_resumes_completed_items_without_vendor_access(self):
         class LLM:
             model = "fake-v1"

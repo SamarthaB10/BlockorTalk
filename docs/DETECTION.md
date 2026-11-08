@@ -23,7 +23,7 @@ With exported variables, the equivalent commands are:
 
 ```text
 python -m detection.index
-python -m detection.evaluate --workers 4 --output data/cache/comparison.json
+python -m detection.evaluate --workers 1 --output data/cache/comparison.json
 python -m detection.evaluate --detectors baseline
 python -m detection.evaluate --limit 5 --output data/cache/smoke.json
 python -m detection.detect < transcript.txt
@@ -38,7 +38,7 @@ index filtering that can return fewer than five examples when corpus versions co
 The pool ID fingerprints training membership, labels, sources, and embedding model.
 Every retrieved row is checked against the current training manifest, including its text.
 
-The default comparison scores all held-out items with all three detectors. `--limit`
+The default comparison uses one worker and scores all held-out items with all three detectors. `--limit`
 is a reproducible smoke sample per split (seed 7), explicitly labeled as such. The
 full corpus is leakage-checked before sampling. Historical issue #3 fixture commands
 without `--detectors` retain their canned binary report; use `--detectors all` to
@@ -54,10 +54,43 @@ The live detector model defaults to `nvidia/nemotron-3.5-super-vl-120b-a12b`;
 `nvidia/nemotron-3.5-embed-1b` at 1,024 dimensions with `passage` for training and
 `query` for retrieval. Older E5 and Llama embedding hosted endpoints returned
 HTTP 410 during verification on November 7, 2026. The 3.5 endpoint returned
-HTTP 500 for multi-input requests; the adapter uses bounded parallel single-input
-requests and preserves order.
+HTTP 500 for multi-input requests; the adapter queues single-input requests and
+preserves order.
 See [NVIDIA's embedding API](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3_5-embed-1b)
 and [pgvector's index documentation](https://github.com/pgvector/pgvector#hnsw).
+
+## Request limits and recovery
+
+`NVIDIA_DETECTOR_RPM` defaults to **30 requests per minute**, leaving headroom below
+the team's displayed account ceiling of up to 40/minute. Chat calls, embedding calls,
+and retries to the same endpoint share one queue across detector clients in this
+Python process. Increasing `--workers` cannot bypass that queue. Only one request
+is in flight at a time, and fast responses cannot trigger a burst.
+
+Set a lower positive `NVIDIA_DETECTOR_RPM` when other team processes use the same
+NVIDIA account. This queue cannot govern the Debrief agent, another machine, or
+other programs; their calls may consume the same account capacity. The displayed
+limit is a ceiling, not a guarantee of sustained model capacity.
+
+HTTP 429 applies a shared cooldown. Both numeric and HTTP-date `Retry-After`
+headers are honored in full, without the former 30-second cap. Missing or invalid
+headers use exponential waits (30, 60, 120, 240, then 300 seconds) with added jitter.
+The adapter makes at most six attempts and retains the final cooldown for other
+clients in this process. Transient 5xx and transport failures also back off;
+authentication and other permanent HTTP errors fail immediately. Safe stderr
+messages show endpoint path, HTTP status, cooldown and attempt, never keys or bodies.
+
+With `--output`, the report is saved atomically after each completed detector.
+It contains `complete: false` until every selected detector finishes; a partial
+baseline report must not be represented as a full three-way result. Item-level
+JSONL checkpoints continue to preserve completed work within an interrupted detector.
+Source changes invalidate old checkpoints deliberately, so transport fixes do not
+silently import predictions from an older code version.
+
+The full scoring corpus requires approximately 3,669 hosted requests before retries:
+1,223 zero-shot calls plus 1,223 query embeddings and 1,223 retrieval-model calls.
+At 30 total requests/minute, allow at least about two hours, plus cooldowns and
+model latency. Existing indexed training embeddings are reused.
 
 ## Result and scoring
 
@@ -102,7 +135,7 @@ may have appeared in Nemotron pretraining.
 ## Verification
 
 ```text
-python -m unittest tests.test_detection tests.test_detectors
+python -m unittest tests.test_detection tests.test_detectors tests.test_nvidia_transport
 npm run typecheck
 npm test
 ```
