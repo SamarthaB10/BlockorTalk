@@ -30,6 +30,16 @@ describe("FTC news", () => {
     expect(item).toMatchObject({ title: "Your phone carrier didn't text you", link: "https://consumer.ftc.gov/consumer-alerts/2026/11/example-three" });
   });
 
+  it("asks for the current FTC feed the way its firewall accepts", async () => {
+    let seen: { url: string; headers: Headers } | undefined;
+    const spy = (async (url: string, init: RequestInit) => { seen = { url, headers: new Headers(init.headers) }; return new Response(RSS); }) as unknown as typeof fetch;
+    await ftcAlerts(spy, 0);
+    expect(seen!.url).toBe("https://consumer.ftc.gov/blog/gd-rss.xml");
+    expect(seen!.headers.get("User-Agent")).toMatch(/^Mozilla\/5\.0/);
+    expect(seen!.headers.get("Accept-Language")).toBeTruthy();
+    expect(seen!.headers.get("Sec-Fetch-Mode")).toBe("navigate");
+  });
+
   it("caches, serves a stale copy on failure, and throws with nothing cached", async () => {
     const ok = (async () => new Response(RSS)) as typeof fetch;
     const down = (async () => new Response("", { status: 503 })) as typeof fetch;

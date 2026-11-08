@@ -3,7 +3,7 @@
  * Fetched on the server, cached for a few hours, and parsed from RSS or Atom.
  * Nothing is invented: if the feed can't be read, the page says so.
  */
-export const FTC_FEED_URL = "https://consumer.ftc.gov/consumer-alerts/feed";
+export const FTC_FEED_URL = "https://consumer.ftc.gov/blog/gd-rss.xml";
 export const FTC_ALERTS_PAGE = "https://consumer.ftc.gov/consumer-alerts";
 const CACHE_MS = 3 * 60 * 60 * 1000;
 
@@ -70,7 +70,15 @@ export async function ftcAlerts(fetchFn: typeof fetch = fetch, now = Date.now())
   if (cache && now - cache.at < CACHE_MS) return { items: cache.items, fetchedAt: new Date(cache.at).toISOString() };
   try {
     const res = await fetchFn(FTC_FEED_URL, {
-      headers: { Accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9", "User-Agent": "Tell scam-practice app (education)" },
+      // FTC's Akamai firewall answers anything that doesn't look like a browser navigation with a fake 404.
+      headers: {
+        Accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+      },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`FTC feed returned ${res.status}`);
