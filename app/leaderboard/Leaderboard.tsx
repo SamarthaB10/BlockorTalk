@@ -89,6 +89,12 @@ export default function Leaderboard({ claim = false, embedded = false }: { claim
   const phase = !board ? '' : board.final ? 'Final' : board.season.status === 'upcoming' ? 'Starts soon' : 'Live';
   const endsAt = board && !board.final ? new Date(board.season.endsAt).toLocaleString('en-US', { timeZone: 'America/Chicago' }) : '';
 
+  const countdown = board && <div className="season-clock">
+          <h2>{board.final ? 'Final Leaderboard' : remaining === 0 ? 'Waiting for final results' : board.season.status === 'upcoming' ? 'Season starts soon' : 'Season ends in'}</h2>
+          {!board.final && <p className="season-countdown" role="timer" aria-label={`Time until Season ends, ${seasonClockLabel(remaining)}`}><DotFigure size="clamp(48px, 8vw, 88px)">{seasonClock(remaining)}</DotFigure></p>}
+          <p>{board.final ? 'The Season has ended. Scores are final.' : `Ends ${endsAt} CT`}</p>
+  </div>;
+
   const row = (rank: Rank) => {
     const climbed = moveLabel(moves[rank.nickname] ?? 0);
     const isYou = rank.nickname === you;
@@ -101,26 +107,17 @@ export default function Leaderboard({ claim = false, embedded = false }: { claim
 
   const Root = embedded ? 'section' : 'main';
   return <Root className="season-page" aria-label={embedded ? 'Season leaderboard' : undefined}>
-    <header>
+    {embedded && board && !claim && <div className="season-top">{countdown}{board.ownRank && <YourRank board={board} move={moveLabel(moves[board.ownRank.nickname] ?? 0)} />}</div>}
+    {embedded && board && claim && countdown}
+    {!embedded && <header>
       <p className="season-eyebrow">National Leaderboard · {board?.season.name || 'Season 1'}{phase && <span className="ui-pill">{phase}</span>}</p>
       {!embedded && <h1>{claim ? 'Claim your prize' : 'Good judgment adds up.'}</h1>}
       {!embedded && <p>Practice spotting scam calls. Earn Blokbuks with each Scored call.</p>}
-    </header>
+    </header>}
     {error && <p role="alert" className="season-notice">{error} <a href="/leaderboard">Try again</a></p>}
     {!board && !error && <p role="status">Loading the Leaderboard…</p>}
     {board && <>
-      <section className="season-summary" aria-label="Season status">
-        <div>
-          <h2>{board.final ? 'Final Leaderboard' : remaining === 0 ? 'Waiting for final results' : board.season.status === 'upcoming' ? 'Season starts soon' : 'Season ends in'}</h2>
-          {!board.final && <p className="season-countdown" role="timer" aria-label={`Time until Season ends, ${seasonClockLabel(remaining)}`}><DotFigure size="clamp(48px, 8vw, 88px)">{seasonClock(remaining)}</DotFigure></p>}
-          <p>{board.final ? 'The Season has ended. Scores are final.' : `Ends ${endsAt} CT`}</p>
-        </div>
-        <div>
-          <h2>Season prizes</h2>
-          <ol>{board.season.prizes.map(prize => <li key={prize.place}><span className="standings-prize-place">{placeLabel(prize.place)}</span> {prize.prize}</li>)}</ol>
-          <p>provided by sponsor · rules apply</p>
-        </div>
-      </section>
+      {!embedded && <section className="season-summary" aria-label="Season status">{countdown}</section>}
       {claim ? <section aria-label="Prize claim">
         {board.claimEligible ? <><h2>Confirm your details</h2><p>This is a claim request. The sponsor must verify your email and approve the prize.</p>
           <form className="season-claim" onSubmit={submit}>
@@ -130,7 +127,7 @@ export default function Leaderboard({ claim = false, embedded = false }: { claim
             <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Sending…' : 'Send claim request'}</Button>
           </form><p role="status">{message}</p></> : <p>Claims are open only to the final top three Players. Sign in with your Player profile after the Season ends.</p>}
       </section> : <>
-        {board.ownRank ? <YourRank board={board} move={moveLabel(moves[board.ownRank.nickname] ?? 0)} /> : <p className="season-notice">No rank yet. <a href="/play">Play a Scored call</a> to join the Leaderboard.</p>}
+        {board.ownRank ? (embedded ? null : <YourRank board={board} move={moveLabel(moves[board.ownRank.nickname] ?? 0)} />) : <p className="season-notice">No rank yet. <a href="/play">Play a Scored call</a> to join the Leaderboard.</p>}
         {steps.length > 0 && <ol className="standings-podium" data-count={steps.length} aria-hidden="true">
           {steps.map((rank, index) => {
             const prize = board.season.prizes.find(item => item.place === rank.rank)?.prize;
@@ -155,15 +152,13 @@ export default function Leaderboard({ claim = false, embedded = false }: { claim
 function YourRank({ board, move }: { board: Board; move: string | null }) {
   const own = board.ownRank;
   if (!own) return null;
-  const playable = board.season.status === 'live';
   return <section className="standings-you" aria-label="Your rank">
     <p className="standings-place">{placeLabel(own.rank)}</p>
     <div>
       <p className="standings-kicker">Your rank</p>
       <p className="standings-you-score"><Blokbuks amount={own.blokbuks} />{move && <span className="standings-move">{move}</span>}</p>
       <p>{standingLine(board.leaderboard, own, board.final)}</p>
-      {(playable || board.claimEligible) && <p className="standings-actions">
-        {playable && <a className="ui-button ui-button--primary" href="/play">Play a Scored call</a>}
+      {board.claimEligible && <p className="standings-actions">
         {board.claimEligible && <a className="ui-button" href="/leaderboard/claim">Claim your prize</a>}
       </p>}
     </div>

@@ -5,7 +5,7 @@
 .season-page h1 { font-family: Sora, var(--font-ui); font-weight: 500; letter-spacing: -.035em; font-size: clamp(40px, 6vw, 72px); line-height: 1.08; margin: var(--space-4) 0; max-width: 720px; }
 .season-page h2 { font-size: 24px; margin: 0; }
 .season-summary { display: grid; grid-template-columns: 1.35fr .85fr; gap: var(--space-4); }
-.season-summary > div { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-5); }
+.season-summary > div { min-width: 0; padding: var(--space-5); }
 .season-countdown { margin: var(--space-4) 0; }
 .season-summary ol { margin: var(--space-4) 0; padding-left: 0; list-style: none; }
 .season-summary li { padding-block: var(--space-2); }
@@ -13,7 +13,7 @@
 .standings-prize-place { display: inline-block; min-width: 2.75rem; font-variant-numeric: tabular-nums; }
 .season-notice { padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); }
 
-.standings-you { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-5); align-items: center; position: sticky; top: 0; z-index: 2; margin-block: var(--space-5); padding: var(--space-5); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
+.standings-you { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-5); align-items: center; position: sticky; top: 0; z-index: 2; margin-block: var(--space-5); padding: var(--space-5); background: var(--bg); }
 .standings-you > div { min-width: 0; }
 .standings-you p { margin: 0; }
 .standings-kicker { color: var(--ink-muted); font-size: 16px; }
@@ -81,3 +81,16 @@
 @media (prefers-reduced-motion: reduce) {
   .standings-step { animation: ui-fade var(--dur-toast) linear both; animation-delay: 0s; }
 }
+
+.season-clock { padding: var(--space-5) var(--space-5) 0; }
+.season-clock p:last-child { color: var(--ink-muted); }
+.season-page .season-clock + header { padding-top: var(--space-4); }
+.season-summary:has(> div:only-child) { grid-template-columns: 1fr; }
+
+.season-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-5); }
+.season-top .standings-you { position: static; margin: var(--space-5) var(--space-5) 0 0; padding: var(--space-3) var(--space-5); }
+.season-top .standings-you .standings-place { font-size: clamp(40px, 6vw, 64px); }
+.season-top .season-clock { padding-bottom: 0; }
+.season-top + header { padding-top: var(--space-3); }
+.season-summary > div { padding-top: 0; }
+.standings-you { background: transparent; }

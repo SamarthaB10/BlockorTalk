@@ -151,7 +151,7 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-profile-avatar { display:grid; place-items:center; width:128px; height:128px; margin:0 auto 24px; border:2px solid var(--line-strong); border-radius:50%; background:var(--hub-card-2); color:var(--ink); font-size:52px; }
 .hub-profile-identity .player-fields { text-align:left; }
 .hub-profile-identity .player-actions { justify-content:center; }
-.hub-scenario-mascot { display:block; width:136px; height:116px; object-fit:contain; background:#000; border-radius:12px; }
+.hub-scenario-mascot { display:block; width:136px; height:116px; object-fit:contain; background:transparent; border-radius:12px; }
 .hub-scenario>.hub-scenario-mascot { align-self:flex-end; }
 .hub .hub-people { gap:16px; }
 .hub.hub .hub-people span { display:flex; flex-direction:column; width:auto; height:auto; gap:8px; background:transparent; }
