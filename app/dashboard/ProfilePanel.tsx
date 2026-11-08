@@ -22,8 +22,8 @@ export default function ProfilePanel({ returnTo }: { returnTo?: string | null })
   }, [revision]);
 
   return <div className="hub-profile">
-    <section className="hub-card hub-profile-card">
-      <PlayerSignup returnTo={returnTo} onSession={() => setRevision(value => value + 1)} />
+    <section className="hub-card hub-profile-card hub-profile-identity">
+      <PlayerSignup profile returnTo={returnTo} onSession={() => setRevision(value => value + 1)} />
     </section>
     <section className="hub-card hub-profile-card" id="profile-analysis" aria-labelledby="profile-analysis-title">
       <h2 id="profile-analysis-title">Your analysis</h2>

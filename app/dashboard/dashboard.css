@@ -144,3 +144,24 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-drill .play .play-primary,.hub-drill .call-results-link.is-primary{background:#2a2624;color:#fff;border-color:#2a2624;}
 .hub-drill button.call-results-link{font:inherit;cursor:pointer;}
 .hub-skill-history button.hub-link{text-align:left;}
+
+/* Profile identity and scenario art. */
+.hub-profile-identity { align-items:center; text-align:center; }
+.hub-profile-identity .player-signup { width:100%; }
+.hub-profile-avatar { display:grid; place-items:center; width:128px; height:128px; margin:0 auto 24px; border:2px solid var(--line-strong); border-radius:50%; background:var(--hub-card-2); color:var(--ink); font-size:52px; }
+.hub-profile-identity .player-fields { text-align:left; }
+.hub-profile-identity .player-actions { justify-content:center; }
+.hub-scenario-mascot { display:block; width:136px; height:116px; object-fit:contain; background:#000; border-radius:12px; }
+.hub-scenario>.hub-scenario-mascot { align-self:flex-end; }
+.hub .hub-people { gap:16px; }
+.hub.hub .hub-people span { display:flex; flex-direction:column; width:auto; height:auto; gap:8px; background:transparent; }
+.hub-people .hub-scenario-mascot { width:68px; height:58px; border-radius:8px; }
+.hub-skill-key { margin:0 0 20px; color:var(--hub-muted); line-height:1.6; }
+.hub-skill-scales { display:grid; gap:12px; margin:8px 0; }
+.hub-skill-scales>div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:4px 12px; font-size:12px; }
+.hub-skill-scales dd { display:contents; margin:0; }
+.hub-skill-scales dd>span { text-align:right; font-variant-numeric:tabular-nums; }
+.hub-skill-scales meter { grid-column:1 / -1; width:100%; height:10px; appearance:none; background:var(--hub-card-2); border-radius:8px; overflow:hidden; }
+.hub-skill-scales meter::-webkit-meter-bar { background:var(--hub-card-2); border:0; border-radius:8px; }
+.hub-skill-scales meter::-webkit-meter-optimum-value { background:var(--cyan); }
+.hub-skill-scales meter::-moz-meter-bar { background:var(--cyan); }

@@ -6,7 +6,7 @@ import { safeReturnPath } from '../../lib/players/returnTo';
 type Player = { id: string; nickname: string };
 type Result = { player?: Player | null; errors?: { email?: string; nickname?: string }; error?: string };
 
-export default function PlayerSignup({ returnTo, onSession }: { returnTo?: string | null; onSession?: () => void }) {
+export default function PlayerSignup({ returnTo, onSession, profile = false }: { returnTo?: string | null; onSession?: () => void; profile?: boolean }) {
   const next = safeReturnPath(returnTo);
   const [player, setPlayer] = useState<Player | null>(null);
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
@@ -50,6 +50,7 @@ export default function PlayerSignup({ returnTo, onSession }: { returnTo?: strin
   }
 
   return <section className="player-signup" aria-labelledby="player-heading" aria-busy={loading || busy}>
+    {profile && <div className="hub-profile-avatar" aria-hidden="true">{player ? Array.from(player.nickname)[0]?.toUpperCase() : '?'}</div>}
     <h2 id="player-heading">{player ? `Welcome, ${player.nickname}` : mode === 'signup' ? 'Create your Player profile' : 'Sign in to Tell'}</h2>
     <p className="player-message" role="status">{loading ? 'Checking your sign-in…' : message}</p>
     {next && !player && <p>Sign in to start this practice call. You will come back to it. <a href={next}>Continue this practice call</a></p>}

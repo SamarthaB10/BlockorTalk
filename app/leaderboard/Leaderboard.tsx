@@ -6,6 +6,7 @@ import { moveLabel, placeLabel, podiumOrder, seasonClock, seasonClockLabel, stan
 import Blokbuks from '../components/Blokbuks';
 import { Button, DotFigure } from '../components/ui';
 import './season.css';
+import PrizeVisual from './PrizeVisual';
 
 type Rank = { rank: number; nickname: string; blokbuks: number };
 type Board = { season: Season & { status: string }; final: boolean; leaderboard: Rank[]; ownRank: Rank | null; claimEligible: boolean };
@@ -133,7 +134,8 @@ export default function Leaderboard({ claim = false, embedded = false }: { claim
         {steps.length > 0 && <ol className="standings-podium" data-count={steps.length} aria-hidden="true">
           {steps.map((rank, index) => {
             const prize = board.season.prizes.find(item => item.place === rank.rank)?.prize;
-            return <li key={rank.nickname} className={rank.rank === 1 ? 'standings-step standings-step--first' : 'standings-step'} style={{ '--i': index } as CSSProperties}>
+            return <li key={rank.nickname} className={rank.rank === 1 ? 'standings-step prize-card standings-step--first' : 'standings-step prize-card'} style={{ '--i': index } as CSSProperties}>
+              {prize && <PrizeVisual prize={prize} />}
               <p className="standings-place">{placeLabel(rank.rank)}</p>
               <p className="standings-name">{rank.nickname}{rank.nickname === you ? ' · You' : ''}</p>
               <p className="standings-score"><Blokbuks amount={rank.blokbuks} /></p>
