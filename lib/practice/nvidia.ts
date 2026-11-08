@@ -1,6 +1,6 @@
 import { PRACTICE_CARD, PRACTICE_SECRETS, CODE_REQUEST } from './card.ts';
 import { mentionsSecret } from '../policy/normalize.mjs';
-import type { Dataset, Example, Label, Theme } from './types.ts';
+import type { Example, Label, Theme } from './types.ts';
 
 export class PracticeError extends Error {
   readonly status: number;
@@ -20,12 +20,6 @@ export function createPracticeNvidia(env = process.env) {
     return response.json();
   }
   return {
-    async embed(query: string, dataset: Dataset): Promise<number[]> {
-      const result = await post('/embeddings', { model: dataset.embedding_model, input: [query], input_type: 'query', truncate: 'END', dimensions: 1024 }) as { data?: { embedding: number[] }[] };
-      const vector = result.data?.[0]?.embedding;
-      if (!vector || vector.length !== 1024 || !vector.every(Number.isFinite) || !vector.some(n => n !== 0)) throw new PracticeError('NVIDIA returned an invalid embedding.');
-      return vector;
-    },
     async plan(theme: Theme, label: Label, examples: Example[]): Promise<{ questions: string[]; explanation: string }> {
       const tool = { type: 'function', function: { name: 'plan_call', description: 'Plan a fictional practice call', parameters: {
         type: 'object', additionalProperties: false, required: ['questions', 'explanation'], properties: {

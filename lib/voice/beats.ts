@@ -14,7 +14,7 @@ export interface BeatDeps {
   onBeat(event: BeatEvent): Promise<void>;
 }
 
-function sameSecret(a: string, b: string): boolean {
+export function sameSecret(a: string, b: string): boolean {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);

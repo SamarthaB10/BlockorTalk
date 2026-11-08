@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import { buildAgentConfig, type AgentConfigOptions } from "../lib/voice/agentConfig";
 import type { AgentIds } from "../lib/voice/adapter";
+import { createPracticeCorpus } from "../lib/practice/corpus.ts";
 import { elevenLabs } from "../lib/voice/client";
 import { CHALLENGE_CALLER_IDS, PERSONAS } from "../lib/voice/personas";
 
@@ -30,6 +31,16 @@ async function main() {
   const { TELL_PUBLIC_URL, TELL_TOOL_SECRET_ID, TELL_VOICE_LLM } = process.env;
 
   const opts: AgentConfigOptions = {};
+  const withDataset = process.argv.includes('--with-dataset');
+  if (withDataset) {
+    if (!TELL_PUBLIC_URL || !TELL_TOOL_SECRET_ID || !process.env.TELL_TOOL_SECRET || !process.env.DATABASE_URL) {
+      throw new Error('Dataset connection requires TELL_PUBLIC_URL, TELL_TOOL_SECRET_ID, TELL_TOOL_SECRET and DATABASE_URL');
+    }
+    const corpus = createPracticeCorpus(process.env.DATABASE_URL);
+    // Check every caller before updating any hosted agent.
+    for (const id of CHALLENGE_CALLER_IDS) await corpus.forCaller(id);
+    opts.datasetTool = { publicUrl: TELL_PUBLIC_URL, toolSecretId: TELL_TOOL_SECRET_ID };
+  }
   if (TELL_VOICE_LLM) opts.llm = TELL_VOICE_LLM as ElevenLabs.Llm;
   if (TELL_PUBLIC_URL && TELL_TOOL_SECRET_ID) {
     opts.beatTool = { publicUrl: TELL_PUBLIC_URL, toolSecretId: TELL_TOOL_SECRET_ID };

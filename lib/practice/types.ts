@@ -2,7 +2,7 @@ export const THEMES = ['finance', 'seasonal_packages'] as const;
 export type Theme = typeof THEMES[number];
 export type Label = 'scam' | 'legit';
 export type Example = { id: string; dialogue: string; label: number; source: string };
-export type Dataset = { pool_id: string; source: string; embedding_model: string; prompt_count: number; held_out_count: number };
+export type Dataset = { pool_id: string; source: string; embedding_model: string | null; retrieval_method: 'vector' | 'lexical'; prompt_count: number; held_out_count: number };
 export type Practice = {
   id: string;
   theme: Theme;
