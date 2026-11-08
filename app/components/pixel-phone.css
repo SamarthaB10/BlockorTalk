@@ -1,0 +1,20 @@
+/* Pixel phone. Motion only on hover of its card, and never with reduced motion. */
+.pixel-phone { display:block; width:var(--pixel-phone-width, 60px); /* keep widths a multiple of 20px so every art pixel is a whole number */ height:auto; flex-shrink:0; transition:transform 240ms cubic-bezier(.2,.8,.2,1), filter 240ms ease-out; }
+.pixel-phone .pp-k, .pixel-phone .pp-ink { fill:#0b0b10; }
+.pixel-phone .pp-w { fill:#f2f0ea; }
+.pixel-phone .pp-p { fill:#9c9bff; }
+.pixel-phone .pp-d { fill:#7473e0; }
+.pixel-phone .pp-s { fill:#6fd8e8; transition:fill 240ms ease-out; }
+.pixel-phone .pp-wave-b { opacity:0; }
+.pixel-phone-host:hover .pixel-phone, .pixel-phone-host:focus-within .pixel-phone { transform:translateY(-3px); filter:drop-shadow(0 6px 10px rgb(111 216 232 / .3)); }
+.pixel-phone-host:hover .pp-s, .pixel-phone-host:focus-within .pp-s { fill:#a9f0fa; }
+.pixel-phone-host:hover .pp-wave-a { animation:pp-wave 640ms steps(1, end) infinite; }
+.pixel-phone-host:hover .pp-wave-b { animation:pp-wave 640ms steps(1, end) infinite reverse; }
+.pixel-phone-host:hover .pp-pulse { animation:pp-pulse 900ms steps(1, end) 1; }
+@keyframes pp-wave { 0% { opacity:1; } 50% { opacity:0; } }
+@keyframes pp-pulse { 0%, 100% { opacity:1; } 33% { opacity:0; } 66% { opacity:1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pixel-phone { transition:none; }
+  .pixel-phone-host:hover .pixel-phone, .pixel-phone-host:focus-within .pixel-phone { transform:none; }
+  .pixel-phone-host:hover .pp-wave-a, .pixel-phone-host:hover .pp-wave-b, .pixel-phone-host:hover .pp-pulse { animation:none; }
+}
