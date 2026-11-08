@@ -60,7 +60,7 @@ The app follows `app/` router conventions. API routes in `app/api/*/route.ts` ar
   The CLI is `node scripts/debrief.mjs`.
 - **`lib/insights/`**: Carrier insights at `/insights` (docs/adr/0002). Totals only, from `insightTotals`; see `lib/insights/README.md`. `npm run insights:seed` / `insights:unseed` add or remove the synthetic demo rows.
 - **`lib/policy/`**: the four rules and the normalized leak check. `normalize.mjs` turns spoken digits, dates and addresses into canonical forms, so "eight three oh two" matches 8302. Challenge, debrief and practice all share it.
-- **`lib/practice/`**: practice mode and battle cards. `catalog.ts` is browser-safe and deliberately has **no call types**. Call types live server-side in `script.ts` and are revealed only after a verdict.
+- **`lib/practice/`**: practice mode. `catalog.ts` is browser-safe and deliberately has **no call types**. Call types live server-side in `script.ts` and are revealed only after a verdict.
 - **`lib/voice/`**: the ElevenLabs Agents integration.
   - **Agents.** There are four fixed Challenge agents (Yui, Ren, Kai, and Aki as the Corvanta callback) with IDs in `config/voice-agents.json`. They are provisioned idempotently by `npm run voice:provision` from `personas.ts` and `agentConfig.ts`.
   - **Dynamic variables.** Fake secrets reach the agents as dynamic variables, never as per-call prompt overrides.

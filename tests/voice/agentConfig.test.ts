@@ -3,7 +3,7 @@ import { buildAgentConfig, NO_BEAT_TOOL_NOTE } from "../../lib/voice/agentConfig
 import { CHALLENGE_CALLER_IDS, PERSONAS } from "../../lib/voice/personas";
 
 const DISCLOSURE =
-  "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime.";
+  "It's recorded for your report. Say 'stop drill' anytime.";
 
 // Real brands the personas must never name (docs/SPEC.md: fictional brands only).
 const REAL_BRANDS = [
@@ -19,6 +19,7 @@ describe.each(CHALLENGE_CALLER_IDS)("Challenge agent %s", (id) => {
 
   it("opens every call with the fixed disclosure line, uninterruptible", () => {
     expect(agent.firstMessage!.startsWith(DISCLOSURE)).toBe(true);
+    expect(agent.firstMessage).not.toContain("This is a Tell practice call from an AI voice");
     expect(agent.disableFirstMessageInterruptions).toBe(true);
   });
 

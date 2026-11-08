@@ -1,5 +1,5 @@
-export type DashboardView = 'Home' | 'Scenarios' | 'Battlecards' | 'News';
+export type DashboardView = 'Home' | 'Leaderboard' | 'Scenarios' | 'News';
 
 export function dashboardView(value: string | undefined): DashboardView {
-  return value === 'Scenarios' || value === 'Battlecards' || value === 'News' ? value : 'Home';
+  return value === 'Leaderboard' || value === 'Scenarios' || value === 'News' ? value : 'Home';
 }

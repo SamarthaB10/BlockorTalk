@@ -6,7 +6,11 @@ const first = async ({ options }: { options: readonly string[] }) => options[0]!
 
 describe("practice script", () => {
   it("opens every scenario with the fixed disclosure", () => {
-    for (const s of SCENARIOS) expect(openingTurns(s.id)[0]!.text).toMatch(/^This is a Tell practice call from an AI voice/);
+    for (const s of SCENARIOS) {
+      const line = openingTurns(s.id)[0]!.text;
+      expect(line).toMatch(/^It's recorded for your report/);
+      expect(line).not.toContain("This is a Tell practice call from an AI voice");
+    }
   });
 
   it("walks the scripted beats and shows Kai's code when he asks for it", async () => {

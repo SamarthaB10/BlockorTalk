@@ -7,7 +7,7 @@
   "turns": [
     {
       "role": "assistant",
-      "text": "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime. Hi, is this Alex? This is Yui from Bluebonnet Labs recruiting. Do you have a quick minute?"
+      "text": "It's recorded for your report. Say 'stop drill' anytime. Hi, is this Alex? This is Yui from Bluebonnet Labs recruiting. Do you have a quick minute?"
     },
     {
       "role": "user",

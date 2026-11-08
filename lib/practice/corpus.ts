@@ -10,7 +10,6 @@ const CALLER_QUERY: Record<ChallengeCallerId, { label: 0 | 1; query: string }> =
   onboarding: { label: 1, query: 'job equipment deposit payment gift card' },
   fraud_team: { label: 1, query: 'bank account security verification code' },
   bank_callback: { label: 0, query: 'bank account transaction customer service' },
-  card_coach: { label: 1, query: 'phone security code payment urgent' },
 };
 
 export function createPracticeCorpus(connectionString: string) {
