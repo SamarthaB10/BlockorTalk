@@ -1,18 +1,12 @@
 import type { ResultsView } from '../../lib/season/results';
-import type { Recommendation } from '../../lib/skills/log';
 
 /**
  * The results screen after each call (BS-11). Presentational only: the server builds the view.
- * Order: Call type, Scored moments, skill update and next drill, right/wrong, Blokbuks and rank,
+ * Order: Call type, Scored moments, skill update, right/wrong, Blokbuks and rank,
  * Scored calls left, then the transcript. Every right/wrong carries a text label, never colour alone.
  */
-/**
- * Inside the dashboard, pass `onNextDrill` and `onDone` so the next drill and the way back stay on that
- * page; on /play/results the links work as before.
- */
-export default function CallResults({ view, onNextDrill, onDone }: {
+export default function CallResults({ view, onDone }: {
   view: ResultsView;
-  onNextDrill?: (next: Recommendation) => void;
   onDone?: () => void;
 }) {
   return (
@@ -40,16 +34,6 @@ export default function CallResults({ view, onNextDrill, onDone }: {
         <blockquote className="call-results-words">{view.skill.why}</blockquote>
         {view.skill.note && <p className="call-results-note">{view.skill.note}</p>}
         <p className="call-results-why">{view.skill.next}</p>
-      </section>}
-
-      {view.next && <section className="call-results-skill" aria-labelledby="next-drill-title">
-        <p id="next-drill-title" className="call-results-eyebrow">Recommended next</p>
-        <p className="call-results-skill-label">{view.next.title}</p>
-        <p className="call-results-why">{view.next.reason}</p>
-        <p className="call-results-note">A new story: {view.next.scenario}. The caller may be real or a scam.</p>
-        {onNextDrill
-          ? <button type="button" className="call-results-link is-primary" onClick={() => onNextDrill(view.next!)}>Start 60-second drill</button>
-          : <a className="call-results-link is-primary" href={view.next.href}>Start 60-second drill</a>}
       </section>}
 
       <div className="call-results-score" role="status">

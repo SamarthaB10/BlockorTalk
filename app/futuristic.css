@@ -15,7 +15,7 @@
   --cyan: #5eead4;
   --magenta: #ff4fd8;
   --focus-ring: 3px solid #67e8f9;
-  --glow: 0 0 18px rgb(139 92 246 / .45);
+  --glow: none;
 }
 
 html { background: #04020f; }
@@ -59,7 +59,7 @@ body .ins {
   --page: transparent; --surface-1: rgb(14 10 44 / .82); --surface-2: rgb(34 24 90 / .85);
   --text-primary: #f4f1ff; --text-secondary: #d0cbf5; --text-muted: #a9a3d9; --line: #8b7cf838;
 }
-body .ins .ins-lock input { background: rgb(8 6 30 / .9); border-color: #8b7cf866; }
+body .ins .ins-lock input { background: rgb(8 6 30 / .9); border-color: #8b7cf8; }
 body .ins .ins-primary { background: var(--paper); }
 body .ins .ins-stat.is-accent { background: var(--paper); }
 
@@ -74,7 +74,7 @@ body .ins .ins-stat.is-accent { background: var(--paper); }
 .ui-sprite-tile { background: #000; }
 
 /* Dashboard (.hub): the same tokens on the formerly light page. .hub.hub outranks dashboard.css selectors. */
-.hub.hub { color: #f4f1ff; background: transparent; color-scheme: dark; --hub-card: rgb(14 10 44 / .82); --hub-card-2: rgb(34 24 90 / .85); --hub-line: #8b7cf838; --hub-muted: #b9b3e6; --hub-btn: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.hub.hub { color: #f4f1ff; background: transparent; color-scheme: dark; --hub-card: rgb(14 10 44 / .82); --hub-card-2: rgb(34 24 90 / .85); --hub-line: #8b7cf8; --hub-muted: #b9b3e6; --hub-btn: linear-gradient(135deg, #7c3aed, #a78bfa); }
 .hub.hub :focus-visible { outline-color: #67e8f9; }
 .hub.hub .hub-nav, .hub.hub .hub-news>a, .hub.hub .hub-skill-history li, .hub.hub .hub-analysis, .hub.hub .hub-rank-row, .hub.hub .hub-fictional-card, .hub.hub .hub-fictional-card [role=status] { border-color: var(--hub-line); }
 .hub.hub .hub-nav>a span, .hub.hub .hub-card small, .hub.hub .hub-footer, .hub.hub .player-help, .hub.hub .hub-progress-eyebrow, .hub.hub .hub-fictional-card dt, .hub.hub .hub-card>.hub-soon { color: #a9a3d9; }
@@ -93,15 +93,31 @@ body .ins .ins-stat.is-accent { background: var(--paper); }
 .hub.hub .hub-rule-number, .hub.hub .skill-flag, .hub.hub .player-error { color: #ff8ad8; }
 .hub.hub .greeting-caret { color: #5eead4; }
 .hub.hub .hub-recommend blockquote, .hub.hub .hub-skill.is-open { border-color: #8b5cf6; }
-.hub.hub .hub-move, .hub.hub .player-signup .ui-button { border-color: #8b7cf866; }
+.hub.hub .hub-move, .hub.hub .player-signup .ui-button { border-color: #8b7cf8; }
 .hub.hub .player-signup .ui-button { color: #f4f1ff; }
 .hub.hub .skill-dot { border-color: #8b7cf8; }
 .hub.hub .skill-dot[data-state="Demonstrated"] { background: #8b7cf8; }
 .hub.hub .skill-dot[data-state="Independent"] { background: #5eead4; border-color: #5eead4; }
-.hub.hub .hub-practice input, .hub.hub .player-fields input, .welcome-dialog.welcome-dialog input { background: #0b0828; color: #f4f1ff; border-color: #8b7cf866; }
+.hub.hub .hub-practice input, .hub.hub .player-fields input, .welcome-dialog.welcome-dialog input { background: #0b0828; color: #f4f1ff; border-color: #8b7cf8; }
 .hub.hub .hub-link:hover { color: #67e8f9; }
 .welcome-dialog.welcome-dialog { color-scheme: dark; color: #f4f1ff; background: #110c33; border-color: #4a3f9a; box-shadow: var(--glow); }
 .welcome-dialog.welcome-dialog p { color: #b9b3e6; }
 .welcome-dialog.welcome-dialog .welcome-friend { background: rgb(60 45 140 / .55); }
 .welcome-dialog.welcome-dialog .welcome-go { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
 .welcome-dialog.welcome-dialog :focus-visible { outline-color: #67e8f9; }
+
+/* Solid dashboard edges and clear evidence panels. Keyboard outlines stay visible. */
+.hub.hub { --line:#8b7cf8; --line-strong:#c4b5fd; }
+.hub.hub *, .welcome-dialog.welcome-dialog { box-shadow:none; }
+.hub.hub .hub-card, .hub.hub .hub-practice, .hub.hub .hub-standings-list { border:1px solid var(--hub-line); backdrop-filter:none; }
+.hub.hub .balance-badge { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.hub.hub .hub-progress { padding:24px; background:#000; border:1px solid var(--hub-line); border-radius:16px; }
+.hub.hub .hub-progress .hub-card { background:#000; }
+.hub.hub .hub-progress p, .hub.hub .hub-progress .hub-progress-eyebrow { color:#d9d5ee; }
+.hub-progress-summary h1 { margin:0 0 20px; font-size:clamp(28px,3vw,40px); font-weight:500; }
+@media(max-width:600px) { .hub.hub .hub-progress { padding:16px; } }
+.hub.hub .hub-drill { --bg:#000; --surface:#000; --ink:#f4f1ff; --ink-muted:#d9d5ee; --line:#8b7cf8; --paper:#b79cff; background:#000; color:var(--ink); border-color:var(--line); }
+
+.hub-progress-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; margin-bottom:20px; }
+.hub-progress-heading h1 { margin:0; }
+@media(max-width:760px) { .hub-intro { flex-wrap:wrap; } .hub-intro>.hub-balance { flex-basis:100%; align-items:flex-start; margin-left:0; } }

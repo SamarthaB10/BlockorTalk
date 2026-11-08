@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ProgressView, Recommendation, SkillCard } from '../../lib/skills/log';
+import type { ProgressView, SkillCard } from '../../lib/skills/log';
 import type { SkillId } from '../../lib/skills/catalog';
 import type { ResultsView } from '../../lib/season/results';
-import { CallScreen } from '../play/[id]/CallScreen';
 import CallResults from '../play/CallResults';
+import BalanceBadge from '../components/BalanceBadge';
 import '../play/play.css';
 import '../play/results.css';
 
@@ -31,14 +31,14 @@ function SkillScales({ skill }: { skill: SkillCard }) {
   </div>)}</dl>;
 }
 
-/** Presentational Progress screen: summary, one recommended drill, the Skill Log, and one skill's history. */
-export function ProgressBoard({ progress, selected, onSelect, onStartDrill, onOpenEvidence }: {
+/** Presentational Progress screen: summary, the Skill Log, and one skill's history. */
+export function ProgressBoard({ progress, selected, onSelect, onOpenEvidence }: {
   progress: ProgressView; selected: SkillId | null; onSelect: (skill: SkillId | null) => void;
-  /** When set, the drill and evidence open on this page instead of /play. */
-  onStartDrill?: (drill: Recommendation) => void; onOpenEvidence?: (href: string) => void;
+  /** When set, evidence opens on this page instead of /play. */
+  onOpenEvidence?: (href: string) => void;
 }) {
   const open = progress.skills.find(skill => skill.id === selected) ?? null;
-  const { summary, recommended } = progress;
+  const { summary } = progress;
   const opened = useRef(false);
   // A Player who opens a log is taken to it, so on a phone the panel never appears off-screen.
   useEffect(() => {
@@ -50,7 +50,7 @@ export function ProgressBoard({ progress, selected, onSelect, onStartDrill, onOp
   }, [selected]);
   return <div className="hub-progress">
     <section className="hub-progress-summary" aria-labelledby="progress-summary-title">
-      <h2 id="progress-summary-title" className="hub-progress-eyebrow">Your progress</h2>
+      <div className="hub-progress-heading"><h1 id="progress-summary-title">Your progress</h1><BalanceBadge /></div>
       <ul>
         <li><strong>{summary.demonstrated}</strong> {summary.demonstrated === 1 ? 'skill' : 'skills'} demonstrated</li>
         <li><strong>{summary.independent}</strong> {summary.independent === 1 ? 'skill' : 'skills'} independent</li>
@@ -58,16 +58,6 @@ export function ProgressBoard({ progress, selected, onSelect, onStartDrill, onOp
       </ul>
       {summary.calls === 0 && <p>Your Skill Log fills in from your own decisions. Finish a call to see your first evidence.</p>}
     </section>
-
-    {recommended && <section className="hub-card hub-recommend" aria-labelledby="recommended-title">
-      <span className="hub-chip">Recommended next</span>
-      <h2 id="recommended-title">{recommended.title}</h2>
-      <blockquote>{recommended.reason}</blockquote>
-      <p>A new story with the same skill: {recommended.scenario}. The caller may be real or a scam, so the drill also checks that you still help a real caller.</p>
-      {onStartDrill
-        ? <button type="button" className="hub-primary" onClick={() => onStartDrill(recommended)}>Start 60-second drill <span aria-hidden="true">→</span></button>
-        : <a className="hub-primary" href={recommended.href}>Start 60-second drill <span>↗</span></a>}
-    </section>}
 
     <section aria-labelledby="skill-log-title">
       <h2 id="skill-log-title" className="hub-progress-eyebrow">Skill log</h2>
@@ -109,7 +99,6 @@ export function ProgressBoard({ progress, selected, onSelect, onStartDrill, onOp
 type Load = { state: 'loading' } | { state: 'signin' } | { state: 'down' } | { state: 'ready'; progress: ProgressView };
 type Mode =
   | { kind: 'board' }
-  | { kind: 'drill'; skill: SkillId; scenarioId: string; title: string }
   | { kind: 'results'; callId: string; anchor: string | null };
 
 /** "/play/results/<id>#step-2" → the call id and the moment to scroll to. */
@@ -125,8 +114,8 @@ function bringIntoView(id: string) {
 }
 
 /** A finished call's debrief, loaded from the results API and shown on the dashboard. */
-function InlineResults({ callId, anchor, onNextDrill, onDone }: {
-  callId: string; anchor: string | null; onNextDrill: (next: Recommendation) => void; onDone: () => void;
+function InlineResults({ callId, anchor, onDone }: {
+  callId: string; anchor: string | null; onDone: () => void;
 }) {
   const [state, setState] = useState<{ view: ResultsView } | { error: string } | null>(null);
   const [retry, setRetry] = useState(0);
@@ -147,12 +136,12 @@ function InlineResults({ callId, anchor, onNextDrill, onDone }: {
     <p>{state.error}</p>
     <button type="button" className="hub-link" onClick={() => setRetry(value => value + 1)}>Try again</button>
   </div>;
-  return <CallResults view={state.view} onNextDrill={onNextDrill} onDone={onDone} />;
+  return <CallResults view={state.view} onDone={onDone} />;
 }
 
 /**
- * Loads the Player's Skill Log. A drill and its debrief open right here on the dashboard, and going
- * back reloads the log so the call just finished adds its evidence. Signed-out visitors go to Profile.
+ * Loads the Player's Skill Log and opens saved evidence on the dashboard.
+ * Signed-out visitors go to Profile.
  */
 export default function ProgressPanel({ initialSkill = null, onSignIn }: { initialSkill?: SkillId | null; onSignIn: () => void }) {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
@@ -161,7 +150,7 @@ export default function ProgressPanel({ initialSkill = null, onSignIn }: { initi
   const [mode, setMode] = useState<Mode>({ kind: 'board' });
   useEffect(() => {
     const controller = new AbortController();
-    // Keep showing the current log while a refresh loads, so coming back from a drill doesn't flash.
+    // Keep showing the current log while a refresh loads.
     setLoad(current => (current.state === 'ready' ? current : { state: 'loading' }));
     fetch('/api/progress', { signal: controller.signal, cache: 'no-store' }).then(async response => {
       if (response.status === 401) return setLoad({ state: 'signin' });
@@ -177,23 +166,16 @@ export default function ProgressPanel({ initialSkill = null, onSignIn }: { initi
     if (skill) url.searchParams.set('skill', skill); else url.searchParams.delete('skill');
     history.replaceState(null, '', url);
   }
-  const startDrill = useCallback((drill: Recommendation) => setMode({ kind: 'drill', skill: drill.skill, scenarioId: drill.scenarioId, title: drill.title }), []);
-  const finished = useCallback((call: { id: string }) => setMode({ kind: 'results', callId: call.id, anchor: null }), []);
-  const otherCall = useCallback((scenarioId: string) => setMode(current => (current.kind === 'drill' ? { ...current, scenarioId } : current)), []);
   const backToLog = useCallback(() => { setMode({ kind: 'board' }); setRetry(value => value + 1); }, []);
 
-  if (mode.kind === 'drill') return <section id="progress-stage" className="hub-drill" tabIndex={-1} aria-label={`60-second drill: ${mode.title}`}>
-    <button type="button" className="hub-link" onClick={backToLog}>← Back to your progress</button>
-    <CallScreen key={`${mode.scenarioId}:${mode.skill}`} scenarioId={mode.scenarioId} drill={mode.skill} onComplete={finished} onOtherCall={otherCall} />
-  </section>;
   if (mode.kind === 'results') return <section id="progress-stage" className="hub-drill" tabIndex={-1} aria-label="Your debrief">
     <button type="button" className="hub-link" onClick={backToLog}>← Back to your progress</button>
-    <InlineResults callId={mode.callId} anchor={mode.anchor} onNextDrill={startDrill} onDone={backToLog} />
+    <InlineResults callId={mode.callId} anchor={mode.anchor} onDone={backToLog} />
   </section>;
 
   if (load.state === 'loading') return <p className="hub-progress-note" role="status">Loading your Skill Log…</p>;
   if (load.state === 'signin') return <section className="hub-card hub-progress-note"><h2>Keep a Skill Log</h2><p>Sign in so each call adds evidence to your skills.</p><button type="button" className="hub-primary" onClick={onSignIn}>Sign in or sign up <span>↗</span></button></section>;
   if (load.state === 'down') return <section className="hub-card hub-progress-note" role="alert"><p>Your progress is not available right now.</p><button type="button" className="hub-link" onClick={() => setRetry(value => value + 1)}>Try again</button></section>;
-  return <ProgressBoard progress={load.progress} selected={selected} onSelect={select} onStartDrill={startDrill}
+  return <ProgressBoard progress={load.progress} selected={selected} onSelect={select}
     onOpenEvidence={href => { const target = parseEvidence(href); if (target) setMode({ kind: 'results', ...target }); }} />;
 }
