@@ -7,7 +7,7 @@ import type { CallRecord, CallStore, Transaction } from '../lib/season/calls/sto
 import { scenarios } from '../lib/season/scenarios/server';
 import { isNextCallScored, scoredCallsLeftToday } from '../lib/blokbuks/rules';
 
-function fixture(plan?: Parameters<typeof createCallService>[0]['plan']) {
+function fixture(plan?: Parameters<typeof createCallService>[0]['plan'], options?: Pick<Parameters<typeof createCallService>[0], 'finished' | 'onFinished'>) {
   let time = Date.parse('2026-11-08T10:00:00Z');
   let random = 0;
   const rows = new Map<string, CallRecord>();
@@ -34,6 +34,7 @@ function fixture(plan?: Parameters<typeof createCallService>[0]['plan']) {
     plan: plan ?? (async scenario => [`Hello from ${scenario.org}. I am calling about your practice notice.`, scenario.card.facts[0]!, 'Please take a moment to review this notice.']),
     now: () => new Date(time), random: () => (random++ % 2) / 2,
     finishCall: async (_tx, call) => { finished++; completed.push(structuredClone(call)); return { summary: 'finished', version: call.version }; },
+    finished: options?.finished, onFinished: options?.onFinished,
   });
   const handlers = createCallHandlers({ service, authenticate: async request => request.headers.get('authorization') ?? null,
     speech: { speak: async text => new Response(text, { headers: { 'Content-Type': 'audio/mpeg' } }), transcribe: async () => 'hello' } });
@@ -171,4 +172,35 @@ test('start rejects model self-disclosure through the actual planner before publ
     expect(JSON.stringify(body)).not.toContain(disclosure);
     for (const field of ['version', 'tactic', 'outlines', 'versions', 'examples']) expect(JSON.stringify(body)).not.toContain(`"${field}"`);
   }
+});
+
+test('the planner presses a tactic only after two misses, and a memory failure still starts the call', async () => {
+  const hints: boolean[] = [];
+  const missed = [1, 2].map(() => ({
+    playerId: 'player-1', scenarioId: 'delivery', category: 'Delivery or customs fee', tactic: 'Urgency' as const,
+    version: 'scam' as const, verdict: 'Real' as const, leaked: false, synthetic: false,
+  }));
+  const plan: Parameters<typeof createCallService>[0]['plan'] = async (scenario, _version, hint) => {
+    hints.push(hint?.press === true);
+    return [`Hello from ${scenario.org}. I am calling about your practice notice.`, scenario.card.facts[0]!, 'Please take a moment to review this notice.'];
+  };
+  const remembered = fixture(plan, { finished: async () => missed });
+  expect((await remembered.post({ type: 'start', scenarioId: 'delivery' })).status).toBe(201);
+  expect((await remembered.post({ type: 'start', scenarioId: 'bank' })).status).toBe(201);
+  expect(hints).toEqual([true, false]);
+  const broken = fixture(plan, { finished: async () => { throw new Error('down'); } });
+  expect((await broken.post({ type: 'start', scenarioId: 'delivery' })).status).toBe(201);
+  expect(hints.at(-1)).toBe(false);
+});
+
+test('a committed verdict refreshes analysis once, and a refresh failure still saves the verdict', async () => {
+  let refreshes = 0;
+  const f = fixture(undefined, { onFinished: async () => { refreshes += 1; throw new Error('analyst down'); } });
+  const id = (await (await f.post({ type: 'start', scenarioId: 'bank' })).json() as { call: { id: string } }).call.id;
+  await f.post({ type: 'end' }, id);
+  expect((await f.post({ type: 'verdict', verdict: 'Scam' }, id)).status).toBe(200);
+  expect(refreshes).toBe(1);
+  expect((await f.post({ type: 'verdict', verdict: 'Real' }, id)).status).toBe(200);
+  expect(refreshes).toBe(1);
+  expect(f.rows.get(id)?.verdict).toBe('Scam');
 });
