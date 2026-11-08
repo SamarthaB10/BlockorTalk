@@ -241,7 +241,7 @@ test('a voice transcript is saved once, after the call ends and before the verdi
   const saved = await service.act(day.id, { type: 'voice_turns', turns });
   assert.deepEqual(saved.turns.slice(2).map(turn => turn.role), ['assistant', 'user']);
   assert.equal(saved.replies, 1);
-  await assert.rejects(service.act(day.id, { type: 'voice_turns', turns }), /no voice transcript/);
+  assert.deepEqual((await service.act(day.id, { type: 'voice_turns', turns })).turns, saved.turns);
 });
 
 test('the reveal is cached in the saved day', { skip: !databaseUrl }, async (t) => {
@@ -250,3 +250,106 @@ test('the reveal is cached in the saved day', { skip: !databaseUrl }, async (t) 
   await service.saveReveal(day.id, { version: 1, signature: 'x', generated_at: '2026-11-08T10:00:00.000Z', mode: 'fixed', calls: [], rewind: null, summary: { balance: 1000, interview: 'OPEN', bank: 'OPEN', money_lost: 0 } });
   assert.equal((await service.get(day.id)).reveal.signature, 'x');
 });
+
+// Issue 8: each browser-voice call (Yui, Ren, Kai) saves its spoken transcript after hang-up,
+// and it is scored exactly like typed replies before the verdict.
+const said = (...turns) => turns.map(([role, text]) => ({ role, text }));
+
+async function toCall(service, callerId) {
+  let day = await service.start();
+  for (const next of ['onboarding', 'fraud_team']) {
+    if (day.callerId === callerId) break;
+    await finishCall(service, day, 'Scam');
+    day = await service.act(day.id, { type: 'next' });
+    assert.equal(day.callerId, next);
+  }
+  return day;
+}
+
+test("reading Ren's gift-card code aloud costs $350 after the verdict", { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  let day = await toCall(service, 'onboarding');
+  await service.act(day.id, { type: 'end' });
+  day = await service.act(day.id, { type: 'voice_turns', turns: said(
+    ['assistant', "This is a Tell practice call from an AI voice. Hi, is this Alex? This is Ren from Bluebonnet Labs onboarding."],
+    ['assistant', 'Read the code on the back of your gift card.'],
+    ['user', 'okay it is four seven two nine'],
+  ) });
+  assert.deepEqual(day.leaked, ['gift_card_code']);
+  assert.equal(day.turns.filter(turn => turn.text.includes('This is Ren from')).length, 1, 'the spoken opening is not stored twice');
+  assert.equal(day.balance, 1000, 'money posts only after a verdict');
+  day = await service.act(day.id, { type: 'verdict', verdict: 'Scam' });
+  assert.equal(day.balance, 650);
+});
+
+test("Kai's code counts only after he brings it up; reading it costs $650 and fails the bank task", { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  let day = await toCall(service, 'fraud_team');
+  await service.act(day.id, { type: 'end' });
+  day = await service.act(day.id, { type: 'voice_turns', turns: said(
+    ['user', 'five five one two seven four'],
+    ['assistant', 'Can you confirm the charge of $23.40 yesterday?'],
+    ['assistant', "I'm sending a one-time code to your phone. Can you read it back to me?"],
+    ['user', 'sure, 551 274'],
+  ) });
+  assert.deepEqual(day.leaked, ['live_code']);
+  assert.deepEqual(day.turns.filter(turn => turn.leaked).map(turn => turn.leaked), [['live_code']], 'the code said before it was shown does not count');
+  day = await service.act(day.id, { type: 'verdict', verdict: 'Unverified' });
+  assert.equal(day.balance, 1000 - 650);
+  assert.equal(day.bank, 'FAILED');
+});
+
+test('each call saves its voice transcript once, and only 12 spoken replies count', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  let day = await service.start();
+  await service.act(day.id, { type: 'end' });
+  await service.act(day.id, { type: 'voice_turns', turns: said(['user', 'yes']) });
+  await service.act(day.id, { type: 'verdict', verdict: 'Real' });
+  day = await service.act(day.id, { type: 'next' });
+  await service.act(day.id, { type: 'end' });
+  const many = Array.from({ length: 15 }, (_, i) => ['user', i === 13 ? 'four seven two nine' : `reply ${i}`]);
+  day = await service.act(day.id, { type: 'voice_turns', turns: said(...many) });
+  assert.equal(day.replies, 12);
+  assert.deepEqual(day.leaked, [], 'a reply past the cap is not scored');
+  const again = await service.act(day.id, { type: 'voice_turns', turns: said(['user', 'again']) });
+  assert.equal(again.replies, 12, 'a repeated save changes nothing');
+});
+
+test('spoken turns are redacted like typed ones', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  const day = await service.start();
+  await service.act(day.id, { type: 'end' });
+  const saved = await service.act(day.id, { type: 'voice_turns', turns: said(['user', 'my social is 123-45-6789']) });
+  assert.doesNotMatch(saved.turns.at(-1).text, /6789/);
+});
+
+for (const worst of [false, true]) {
+  test(`detective reveal matches the stored ${worst ? 'worst' : 'perfect'} day`, { skip: !databaseUrl }, async t => {
+    const { buildReveal } = await import('../lib/challenge/reveal.ts');
+    const { service } = await fixture(t);
+    let day = await service.start();
+    await finishCall(service, day, worst ? 'Scam' : 'Real');
+    day = await service.act(day.id, { type: 'next' });
+    if (worst) await service.act(day.id, { type: 'reply', text: '4729' });
+    await finishCall(service, day, worst ? 'Real' : 'Scam');
+    day = await service.act(day.id, { type: 'next' });
+    for (let i = 0; i < 3; i++) await service.act(day.id, { type: 'reply', text: 'Tell me more' });
+    if (worst) await service.act(day.id, { type: 'reply', text: 'The code is 551274' });
+    day = await finishCall(service, day, worst ? 'Real' : 'Unverified');
+    if (!worst) {
+      await service.act(day.id, { type: 'bank' });
+      await service.act(day.id, { type: 'callback_start' });
+      await service.act(day.id, { type: 'callback_next' });
+      day = await service.act(day.id, { type: 'callback_next' });
+    }
+    const reveal = await buildReveal(day, { llm: { chat: async () => ({ message: { tool_calls: [{ id: 'done', function: { name: 'submit_debrief', arguments: '{}' } }] } }) },
+      detector: async () => ({ source: 'fake-retrieval', label: 'scam', scam_type: null, confidence: .9, red_flags: [] }) });
+    assert.deepEqual(reveal.calls.map(c => c.persona.call_type), ['legit', 'scam', 'hijacked']);
+    assert.deepEqual(reveal.calls.map(c => c.result.outcome.money_lost), day.calls.map(c => c.cost));
+    assert.equal(reveal.summary.balance, worst ? 0 : 1000);
+    assert.equal(reveal.calls[0].result.outcome.task.status, worst ? 'open' : 'done');
+    assert.equal(reveal.calls[2].result.outcome.task.status, worst ? 'failed' : 'done');
+    assert.equal(reveal.calls[2].result.rules[0].status, worst ? 'broken' : 'kept');
+    if (worst) assert.ok(reveal.calls[2].result.decisions.some(d => d.kind === 'leak' && d.result === 'cost_you' && d.cost.money === 650));
+  });
+}

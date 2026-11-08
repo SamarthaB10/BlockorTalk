@@ -8,7 +8,7 @@ import SpritePlayer from '../components/SpritePlayer';
 import { Flip, Stamp } from '../components/ui';
 import './reveal.css';
 
-type State = { status: 'loading' | 'ready' | 'error'; reveal: RevealPayload | null; error: string };
+type State = { status: 'loading' | 'ready' | 'error'; reveal: RevealPayload | null; error: string; phase?: 'thinking' | 'typing' };
 type Flag = RevealCall['result']['red_flags'][number];
 
 const TACTIC_LABEL: Record<string, string> = {
@@ -35,37 +35,50 @@ function highlight(text: string, flags: Flag[]): ReactNode {
 
 function useRevealData(day: Challenge) {
   const [state, setState] = useState<State>({ status: 'loading', reveal: null, error: '' });
+  const request = useRef<AbortController | null>(null);
   const load = useCallback(async (mode?: 'fixed') => {
-    setState(s => ({ ...s, status: s.reveal && !mode ? s.status : 'loading', error: '' }));
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setState(s => ({ ...s, status: 'loading', error: '', phase: 'thinking' }));
     try {
-      const response = await fetch(`/api/challenge/reveal${mode ? `?mode=${mode}` : ''}`, { cache: 'no-store' });
-      const result = await response.json() as { reveal?: RevealPayload; error?: string };
-      if (!response.ok || !result.reveal) throw new Error(result.error || 'The reveal could not be built.');
-      setState({ status: 'ready', reveal: result.reveal, error: '' });
+      async function read(path: string) {
+        const response = await fetch(path, { cache: 'no-store', signal: controller.signal, headers: path.includes('mode=basic') ? {} : { Accept: 'application/x-ndjson' } });
+        if (response.ok && response.headers.get('content-type')?.includes('ndjson') && response.body) {
+          const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+          let buffer = '';
+          let reveal: RevealPayload | undefined;
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            buffer += chunk.value;
+            const lines = buffer.split('\n'); buffer = lines.pop()!;
+            for (const line of lines.filter(Boolean)) {
+              const event = JSON.parse(line) as { phase?: 'thinking' | 'typing'; reveal?: RevealPayload; error?: string };
+              if (event.error) throw new Error(event.error);
+              if (event.phase && !controller.signal.aborted) setState(s => ({ ...s, phase: event.phase }));
+              if (event.reveal) reveal = event.reveal;
+            }
+          }
+          if (!reveal) throw new Error('The report was interrupted. Please try again.');
+          return reveal;
+        }
+        const result = await response.json() as { reveal?: RevealPayload; error?: string };
+        if (!response.ok || !result.reveal) throw new Error(result.error || 'The reveal could not be built.');
+        return result.reveal;
+      }
+      // Show code's identities and effects first. Agent and retrieval latency cannot hold them back.
+      const basic = await read('/api/challenge/reveal?mode=basic');
+      if (!controller.signal.aborted) setState({ status: 'loading', reveal: basic, error: '' });
+      const reveal = await read(`/api/challenge/reveal${mode ? '?mode=fixed' : ''}`);
+      if (!controller.signal.aborted) setState({ status: 'ready', reveal, error: '' });
     } catch (e) {
-      setState(s => ({ status: 'error', reveal: s.reveal, error: e instanceof Error ? e.message : 'The reveal could not be built.' }));
+      if (!controller.signal.aborted) setState(s => ({ status: 'error', reveal: s.reveal, error: e instanceof Error ? e.message : 'The reveal could not be built.' }));
     }
   }, []);
-  // The bank callback or a portal check can land after the last verdict, so the day's outcome is part of the key.
   const outcome = `${day.balance}|${day.interview}|${day.bank}|${day.events.length}`;
-  useEffect(() => { void load(); }, [day.id, outcome, load]);
+  useEffect(() => { void load(); return () => request.current?.abort(); }, [day.id, outcome, load]);
   return { ...state, load };
-}
-
-/** The Debrief cat follows what the agent is really doing: thinking while it works, typing, then presenting. */
-function useCatPose(status: State['status'], goodDay: boolean) {
-  const [stage, setStage] = useState<'working' | 'writing' | 'presenting' | 'done'>('working');
-  useEffect(() => {
-    if (status !== 'ready') { setStage('working'); return; }
-    setStage('writing');
-    const present = window.setTimeout(() => setStage('presenting'), 1400);
-    const done = window.setTimeout(() => setStage('done'), 4600);
-    return () => { window.clearTimeout(present); window.clearTimeout(done); };
-  }, [status]);
-  if (stage === 'working') return { animation: 'thinking' as const, active: true, caption: 'Reading the three calls…' };
-  if (stage === 'writing') return { animation: 'typing' as const, active: true, caption: 'Writing it up…' };
-  const animation = goodDay ? 'excited' as const : 'talking' as const;
-  return { animation, active: stage === 'presenting', caption: 'Debrief agent' };
 }
 
 function CallCard({ call, index }: { call: RevealCall; index: number }) {
@@ -77,20 +90,21 @@ function CallCard({ call, index }: { call: RevealCall; index: number }) {
       <h3>{call.persona.name}</h3>
       <p className="claimed">Said they were: {call.persona.claimed_org}</p>
       <p className="identity"><span className={`pill tone-${who.tone}`}>{who.label}</span></p>
-      <p>{who.line}</p>
+      <p>{who.line}</p>{call.warning && <p className="limits">{call.warning}</p>}
       <p className="limits">Verdict you gave: {call.result.verdict ?? 'none'} · {call.result.outcome.money_lost ? `−$${call.result.outcome.money_lost}` : '$0 lost'}{call.result.outcome.task ? ` · task ${call.result.outcome.task.status}` : ''}</p>
       <ul className="decisions">
         {call.result.decisions.map(decision => <li key={decision.id}>
           <Stamp>{decision.result === 'worked' ? 'Worked' : 'Cost you'}</Stamp>
-          <p>{decision.sentence}{decision.result === 'cost_you' && <span className="cost"> ({decision.cost_label})</span>}</p>
+          <p>Turn {decision.turn} · {decision.sentence}{decision.result === 'cost_you' && <span className="cost"> ({decision.cost_label})</span>}</p>
         </li>)}
       </ul>
       <details className="transcript-box" open={call.result.decisions.some(d => d.result === 'cost_you')}>
         <summary>Transcript · {flagged.length} red-flag {flagged.length === 1 ? 'line' : 'lines'} marked</summary>
         <ol className="lines">
-          {call.turns.map(turn => <li key={turn.turn} className={turn.speaker}>
-            <strong>{turn.speaker === 'player' ? 'You' : call.persona.name}</strong>
-            <p>{turn.speaker === 'caller' ? highlight(turn.text, flagged.filter(flag => flag.turn === turn.turn)) : turn.text}</p>
+          {call.turns.map(turn => <li key={turn.turn} className={`${turn.speaker} ${call.result.decisions.some(d => d.turn === turn.turn && d.kind === 'leak') ? 'leak-turn' : ''}`}>
+            <strong>Turn {turn.turn} · {turn.speaker === 'player' ? 'You' : call.persona.name}</strong>
+            <p>{highlight(turn.text, flagged.filter(flag => flag.turn === turn.turn))}</p>
+            {call.result.decisions.filter(d => d.turn === turn.turn && d.kind === 'leak').map(d => <p className="leak-decision" key={d.id}><mark>Cost you · {d.cost_label}</mark> · {d.sentence}</p>)}
           </li>)}
         </ol>
       </details>
@@ -114,7 +128,8 @@ function Steps({ reveal }: { reveal: RevealPayload }) {
       const { result } = call;
       return <div className="step-group" key={call.callerId}>
         <h4>{call.persona.name} · {result.path === 'agent' ? 'Nemotron tool loop' : 'Fixed sequence'}{result.model ? ` · ${result.model}` : ''}</h4>
-        {result.path === 'fixed' && result.fallback_reason && <p className="limits">Why: {result.fallback_reason}</p>}
+        {result.path === 'fixed' && result.fallback_reason && <p className="limits">{result.fallback_reason.includes('timed out') ? 'The agent took too long. The fixed sequence completed the report.' : 'The agent was unavailable. The fixed sequence completed the report.'}</p>}
+        <p className="limits">Detector: {result.detector.source}{result.detector.label === null ? ". Cannot tell. Verify through a number you already have." : ""}</p>
         <ol>
           {result.steps.map(step => <li key={step.n + step.tool}>
             <code>{step.tool}</code><span className="by">{step.by === 'nemotron' ? 'chosen by Nemotron' : 'run by code'}</span>
@@ -129,10 +144,11 @@ function Steps({ reveal }: { reveal: RevealPayload }) {
 
 function Rules({ reveal }: { reveal: RevealPayload }) {
   const titles = reveal.calls[0].result.rules;
+  const dayStatus = (i: number) => reveal.calls.some(c => c.result.rules[i].status === 'broken') ? 'broken' : reveal.calls.some(c => c.result.rules[i].status === 'kept') ? 'kept' : 'not_tested';
   return <section className="rules" aria-label="The four rules">
     <h3>The four rules</h3>
     {titles.map((rule, i) => <article key={rule.rule}>
-      <h4>Rule {rule.rule}</h4><p>{rule.title}</p>
+      <h4>Rule {rule.rule} · {RULE_STATUS[dayStatus(i)]} for the day</h4><p>{rule.title}</p>
       <ul>
         {reveal.calls.map(call => {
           const r = call.result.rules[i];
@@ -143,23 +159,10 @@ function Rules({ reveal }: { reveal: RevealPayload }) {
   </section>;
 }
 
-function Rewind({ reveal }: { reveal: RevealPayload }) {
-  const { rewind } = reveal;
-  if (!rewind) return null;
-  const call = reveal.calls[rewind.call];
-  const decision = call.result.decisions.find(d => d.id === rewind.decision_id);
-  return <section className="rewind" aria-label="Your one rewind">
-    <p className="eyebrow">YOUR ONE REWIND</p>
-    <h3>{call.persona.name}, turn {rewind.turn}</h3>
-    {decision && <p>{decision.sentence}</p>}
-    <p className="limits">{rewind.reason}</p>
-  </section>;
-}
-
 export default function Reveal({ day }: { day: Challenge }) {
-  const { status, reveal, error, load } = useRevealData(day);
+  const { status, reveal, error, load, phase } = useRevealData(day);
   const goodDay = !!reveal && reveal.summary.balance === 1000 && reveal.summary.interview === 'BOOKED' && reveal.summary.bank === 'RESOLVED';
-  const cat = useCatPose(status, goodDay);
+  const cat = { animation: status === 'loading' ? phase ?? 'thinking' as const : goodDay ? 'excited' as const : 'talking' as const, active: status === 'loading', caption: status === 'loading' ? 'Checking the calls…' : 'Debrief agent' };
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (status === 'ready') heading.current?.focus({ preventScroll: true }); }, [status === 'ready']);
 
@@ -169,9 +172,10 @@ export default function Reveal({ day }: { day: Challenge }) {
         <p className="eyebrow">DETECTIVE REVEAL</p>
         <h2 id="reveal-heading" ref={heading} tabIndex={-1}>Who was really calling</h2>
         {status === 'loading' && !reveal && <p role="status">The Debrief agent is reading your three calls.</p>}
+        {status === 'loading' && reveal && <p role="status">Identities and effects are ready. The agent and detector are checking the details.</p>}
         {reveal && <p className="limits">{reveal.calls.every(c => c.result.path === 'agent') ? 'Explained by Nemotron’s tool loop. Code decided every score.' : 'Some or all of this ran on the fixed sequence of the same tools, labelled below. Code decided every score.'}</p>}
       </div>
-      <figure className="debrief-cat"><SpritePlayer personality="debrief" animation={cat.animation} active={cat.active} scale={2} /><figcaption>{cat.caption}</figcaption></figure>
+
     </header>
     {status === 'error' && <div className="error" role="alert"><p>{error}</p><div className="voice-actions"><button className="primary" onClick={() => void load()}>Try again</button><button onClick={() => void load('fixed')}>Use the fixed sequence</button></div></div>}
     <div className="reveal-cards">
@@ -181,8 +185,8 @@ export default function Reveal({ day }: { day: Challenge }) {
     </div>
     {reveal && <Fragment>
       <div className="reveal-lower">
-        <Steps reveal={reveal} />
-        <div><Rules reveal={reveal} /><Rewind reveal={reveal} /></div>
+        <div><figure className="debrief-cat"><SpritePlayer personality="debrief" animation={cat.animation} active={cat.active} scale={2} /><figcaption>{cat.caption}</figcaption></figure><Steps reveal={reveal} /></div>
+        <div><Rules reveal={reveal} /></div>
       </div>
     </Fragment>}
   </section>;

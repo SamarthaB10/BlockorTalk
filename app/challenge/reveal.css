@@ -52,3 +52,10 @@
 
 @media (max-width: 1050px) { .reveal-cards { grid-template-columns: 1fr; } .reveal-lower { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .reveal-head { align-items: flex-start; } }
+
+.leak-turn { outline: 2px solid var(--ink); outline-offset: -2px; padding: 12px; border-radius: 8px; }
+.leak-decision mark { background: var(--ink); color: var(--field, #000); padding: 2px 4px; }
+@media (max-width: 380px) { .debrief-cat .ui-sprite-tile { max-width: 100%; overflow: auto; } .reveal-card, .steps, .rules { padding: 16px; } }
+.steps, .step-group { min-width: 0; overflow-wrap: anywhere; }
+.debrief-cat { min-width: 0; max-width: 100%; }
+@media (max-width: 640px) { .debrief-cat .ui-sprite { width: 170px; height: 145px; } }
