@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { postCallWebhookHandler, type PostCallTranscript } from "../../src/voice/webhook";
+import { postCallWebhookHandler, type PostCallTranscript } from "../../lib/voice/webhook";
 
 const SECRET = "wsec_test_secret";
 

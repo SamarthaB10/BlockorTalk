@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beatHandler, type BeatEvent } from "../../src/voice/beats";
+import { beatHandler, type BeatEvent } from "../../lib/voice/beats";
 
 const SECRET = "tool-secret-abc";
 
@@ -23,13 +23,13 @@ describe("mid-call beat tool", () => {
     const res = await h.post({ beat: "code_requested", conversation_id: "conv_1" }, SECRET);
     expect(res.status).toBe(200);
     expect(h.beats).toEqual([{ conversationId: "conv_1", beat: "code_requested" }]);
-    expect((await res.json()).result).toMatch(/do not say it yourself/i);
+    expect(((await res.json()) as { result: string }).result).toMatch(/do not say it yourself/i);
   });
 
   it("tells the agent to hang up on stop_drill", async () => {
     const h = harness();
     const res = await h.post({ beat: "stop_drill", conversation_id: "conv_1" }, SECRET);
-    expect((await res.json()).result).toBe("End the call now.");
+    expect(((await res.json()) as { result: string }).result).toBe("End the call now.");
   });
 
   it("rejects a missing or wrong secret without recording anything", async () => {

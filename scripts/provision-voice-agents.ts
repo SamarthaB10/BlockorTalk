@@ -14,10 +14,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
-import { buildAgentConfig, type AgentConfigOptions } from "../src/voice/agentConfig";
-import type { AgentIds } from "../src/voice/adapter";
-import { elevenLabs } from "../src/voice/client";
-import { CHALLENGE_CALLER_IDS, PERSONAS } from "../src/voice/personas";
+import { buildAgentConfig, type AgentConfigOptions } from "../lib/voice/agentConfig";
+import type { AgentIds } from "../lib/voice/adapter";
+import { elevenLabs } from "../lib/voice/client";
+import { CHALLENGE_CALLER_IDS, PERSONAS } from "../lib/voice/personas";
 
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), "../config/voice-agents.json");
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentConfig, NO_BEAT_TOOL_NOTE } from "../../src/voice/agentConfig";
-import { CHALLENGE_CALLER_IDS, PERSONAS } from "../../src/voice/personas";
+import { buildAgentConfig, NO_BEAT_TOOL_NOTE } from "../../lib/voice/agentConfig";
+import { CHALLENGE_CALLER_IDS, PERSONAS } from "../../lib/voice/personas";
 
 const DISCLOSURE =
   "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime.";

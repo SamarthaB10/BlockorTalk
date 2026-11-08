@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ElevenLabsVoiceAdapter, VoiceRequestError, type AgentIds } from "../../src/voice/adapter";
+import { ElevenLabsVoiceAdapter, VoiceRequestError, type AgentIds } from "../../lib/voice/adapter";
 
 const AGENTS: AgentIds = {
   recruiter: "agent_r",
