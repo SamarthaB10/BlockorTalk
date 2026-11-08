@@ -133,3 +133,48 @@ export function reportSections(text: string): ReportSection[] {
   if (current.heading || current.paragraphs.length) sections.push(current);
   return sections;
 }
+
+/** The four outcomes in their fixed chart order (also the colour order). */
+export const OUTCOME_KEYS = ['fell for', 'caught', 'false alarm', 'trusted real'] as const;
+
+export type OutcomeMix = { key: string; total: number; parts: { outcome: (typeof OUTCOME_KEYS)[number]; calls: number }[] };
+
+/** Calls per outcome for each Category or Tactic, busiest first. Feeds the stacked outcome-mix chart. */
+export function outcomeMix(groups: readonly ReportGroup[], by: 'category' | 'tactic'): OutcomeMix[] {
+  return [...new Set(groups.map(group => group[by]))]
+    .map(key => {
+      const mine = groups.filter(group => group[by] === key);
+      const parts = OUTCOME_KEYS.map(outcome => ({ outcome, calls: count(mine, outcome) }));
+      return { key, total: parts.reduce((sum, part) => sum + part.calls, 0), parts };
+    })
+    .filter(row => row.total > 0)
+    .sort((a, b) => b.total - a.total || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
+/**
+ * The executive summary: short, plain findings written by code from the same totals the charts show,
+ * so every number on the page agrees. Nothing is inferred beyond the comparison it states.
+ */
+export function executiveSummary(groups: readonly ReportGroup[]): string[] {
+  const totals = overview(groups);
+  if (totals.calls === 0) return [];
+  const lines = [`${totals.calls} practice calls analysed: ${totals.scamCalls} scam calls and ${totals.realCalls} real ones.`];
+  if (totals.fellForRate !== null) {
+    lines.push(`Scam calls fooled people ${totals.fellForRate}% of the time (${totals.fellFor} of ${totals.scamCalls}). The other ${totals.catchRate}% were caught.`);
+  }
+  const category = breakdown(groups, 'category').find(row => row.fellForRate !== null);
+  if (category) lines.push(`${category.key} is the riskiest Category: a ${category.fellForRate}% fail rate across ${category.scamCalls} scam calls.`);
+  const tactic = breakdown(groups, 'tactic').find(row => row.fellForRate !== null);
+  if (tactic) lines.push(`${tactic.key} is the Tactic that works best for scammers, with a ${tactic.fellForRate}% fail rate.`);
+  if (totals.falseAlarmRate !== null) {
+    lines.push(`${totals.falseAlarmRate}% of real callers were wrongly treated as scams (${totals.falseAlarms} of ${totals.realCalls}).`);
+  }
+  const time = callTime(groups).byOutcome;
+  const fooled = time.find(row => row.key === 'fell for')?.avgSeconds;
+  const caught = time.find(row => row.key === 'caught')?.avgSeconds;
+  if (fooled !== undefined && caught !== undefined) {
+    const longer = fooled > caught ? ' Longer calls favour the scammer.' : '';
+    lines.push(`Calls that fooled people lasted ${minutes(fooled)} on average; calls people caught lasted ${minutes(caught)}.${longer}`);
+  }
+  return lines;
+}

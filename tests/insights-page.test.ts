@@ -51,6 +51,26 @@ describe('Carrier insights page', () => {
     for (const label of ['Fell for', 'Caught', 'False alarm', 'Trusted real']) expect(html).toContain(label);
   });
 
+  it('leads with unboxed key numbers and charts, titled just Carrier Insights, and ends on a code-written executive summary', async () => {
+    status = 200;
+    const html = await render();
+    expect(html).toContain('<h1>Carrier Insights</h1>');
+    expect(html).not.toContain('Which scam calls people fall for');
+    expect(html).not.toContain('What the data says');
+    expect(html).not.toContain('ins-card');
+    const stats = html.indexOf('Calls analysed');
+    const charts = html.indexOf('How calls ended');
+    const mix = html.indexOf('Outcome mix by Category');
+    const summary = html.indexOf('Executive summary');
+    expect(stats).toBeGreaterThan(-1);
+    expect(stats).toBeLessThan(charts);
+    expect(charts).toBeLessThan(summary);
+    expect(mix).toBeLessThan(summary);
+    expect(html.slice(summary)).toContain('Bank fraud alert is the riskiest Category: a 55% fail rate across 93 scam calls.');
+    expect(html.slice(summary)).toContain('Warn customers.');
+    expect(html).toContain('<span class="ui-sr-only">41%</span>');
+  });
+
   it('shows the password screen when locked, and the error after a wrong password', async () => {
     status = 401;
     expect(await render()).toContain('Open insights');

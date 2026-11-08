@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakdown, callTime, minutes, overview, reportSections } from '../lib/insights/report';
+import { breakdown, callTime, executiveSummary, minutes, outcomeMix, overview, reportSections } from '../lib/insights/report';
 
 const groups = [
   { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', calls: 30 },
@@ -68,5 +68,37 @@ describe('time on call', () => {
 
   it('formats seconds as minutes:seconds', () => {
     expect([minutes(95), minutes(180), minutes(7), minutes(null)]).toEqual(['1:35', '3:00', '0:07', '—']);
+  });
+});
+
+describe('outcome mix and executive summary', () => {
+  const rows = [
+    { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', calls: 51, avgSeconds: 151 },
+    { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'caught', calls: 42, avgSeconds: 88 },
+    { category: 'Tech support', tactic: 'Fear', outcome: 'caught', calls: 30, avgSeconds: 90 },
+    { category: 'Tech support', tactic: 'Fear', outcome: 'false alarm', calls: 12, avgSeconds: 47 },
+    { category: 'Tech support', tactic: 'Fear', outcome: 'trusted real', calls: 20, avgSeconds: 60 },
+  ];
+
+  it('splits each Category into the four outcomes in fixed order, busiest first', () => {
+    const mix = outcomeMix(rows, 'category');
+    expect(mix.map(row => [row.key, row.total])).toEqual([['Bank fraud alert', 93], ['Tech support', 62]]);
+    expect(mix[1]!.parts.map(part => [part.outcome, part.calls])).toEqual([['fell for', 0], ['caught', 30], ['false alarm', 12], ['trusted real', 20]]);
+  });
+
+  it('writes plain findings from the same numbers the charts show', () => {
+    const lines = executiveSummary(rows);
+    expect(lines).toEqual([
+      '155 practice calls analysed: 123 scam calls and 32 real ones.',
+      'Scam calls fooled people 41% of the time (51 of 123). The other 59% were caught.',
+      'Bank fraud alert is the riskiest Category: a 55% fail rate across 93 scam calls.',
+      'Details as proof is the Tactic that works best for scammers, with a 55% fail rate.',
+      '38% of real callers were wrongly treated as scams (12 of 32).',
+      'Calls that fooled people lasted 2:31 on average; calls people caught lasted 1:29. Longer calls favour the scammer.',
+    ]);
+  });
+
+  it('says nothing when there are no calls', () => {
+    expect(executiveSummary([])).toEqual([]);
   });
 });

@@ -55,13 +55,7 @@ html body:not([data-plain])::after {
 /* Page roots that painted their own black */
 body .challenge { background: transparent; --line: #4a3f9a; --muted: #b9b3e6; --paper: #b79cff; }
 body .challenge button, body .challenge input { background: rgb(8 6 30 / .85); border-color: var(--line); }
-body .ins {
-  --page: transparent; --surface-1: rgb(14 10 44 / .82); --surface-2: rgb(34 24 90 / .85);
-  --text-primary: #f4f1ff; --text-secondary: #d0cbf5; --text-muted: #a9a3d9; --line: #8b7cf838;
-}
-body .ins .ins-lock input { background: rgb(8 6 30 / .9); border-color: #8b7cf866; }
-body .ins .ins-primary { background: var(--paper); }
-body .ins .ins-stat.is-accent { background: var(--paper); }
+/* Carrier Insights (.ins) opts out of the theme: black and white, colour only in its charts (insights.css). */
 
 /* Components */
 .ui-card, .ui-card--strong, .ui-sheet, .ui-toast { backdrop-filter: blur(6px); }
