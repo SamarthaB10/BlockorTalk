@@ -74,7 +74,7 @@ body .ins .ins-stat.is-accent { background: var(--paper); }
 .ui-sprite-tile { background: #000; }
 
 /* Dashboard (.hub): the same tokens on the formerly light page. .hub.hub outranks dashboard.css selectors. */
-.hub.hub { color: #f4f1ff; background: transparent; color-scheme: dark; --hub-card: rgb(14 10 44 / .82); --hub-card-2: rgb(34 24 90 / .85); --hub-line: #8b7cf838; --hub-muted: #b9b3e6; --hub-btn: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.hub.hub { color: #f4f1ff; background: transparent; color-scheme: dark; --hub-card: rgb(14 10 44 / .82); --hub-card-2: rgb(34 24 90 / .85); --hub-line: #8b7cf8; --hub-muted: #b9b3e6; --hub-btn: linear-gradient(135deg, #7c3aed, #a78bfa); }
 .hub.hub :focus-visible { outline-color: #67e8f9; }
 .hub.hub .hub-nav, .hub.hub .hub-news>a, .hub.hub .hub-skill-history li, .hub.hub .hub-analysis, .hub.hub .hub-rank-row, .hub.hub .hub-fictional-card, .hub.hub .hub-fictional-card [role=status] { border-color: var(--hub-line); }
 .hub.hub .hub-nav>a span, .hub.hub .hub-card small, .hub.hub .hub-footer, .hub.hub .player-help, .hub.hub .hub-progress-eyebrow, .hub.hub .hub-fictional-card dt, .hub.hub .hub-card>.hub-soon { color: #a9a3d9; }
@@ -137,3 +137,19 @@ body .nova.nova {
 .nova.nova { padding-top: 64px; }
 .nova.nova .nova-nav, .nova.top-hidden .nova-nav { top: 0; }
 @media (max-width: 760px) { .nova.nova { padding-top: 64px; } .nova.nova .nova-nav { top: 0; } .nova.nova .nova-drawer { top: 72px; } }
+
+/* Solid dashboard edges and clear evidence panels. Keyboard outlines stay visible. */
+.hub.hub { --line:#8b7cf8; --line-strong:#c4b5fd; }
+.hub.hub *, .welcome-dialog.welcome-dialog { box-shadow:none; }
+.hub.hub .hub-card, .hub.hub .hub-practice, .hub.hub .hub-standings-list { border:1px solid var(--hub-line); backdrop-filter:none; }
+.hub.hub .balance-badge { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.hub.hub .hub-progress { padding:24px; background:#000; border:1px solid var(--hub-line); border-radius:16px; }
+.hub.hub .hub-progress .hub-card { background:#000; }
+.hub.hub .hub-progress p, .hub.hub .hub-progress .hub-progress-eyebrow { color:#d9d5ee; }
+.hub-progress-summary h1 { margin:0 0 20px; font-size:clamp(28px,3vw,40px); font-weight:500; }
+@media(max-width:600px) { .hub.hub .hub-progress { padding:16px; } }
+.hub.hub .hub-drill { --bg:#000; --surface:#000; --ink:#f4f1ff; --ink-muted:#d9d5ee; --line:#8b7cf8; --paper:#b79cff; background:#000; color:var(--ink); border-color:var(--line); }
+
+.hub-progress-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; margin-bottom:20px; }
+.hub-progress-heading h1 { margin:0; }
+@media(max-width:760px) { .hub-intro { flex-wrap:wrap; } .hub-intro>.hub-balance { flex-basis:100%; align-items:flex-start; margin-left:0; } }
