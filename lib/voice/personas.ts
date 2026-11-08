@@ -10,14 +10,9 @@
  * leak it to the player's screen.
  */
 
-export type ChallengeCallerId = "recruiter" | "onboarding" | "fraud_team" | "bank_callback";
-
-export const CHALLENGE_CALLER_IDS: readonly ChallengeCallerId[] = [
-  "recruiter",
-  "onboarding",
-  "fraud_team",
-  "bank_callback",
-];
+// SERVER-ONLY: these prompts reveal who is legit. Browser code imports ./callers instead.
+import type { ChallengeCallerId } from "./callers";
+export { CHALLENGE_CALLER_IDS, type ChallengeCallerId } from "./callers";
 
 /**
  * Live beats an agent reports to Tell mid-call through the `report_beat` server

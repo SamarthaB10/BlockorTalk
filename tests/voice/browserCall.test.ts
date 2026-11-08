@@ -102,4 +102,22 @@ describe("browser call", () => {
     await handle.end();
     expect(h.session.ended).toBe(true);
   });
+
+  it("treats a permission-denied error after connect as an ordinary error: the call still ends once", async () => {
+    const h = setup();
+    const handle = await h.run();
+    expect(handle).toBeDefined();
+    h.cb().onMessage({ role: "agent", message: "Hi, is this Alex?" });
+    h.cb().onError("Server error: permission denied for tool");
+    h.cb().onDisconnect({ reason: "error", message: "Server error: permission denied for tool" });
+    expect(h.denied()).toBe(0);
+    expect(h.ends).toEqual(["error"]);
+  });
+
+  it("offers text mode when the device has no microphone", async () => {
+    const h = setup({ throwOnStart: Object.assign(new Error("Requested device not found"), { name: "NotFoundError" }) });
+    await expect(h.run()).resolves.toBeUndefined();
+    expect(h.denied()).toBe(1);
+    expect(h.ends).toEqual([]);
+  });
 });

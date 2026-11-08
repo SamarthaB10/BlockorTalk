@@ -1,6 +1,6 @@
 import { Conversation } from "@elevenlabs/client";
-import { callVariables } from "./adapter";
-import type { ChallengeCallerId } from "./personas";
+// Browser code: import only ./callers here, never ./personas or ./adapter (they hold the prompts).
+import { callVariables, type ChallengeCallerId } from "./callers";
 
 export type TurnRole = "agent" | "user";
 
@@ -30,7 +30,7 @@ export interface BrowserCallOptions {
   variables: Record<string, string>;
   onTurn(turn: { role: TurnRole; message: string }): void;
   onEnded(info: { reason: string }): void;
-  /** Microphone permission was denied: offer text mode. */
+  /** No usable microphone (permission denied or none found): offer text mode. */
   onMicDenied(): void;
   /** Defaults to the SDK's Conversation.startSession. */
   startSession?: StartSessionFn;
@@ -40,7 +40,7 @@ function isMicDenial(err: unknown): boolean {
   const e = err as { name?: string; message?: string } | string | undefined;
   const name = typeof e === "object" ? e?.name : undefined;
   const msg = typeof e === "string" ? e : (e?.message ?? "");
-  return name === "NotAllowedError" || /NotAllowedError|permission denied|microphone.*(denied|blocked)/i.test(msg);
+  return name === "NotAllowedError" || name === "NotFoundError" || /NotAllowedError|permission denied|microphone.*(denied|blocked)/i.test(msg);
 }
 
 /**
@@ -55,6 +55,9 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
   let convId: string | undefined;
   let finished = false;
   let denied = false;
+  // A mic denial can only happen while the session is starting; after that,
+  // a "permission denied" message is an ordinary error and must still end the call.
+  let started = false;
 
   const finish = (reason: string) => {
     if (finished || denied) return;
@@ -81,11 +84,11 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
         opts.onTurn({ role, message: m.message });
       },
       onDisconnect: (d: { reason?: string; message?: string }) => {
-        if (d?.reason === "error" && isMicDenial(d.message)) return deny();
+        if (!started && d?.reason === "error" && isMicDenial(d.message)) return deny();
         finish(d?.reason ?? "disconnected");
       },
       onError: (message: string) => {
-        if (isMicDenial(message)) return deny();
+        if (!started && isMicDenial(message)) return deny();
         finish("error");
       },
     });
@@ -102,6 +105,7 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
     await session?.endSession().catch(() => {});
     return undefined;
   }
+  started = true;
 
   const live = session;
   return {

@@ -1,5 +1,6 @@
 import type { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { PERSONAS, type ChallengeCallerId } from "./personas";
+import { callVariables, VoiceRequestError, type ChallengeCallerId } from "./callers";
+export { callVariables, VoiceRequestError } from "./callers";
 import { buildTranscript, type PostCallTranscript } from "./transcript";
 
 /**
@@ -41,23 +42,6 @@ export interface BrowserSession {
 
 /** ElevenLabs agent IDs per Challenge caller, written by `npm run voice:provision`. */
 export type AgentIds = Record<ChallengeCallerId, string>;
-
-export class VoiceRequestError extends Error {}
-
-const E164 = /^\+[1-9]\d{7,14}$/;
-
-/** Validates and returns exactly the variables this caller declares. */
-export function callVariables(
-  callerId: ChallengeCallerId,
-  variables: Record<string, string>,
-): Record<string, string> {
-  const declared = Object.keys(PERSONAS[callerId].variables);
-  const missing = declared.filter((k) => !variables[k]?.trim());
-  if (missing.length) {
-    throw new VoiceRequestError(`Missing variables for ${callerId}: ${missing.join(", ")}`);
-  }
-  return Object.fromEntries(declared.map((k) => [k, variables[k]!]));
-}
 
 export class ElevenLabsVoiceAdapter implements VoiceAdapter {
   constructor(

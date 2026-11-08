@@ -118,3 +118,12 @@ describe("beat tool", () => {
     expect(withTool).not.toContain(NO_BEAT_TOOL_NOTE);
   });
 });
+
+describe("browser-safe caller variables", () => {
+  it("lists exactly the variables each agent declares", async () => {
+    const { CALLER_VARIABLE_NAMES } = await import("../../lib/voice/callers");
+    for (const id of CHALLENGE_CALLER_IDS) {
+      expect([...CALLER_VARIABLE_NAMES[id]].sort(), id).toEqual(Object.keys(PERSONAS[id].variables).sort());
+    }
+  });
+});
