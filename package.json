@@ -30,6 +30,7 @@
   },
   "homepage": "https://github.com/SamarthaB10/BlockorTalk#readme",
   "dependencies": {
+    "@elevenlabs/client": "1.35.0",
     "@elevenlabs/elevenlabs-js": "2.77.0",
     "@vinext/cloudflare": "latest",
     "next": "^16.4.5",

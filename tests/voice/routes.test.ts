@@ -143,6 +143,9 @@ describe("voice routes: missing Worker secrets", () => {
   function unconfigured() {
     const voice = new FakeVoiceAdapter();
     const db = fakeStore();
+    voice.createBrowserSession = async () => {
+      throw new Error("ELEVENLABS_API_KEY is not set");
+    };
     const routes = createVoiceRoutes({ voice, store: db.store, toolSecret: "", webhookSecret: "" });
     return { routes, db };
   }
@@ -161,5 +164,26 @@ describe("voice routes: missing Worker secrets", () => {
       expect(res.status).toBe(401);
     }
     expect(db.transcripts.size).toBe(0);
+  });
+
+  it("returns a bare 502 for sessions when the ElevenLabs key is missing", async () => {
+    const { routes } = unconfigured();
+    const res = await routes.session(
+      new Request(`${BASE}/api/voice/session`, { method: "POST", body: JSON.stringify({ callerId: "fraud_team" }) }),
+    );
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "voice session unavailable" });
+  });
+});
+
+describe("voice routes: browser session", () => {
+  it("issues a browser-voice token for a Challenge caller", async () => {
+    const h = setup();
+    const res = await h.routes.session(
+      new Request(`${BASE}/api/voice/session`, { method: "POST", body: JSON.stringify({ callerId: "fraud_team" }) }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ agentId: "agent_fake_fraud_team", conversationToken: "fake-token" });
+    expect(h.voice.sessions).toEqual([{ callerId: "fraud_team" }]);
   });
 });

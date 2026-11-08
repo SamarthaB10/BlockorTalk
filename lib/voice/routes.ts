@@ -1,4 +1,5 @@
 import type { VoiceAdapter } from "./adapter";
+import { browserSessionHandler } from "./browserSession";
 import type { PostCallTranscript } from "./transcript";
 import { postCallWebhookHandler } from "./webhook";
 
@@ -81,5 +82,7 @@ export function createVoiceRoutes(deps: VoiceRouteDeps) {
     return Response.json({ events: list }, { headers: { "Cache-Control": "no-store" } });
   }
 
-  return { postCall, events };
+  const session = browserSessionHandler({ voice: deps.voice });
+
+  return { session, postCall, events };
 }
