@@ -12,6 +12,10 @@ export interface NewsItem {
   link: string;
   date?: string;
   summary: string;
+  /** Publisher name, set when items are merged from several sources. */
+  source?: string;
+  /** Scenario theme the item matches, tagged by code. */
+  theme?: "Jobs" | "Banking";
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", mdash: "—", ndash: "–", hellip: "…" };
@@ -24,7 +28,7 @@ function decode(text: string): string {
     .replace(/&([a-z]+);/gi, (m, name) => ENTITIES[name.toLowerCase()] ?? m);
 }
 
-function plain(html: string): string {
+export function plain(html: string): string {
   // Decode first (descriptions are often escaped HTML), then drop tags and squeeze spaces.
   return decode(decode(html)).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -34,7 +38,7 @@ function tag(block: string, name: string): string | undefined {
   return m ? m[1] : undefined;
 }
 
-function shorten(text: string, max = 240): string {
+export function shorten(text: string, max = 240): string {
   if (text.length <= max) return text;
   const cut = text.slice(0, max);
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 20))}…`;
