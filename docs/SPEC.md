@@ -115,7 +115,7 @@ The headline experience is **Challenge mode: "Three calls. Two stories. Who gets
 
 ### Try it without signing up
 64. As a judge or first-time visitor, I want to try a drill in my browser with no signup and no phone number, by voice or by text, so that I can start one in under 30 seconds.
-65. As a visitor, I want a one-line intro before the try-it drill ("What would you say to James?") and a clear "AI practice caller" label, so that I know it's a safe simulation.
+65. As a visitor, I want a one-line intro before the try-it drill ("What would you say to Kai?") and a clear "AI practice caller" label, so that I know it's a safe simulation.
 66. As a user, I want every drill capped in length (a set number of my replies or minutes, whichever comes first), so that a drill never drags and costs stay predictable.
 67. As a visitor, I want the landing page to show real pilot results (n, hit rate, false-alarm rate before and after), so that I believe it works.
 
@@ -151,7 +151,7 @@ The headline experience is **Challenge mode: "Three calls. Two stories. Who gets
   - Kevin (SIM-swap scam): gets audibly stressed about his supervisor listening in.
   - Ray (phone-provider hijacked): too smooth; compliments you for being "so security-conscious" right before asking for the code.
   - Legit personas: mild realism only (a hold-music joke, typing sounds), never pushy.
-  - Nina, Marcus and James (Challenge day): quirks to be chosen and rehearsed with their scripts.
+  - Yui, Ren and Kai (Challenge day): quirks to be chosen and rehearsed with their scripts.
   Quirks must never reveal the call type, so legit callers get quirks too.
 
 **Modules**
@@ -211,9 +211,9 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
 **Challenge mode**
 - The day: the player starts with $1,000 and two tasks, "Book your Bluebonnet Labs interview" and "Sort out the Corvanta Bank alert". The win condition is ending the day with $1,000 and both tasks done. Bluebonnet Labs is a fictional employer and joins the fictional brand list.
 - The three scripted calls ("three calls, two stories"), placed on the player's real phone in this order:
-  1. Nina, Bluebonnet Labs recruiting (legit): confirms the interview slot and asks for nothing secret. Saying Real, or Unverified and then checking the portal, books the interview. Saying Scam leaves the task open.
-  2. Marcus, claiming Bluebonnet Labs onboarding (scam): asks for a $350 "equipment deposit" by gift card. The scenario card says the player bought a $350 gift card for a birthday, with a fake gift-card code; reading that code (or the fake card details) is the payment and costs $350. Refusing loses nothing.
-  3. James, Corvanta Bank fraud team (hijacked, the ambiguous call): knows the card ending and a recent charge, then asks for the one-time code that pops up mid-call. Reading the code costs $650 and fails the bank task. Hanging up and tapping "Call Corvanta" in the fictional bank app resolves the alert and completes the task.
+  1. Yui, Bluebonnet Labs recruiting (legit): confirms the interview slot and asks for nothing secret. Saying Real, or Unverified and then checking the portal, books the interview. Saying Scam leaves the task open.
+  2. Ren, claiming Bluebonnet Labs onboarding (scam): asks for a $350 "equipment deposit" by gift card. The scenario card says the player bought a $350 gift card for a birthday, with a fake gift-card code; reading that code (or the fake card details) is the payment and costs $350. Refusing loses nothing.
+  3. Kai, Corvanta Bank fraud team (hijacked, the ambiguous call): knows the card ending and a recent charge, then asks for the one-time code that pops up mid-call. Reading the code costs $650 and fails the bank task. Hanging up and tapping "Call Corvanta" in the fictional bank app resolves the alert and completes the task.
 - Verdicts: one tap after every call (Real, Scam or Unverified), with no confidence rating in Challenge mode; confidence stays in practice mode. Unverified is never penalized by itself; what counts is whether money moved and whether the task got done.
 - Before the day starts the player sees only the goal ("Keep your $1,000. Finish both tasks.") and the four moves. The four rules are taught at the reveal, right after the player has kept or broken them.
 - Where the player looks: a laptop or tablet is the game board and the player's own phone takes the call. Try-it runs everything on one device by browser voice or text.
@@ -225,12 +225,12 @@ Battle cards are short, focused practice rounds. Each card is one scammer move, 
 - Detective reveal: after the third call, each caller card flips to show the real identity and call type, the detector's red-flag lines light up on the transcript, and each decision is marked as worked or cost you. It replaces the after-call report in Challenge mode and still grades against the four rules.
 - Rewind: one per day. The player picks a decision (default: the costliest) and replays from that turn in text with the same persona; the replay outcome is shown next to the original but doesn't change the official score. Rewind is the challenge's battle card.
 - Scripted vs adaptive: challenge rounds use a fixed seed, fixed personas, beats and stakes, so every player faces the same day. Nemotron runs the detector, the risk meter and the Debrief agent behind the reveal, and the live replies within those beats when its latency allows (see LLM adapter). Practice mode keeps the adaptive Planner, the call-type mix and battle cards.
-- Stage demo: the scripted day is the demo sequence (Nina → Marcus → James), with the spectator risk meter on the big screen. See Further Notes for timing.
+- Stage demo: the scripted day is the demo sequence (Yui → Ren → Kai), with the spectator risk meter on the big screen. See Further Notes for timing.
 
 **Agent and voice decisions**
 - Code decides money, tasks and rules (normalized leak check, verify events, verdicts). The Debrief agent only explains them and picks the rewind point. If the agent's explanation contradicts the code's score, the code's score is shown and the mismatch is logged.
 - The Debrief agent is a real Nemotron tool-calling loop over a small fixed toolset (read transcript, run the detector, get leak events, get verify events, map moves to rules, choose the rewind point), capped at about 6 steps. If it fails or runs past 8 seconds, a fixed sequence of the same calls runs instead. The reveal labels which path ran, so the demo never claims agency that didn't happen.
-- Four fixed ElevenLabs agents for the Challenge day: Nina, Marcus, James and the Corvanta callback agent. Each has a fixed voice and prompt; only the fake secrets change per call, through dynamic variables. Per-call prompt and voice overrides are not used, because each one must be switched on in the agent's Security tab and errors otherwise. The shared agent with overrides returns in practice mode.
+- Four fixed ElevenLabs agents for the Challenge day: Yui, Ren, Kai and Aki (the Corvanta callback agent). Each has a fixed voice and prompt; only the fake secrets change per call, through dynamic variables. Per-call prompt and voice overrides are not used, because each one must be switched on in the agent's Security tab and errors otherwise. The shared agent with overrides returns in practice mode.
 - Live calls use ElevenLabs' built-in model by default. Nemotron Nano sits behind a setting that is switched on only if it beats 800 ms to the first word in testing. Nemotron runs the Debrief agent, the detector and the risk meter either way.
 - Persona guardrails: never reveal the call type before the reveal, deflect once in character and steer back, break character only on hearing real personal data, never give real-world scam instructions, never name real companies. Persona QA adds a "jailbreak attempt" receiver to the eight personalities.
 - ElevenLabs data handling, from its docs (to confirm in the first hour): turn voice recording off and the separate audio webhook off; set a short retention period; delete each conversation through the API once its post-call webhook is processed. True zero retention is Enterprise-only. Verify the post-call webhook with the ElevenLabs SDK's signature helper. Mid-call server tools carry a secret header and the conversation ID.
@@ -303,9 +303,9 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - A real-looking card number or SSN in the transcript is redacted before storage.
   - The Planner targets the user's most-broken rule and respects the type mix over many drills.
   - "Practice this" on a threat produces a drill whose persona traces back to that threat.
-  - The challenge seed produces the exact Nina → Marcus → James day, with the same stakes every time.
-  - Challenge scoring: confirming Nina books the interview; paying Marcus costs $350; reading James's code costs $650 and fails the bank task; calling back through the bank app completes it; a perfect day ends at $1,000 with both tasks done.
-  - Saying Scam to Nina leaves the interview task open, and Unverified followed by a portal check completes it.
+  - The challenge seed produces the exact Yui → Ren → Kai day, with the same stakes every time.
+  - Challenge scoring: confirming Yui books the interview; paying Ren costs $350; reading Kai's code costs $650 and fails the bank task; calling back through the bank app completes it; a perfect day ends at $1,000 with both tasks done.
+  - Saying Scam to Yui leaves the interview task open, and Unverified followed by a portal check completes it.
   - A rewind replay is recorded but doesn't change the official day score.
   - Calls are never placed to an unverified number.
   - A drill ends at the reply or time cap, and the report is still produced.
@@ -317,7 +317,7 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - Calibration: bucket predictions by confidence and compare to actual accuracy.
   - Leakage check: fails if any test item appears in the example pool.
   Tests use a tiny labeled fixture with known answers to verify every metric.
-- **Seam 3 — Persona QA (text only, no phone calls).** Nemotron plays each of 8 receiver personalities (aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one more still to be chosen) against all 11 personas (the nine practice personas plus Nina and Marcus), for 88 text conversations. Checks run on the conversation transcript only:
+- **Seam 3 — Persona QA (text only, no phone calls).** Nemotron plays each of 8 receiver personalities (aggressive, anxious, confused, distracted, greedy, polite, skeptical, and one more still to be chosen) against all 11 personas (the nine practice personas plus Yui and Ren), for 88 text conversations. Checks run on the conversation transcript only:
   - Every scam and hijacked persona asks for at least one fake secret.
   - No legit persona ever asks for a secret.
   - "Stop drill" ends the conversation within one turn.
@@ -357,8 +357,8 @@ We do not fine-tune or train Nemotron. Nemotron is used as-is, and its weights n
   - **Adaptive practice.** The Planner targets the rule you break most, and battle cards drill the exact move that got you.
   - **Detection with real numbers.** Baseline vs Nemotron vs Nemotron + retrieval: detection rate on real scam calls and false-alarm rate on hard negatives, plus the live risk meter.
   - **A game with stakes.** The $1,000 day rewards completing real tasks, not just refusing; both products call real phones, so that alone isn't a difference.
-- **Three-minute stage run:** 0:00–0:15 hook ("Three calls. Two stories. Who gets your trust?" and the $1,000 day). 0:15–0:45 Nina and Marcus as a 30-second recording from rehearsal, labelled "recorded", with the balance moving. 0:45–1:45 James live on a team member's pre-verified phone, risk meter and code pop-up on the big screen. 1:45–2:20 the detective reveal with the Debrief agent's steps, and one rewind. 2:20–2:45 one results slide. 2:45–3:00 QR code to the no-signup page.
-- **Stage call path:** the live call goes to a team member's phone verified the day before, never an unverified judge's phone (a judge can try the no-signup page). In the first hours, test-call phones on T-Mobile, AT&T and Verizon and check the call isn't labelled "Scam Likely" or blocked. The presenter screen has a one-tap switch to the browser-voice session, which is Plan B for James; text try-it is Plan C.
+- **Three-minute stage run:** 0:00–0:15 hook ("Three calls. Two stories. Who gets your trust?" and the $1,000 day). 0:15–0:45 Yui and Ren as a 30-second recording from rehearsal, labelled "recorded", with the balance moving. 0:45–1:45 Kai live on a team member's pre-verified phone, risk meter and code pop-up on the big screen. 1:45–2:20 the detective reveal with the Debrief agent's steps, and one rewind. 2:20–2:45 one results slide. 2:45–3:00 QR code to the no-signup page.
+- **Stage call path:** the live call goes to a team member's phone verified the day before, never an unverified judge's phone (a judge can try the no-signup page). In the first hours, test-call phones on T-Mobile, AT&T and Verizon and check the call isn't labelled "Scam Likely" or blocked. The presenter screen has a one-tap switch to the browser-voice session, which is Plan B for Kai; text try-it is Plan C.
 - **Detection pitch slide:** one big pair (Nemotron + retrieval vs baseline: share of real scam calls caught, and false-alarm rate on urgent legit calls); a small table of the 3 versions × synthetic F1 / real-call detection rate / hard-negative false-alarm rate; a time-to-detection chart; one honesty line ("synthetic training data; real-call test set is small, n = …").
 - **Build order (vertical slice first):** (1) Challenge day in text: three scripted personas on Nemotron, normalized leak check, balance and tasks, verdicts, verify events, reveal. This is also try-it and Plan C. (2) The same day by browser voice. (3) Real phone calls with the disclosure line and phone verification. (4) Live events: code pop-up and risk meter. (5) Detector: baseline vs Nemotron + retrieval on real calls and hard negatives. (6) Debrief agent log on the reveal, then rewind. Nothing below starts until (1)–(4) work end to end.
 - **Cut list, cut first to last:** surprise mode (already out), Guardian, NewsAPI, the Today screen, the battle-card deck beyond rewind, calibration and the unseen-type test, practice-mode Planner, Persona QA beyond the Challenge personas, the pilot (or run n≈5 as an anecdote), the landing page beyond tagline + Try-it.

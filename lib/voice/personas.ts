@@ -1,7 +1,7 @@
 /**
  * The four fixed ElevenLabs agents for the Challenge day (docs/SPEC.md,
- * "Agent and voice decisions"): Nina, Marcus, James and the Corvanta callback
- * agent (renamed Yui, Ren, Kai and Aki). Agents are keyed by role, not name,
+ * "Agent and voice decisions"): Yui, Ren, Kai and Aki, the Corvanta callback
+ * agent (formerly Nina, Marcus and James). Agents are keyed by role, not name,
  * so a persona can be renamed without breaking anything. Each has a fixed voice and prompt; only the scenario-card values
  * change per call, through dynamic variables.
  *
