@@ -1,0 +1,50 @@
+import { createChallengeService, ChallengeError } from '../../../lib/challenge/service.ts';
+import { createNemotronReply } from '../../../lib/challenge/nemotron.ts';
+import type { Action } from '../../../lib/challenge/types.ts';
+
+export const dynamic = 'force-dynamic';
+const COOKIE = 'tell_challenge';
+function service() {
+  if (!process.env.DATABASE_URL) throw new ChallengeError('The challenge database is not configured.', 503);
+  return createChallengeService({ connectionString: process.env.DATABASE_URL, reply: createNemotronReply() });
+}
+function session(request: Request) {
+  const id = request.headers.get('cookie')?.split(';').map(value => value.trim()).find(value => value.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1);
+  return id && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id) ? id : undefined;
+}
+function json(value: unknown, status = 200, headers: Record<string, string> = {}) {
+  return Response.json(value, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
+}
+function failure(error: unknown) {
+  if (error instanceof ChallengeError) return json({ error: error.message }, error.status);
+  console.error('Challenge request failed');
+  return json({ error: 'The challenge could not be saved. Please try again.' }, 503);
+}
+export async function GET(request: Request) {
+  try {
+    const id = session(request);
+    return json({ day: id ? await service().get(id) : null });
+  } catch (error) { return failure(error); }
+}
+export async function POST(request: Request) {
+  try {
+    if (request.headers.get('origin') !== new URL(request.url).origin) return json({ error: 'Use the challenge page to make this request.' }, 403);
+    const raw = await request.text();
+    if (raw.length > 2000) return json({ error: 'This reply is too long.' }, 400);
+    let action: unknown;
+    try { action = JSON.parse(raw); } catch { return json({ error: 'Invalid request.' }, 400); }
+    if (!action || typeof action !== 'object' || !('type' in action)) return json({ error: 'Choose a challenge action.' }, 400);
+    if (action.type === 'start') {
+      const day = await service().start();
+      const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
+      return json({ day }, 201, { 'Set-Cookie': `${COOKIE}=${day.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secure}` });
+    }
+    const valid = action.type === 'end' || action.type === 'portal' ||
+      (action.type === 'reply' && 'text' in action && typeof action.text === 'string') ||
+      (action.type === 'verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict));
+    if (!valid) return json({ error: 'Invalid challenge action.' }, 400);
+    const id = session(request);
+    if (!id) return json({ error: 'Start a challenge first.' }, 401);
+    return json({ day: await service().act(id, action as Action) });
+  } catch (error) { return failure(error); }
+}
