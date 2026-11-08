@@ -216,3 +216,37 @@ test('the code appears at the request beat, not during a personal-data safety pa
   assert.equal(day.codeVisible, true);
   assert.match(day.turns.at(-1).text, /one-time code/);
 });
+
+test('a leak is recorded on its turn even though the stored text is redacted, and the call keeps its timing', { skip: !databaseUrl }, async (t) => {
+  const { service, advance } = await fixture(t);
+  const day = await service.start();
+  advance(5000);
+  const replied = await service.act(day.id, { type: 'reply', text: 'My PIN is 8302' });
+  assert.equal(replied.turns.at(-2).text, '[personal details removed]');
+  assert.deepEqual(replied.turns.at(-2).leaked, ['account_pin']);
+  advance(5000);
+  await service.act(day.id, { type: 'end' });
+  const result = await service.act(day.id, { type: 'verdict', verdict: 'Scam' });
+  assert.equal(result.calls[0].startedAt, '2026-11-08T10:00:00.000Z');
+  assert.equal(result.calls[0].endedAt, '2026-11-08T10:00:10.000Z');
+  assert.equal(result.calls[0].endReason, 'disconnect');
+});
+
+test('a voice transcript is saved once, after the call ends and before the verdict', { skip: !databaseUrl }, async (t) => {
+  const { service } = await fixture(t);
+  const day = await service.start();
+  const turns = [{ role: 'assistant', text: 'Does Tuesday at 10 AM work for you?' }, { role: 'user', text: 'Yes, that works.' }];
+  await assert.rejects(service.act(day.id, { type: 'voice_turns', turns }), /no voice transcript/);
+  await service.act(day.id, { type: 'end' });
+  const saved = await service.act(day.id, { type: 'voice_turns', turns });
+  assert.deepEqual(saved.turns.slice(2).map(turn => turn.role), ['assistant', 'user']);
+  assert.equal(saved.replies, 1);
+  await assert.rejects(service.act(day.id, { type: 'voice_turns', turns }), /no voice transcript/);
+});
+
+test('the reveal is cached in the saved day', { skip: !databaseUrl }, async (t) => {
+  const { service } = await fixture(t);
+  const day = await service.start();
+  await service.saveReveal(day.id, { version: 1, signature: 'x', generated_at: '2026-11-08T10:00:00.000Z', mode: 'fixed', calls: [], rewind: null, summary: { balance: 1000, interview: 'OPEN', bank: 'OPEN', money_lost: 0 } });
+  assert.equal((await service.get(day.id)).reveal.signature, 'x');
+});
