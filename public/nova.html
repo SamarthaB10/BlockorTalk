@@ -66,7 +66,7 @@ button, summary { font: inherit; color: inherit; }
 /* nav */
 .nav {
   position: fixed; z-index: 35; top: 30px; left: 0; right: 0; height: 52px;
-  display: grid; grid-template-columns: 17% 1fr 12% 17%; align-items: center;
+  display: grid; grid-template-columns: 17% 1fr auto; align-items: center; padding-right: 22px;
   background: rgba(239,236,230,.86);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
@@ -379,42 +379,12 @@ button, summary { font: inherit; color: inherit; }
     </svg>
     NOVA AGENT
   </a>
-  <nav class="menu" aria-label="Primary">
-    <details>
-      <summary>Solutions▾</summary>
-      <div class="drop">
-        <a href="#product">AI Chatbot</a>
-        <a href="#product">NFT Generator</a>
-        <a href="#product">Smart-contract generator</a>
-        <a href="#product">Code auditor</a>
-      </div>
-    </details>
-    <a href="#product">Pricing</a>
-    <details>
-      <summary>Learn▾</summary>
-      <div class="drop">
-        <a href="#intro">How Nova thinks</a>
-        <a href="#intro">Prompt patterns</a>
-      </div>
-    </details>
-    <details>
-      <summary>$NOVA▾</summary>
-      <div class="drop">
-        <a href="#reviews">About the token</a>
-        <a href="#colophon">Fictional only</a>
-      </div>
-    </details>
-    <details>
-      <summary>Community▾</summary>
-      <div class="drop">
-        <a href="#reviews">Field notes</a>
-        <a href="#colophon">Updates</a>
-      </div>
-    </details>
-    <a href="#colophon">Contact us</a>
+  <nav class="menu" aria-label="On this page">
+    <a href="#intro">Intro</a>
+    <a href="#product">Product</a>
+    <a href="#reviews">Reviews</a>
   </nav>
-  <a class="pad" href="#product">Nova Pad ↗</a>
-  <div class="launch-cell"><a class="launch" href="#product">•• LAUNCH NOVA</a></div>
+  <div class="launch-cell"><a class="launch" href="#product">Open scenarios</a></div>
 </header>
 
 <aside class="rail" aria-label="Section">
@@ -501,11 +471,11 @@ button, summary { font: inherit; color: inherit; }
 </main>
 <footer class="foot" id="colophon">NOVA AGENT · 2026</footer>
 
-<dialog id="sheet" aria-label="Menu">
+<dialog id="sheet" aria-label="On this page">
   <a href="#intro">Intro</a>
   <a href="#product">Product</a>
   <a href="#reviews">Reviews</a>
-  <a href="#colophon">Contact us</a>
+  <a href="#product">Open scenarios</a>
   <form method="dialog"><button type="submit">Close</button></form>
 </dialog>
 

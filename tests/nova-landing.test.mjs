@@ -28,4 +28,8 @@ test('nova landing has the three sections, prompts, and fictional reviews', () =
   assert.match(html, /@font-face/);
   assert.match(html, /Schibsted Grotesk/);
   assert.match(html, /IBM Plex Mono/);
+  assert.match(html, /Open scenarios/);
+  assert.doesNotMatch(html, /Solutions/);
+  assert.doesNotMatch(html, /LAUNCH NOVA/);
+  assert.doesNotMatch(html, /Nova Pad/);
 });
