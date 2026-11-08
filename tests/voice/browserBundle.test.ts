@@ -29,3 +29,39 @@ describe("browser voice bundle", () => {
     }
   }, 30_000);
 });
+
+// The Challenge board as it ships: its voice start must pull in no persona module.
+async function boardBundle(): Promise<string> {
+  const out = await build({
+    entryPoints: ["app/challenge/ChallengeBoard.tsx"],
+    bundle: true,
+    platform: "browser",
+    format: "esm",
+    write: false,
+    logLevel: "silent",
+    jsx: "automatic",
+    external: ["react", "react/*", "react-dom"],
+    loader: { ".css": "empty" },
+  });
+  return out.outputFiles[0]!.text;
+}
+
+describe("challenge board bundle", () => {
+  it("starts Yui by voice without shipping prompts, call types or secret codes", async () => {
+    const js = await boardBundle();
+    expect(js).toContain("operations analyst");
+    for (const giveaway of [
+      "You are Kai",
+      "You are Ren",
+      "You are Yui",
+      "Training-drill rules",
+      "hijacked",
+      "legitimate",
+      "KQ7R-2M4X-9PLT",
+      /\bscam\b/,
+    ]) {
+      if (typeof giveaway === "string") expect(js, giveaway).not.toContain(giveaway);
+      else expect(js).not.toMatch(giveaway);
+    }
+  }, 30_000);
+});
