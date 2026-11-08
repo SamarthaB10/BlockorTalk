@@ -1,6 +1,8 @@
 import pg from 'pg';
 import type { Action, Challenge, Reply, Turn } from './types.ts';
-import { DISCLOSURE, OPENING, RECRUITER_BEATS } from './recruiter.ts';
+import { DISCLOSURE } from './recruiter.ts';
+import { CALLERS, CALL_ORDER, CODE_REQUEST_LINES, FAKE_SECRETS } from './scenarios.ts';
+import { mentionsSecret } from '../policy/normalize.mjs';
 
 export class ChallengeError extends Error {
   status: number;
@@ -35,10 +37,21 @@ export function createChallengeService({ connectionString, reply, now = Date.now
         const result = await client.query('SELECT state FROM tell_challenges WHERE id = $1 FOR UPDATE', [id]);
         if (!result.rowCount) throw new ChallengeError('This day was not found. Start a new challenge.', 404);
         const day = result.rows[0].state as Challenge;
+        // Upgrade saved issue-5 days without losing their verdict or transcript.
+        day.calls ??= day.verdict ? [{ callerId: 'recruiter', verdict: day.verdict, turns: day.turns, cost: 0, leaked: [] }] : [];
+        day.leaked ??= [];
+        day.codeVisible ??= false;
+        day.callbackStep ??= 0;
+        if (day.phase === 'complete' && day.callerId === 'recruiter') day.phase = 'between';
         if (day.phase === 'call' && now() - Date.parse(day.startedAt) >= 180000) end(day, 'time_cap');
         if (action?.type === 'reply' && day.phase === 'call') {
           const raw = action.text.trim();
           if (!raw || raw.length > 1000) throw new ChallengeError('Use a reply from 1 to 1,000 characters.', 400);
+          // Score the original text before personal-data redaction. Only user turns count.
+          for (const [key, value] of Object.entries(FAKE_SECRETS)) {
+            if (key === 'live_code' && !day.codeVisible) continue;
+            if (mentionsSecret(raw, key, value) && !day.leaked.includes(key)) day.leaked.push(key);
+          }
           const text = safeText(raw);
           const at = new Date(now()).toISOString();
           day.turns.push({ role: 'user', text, at });
@@ -46,10 +59,11 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (/\bstop\s+drill\b/i.test(raw)) end(day, 'stop');
           else if (day.replies >= 12) end(day, 'reply_cap');
           else {
-            const options = RECRUITER_BEATS[Math.min(day.replies - 1, RECRUITER_BEATS.length - 1)];
+            const beats = CALLERS[day.callerId].beats;
+            const options = beats[Math.min(day.replies - 1, beats.length - 1)];
             let answer: string = options[0];
             let source: Turn['source'] = 'script';
-            if (text !== raw) answer = 'Quick pause: this is a practice call. Please do not use real personal details. We can continue with the interview time.';
+            if (text !== raw) answer = 'Quick pause: this is a practice call. Please do not use real personal details. Use only the fictional details on your scenario card.';
             else {
               try {
                 const generated = await reply({ turns: day.turns, options });
@@ -59,7 +73,10 @@ export function createChallengeService({ connectionString, reply, now = Date.now
               }
             }
             if (now() - Date.parse(day.startedAt) >= 180000) end(day, 'time_cap');
-            else day.turns.push({ role: 'assistant', text: answer, at: new Date(now()).toISOString(), source });
+            else {
+              day.turns.push({ role: 'assistant', text: answer, at: new Date(now()).toISOString(), source });
+              if (day.callerId === 'fraud_team' && CODE_REQUEST_LINES.some(line => line === answer)) day.codeVisible = true;
+            }
           }
         } else if (action?.type === 'reply' && day.phase !== 'verdict') {
           throw new ChallengeError('This call has ended.');
@@ -68,11 +85,37 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (day.phase !== 'verdict') throw new ChallengeError('End the call before you give a verdict.');
           if (!['Real', 'Scam', 'Unverified'].includes(action.verdict)) throw new ChallengeError('Choose Real, Scam or Unverified.', 400);
           day.verdict = action.verdict;
-          day.phase = 'complete';
-          if (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.length > 0)) day.interview = 'BOOKED';
+          const cost = day.callerId === 'onboarding' && day.leaked.includes('gift_card_code') ? 350
+            : day.callerId === 'fraud_team' && day.leaked.includes('live_code') ? 650 : 0;
+          day.balance -= cost;
+          if (day.callerId === 'fraud_team' && cost) day.bank = 'FAILED';
+          if (day.callerId === 'recruiter' && (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.some(event => event.surface === 'portal')))) day.interview = 'BOOKED';
+          day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked });
+          day.phase = day.callerId === 'fraud_team' ? 'complete' : 'between';
         } else if (action?.type === 'portal') {
           day.events.push({ type: 'Verify', surface: 'portal', at: new Date(now()).toISOString() });
-          if (day.verdict === 'Unverified') day.interview = 'BOOKED';
+          if (day.calls.some(call => call.callerId === 'recruiter' && call.verdict === 'Unverified')) day.interview = 'BOOKED';
+        } else if (action?.type === 'next') {
+          if (day.phase !== 'between') throw new ChallengeError('Give this caller a verdict before the next call.');
+          const callerId = CALL_ORDER[CALL_ORDER.indexOf(day.callerId) + 1];
+          const at = new Date(now()).toISOString();
+          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false,
+            turns: [{ role: 'system', text: DISCLOSURE, at }, { role: 'assistant', text: CALLERS[callerId].opening, at, source: 'script' }] });
+        } else if (action?.type === 'bank') {
+          day.events.push({ type: 'Verify', surface: 'bank', at: new Date(now()).toISOString() });
+        } else if (action?.type === 'callback_start') {
+          if (day.callerId !== 'fraud_team' || day.phase === 'call') throw new ChallengeError('End the bank call before you call Corvanta.');
+          if (!day.events.some(event => event.surface === 'bank')) throw new ChallengeError('Open your bank app first.');
+          if (!day.callbackStep) day.callbackStep = 1;
+        } else if (action?.type === 'callback_next') {
+          if (!day.callbackStep) throw new ChallengeError('Call Corvanta first.');
+          if (day.callbackStep < 3) {
+            day.callbackStep += 1;
+            if (day.callbackStep === 3) {
+              day.events.push({ type: 'Verify', surface: 'callback', at: new Date(now()).toISOString() });
+              if (!day.leaked.includes('live_code') && day.bank !== 'FAILED') day.bank = 'RESOLVED';
+            }
+          }
         }
         await client.query('UPDATE tell_challenges SET state = $2, updated_at = now() WHERE id = $1', [id, JSON.stringify(day)]);
         await client.query('COMMIT');
@@ -84,7 +127,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
     async start(): Promise<Challenge> {
       const startedAt = new Date(now()).toISOString();
       const day: Challenge = { id: crypto.randomUUID(), balance: 1000, interview: 'OPEN', bank: 'OPEN', callerId: 'recruiter', phase: 'call', startedAt, replies: 0,
-        turns: [{ role: 'system', text: DISCLOSURE, at: startedAt }, { role: 'assistant', text: OPENING, at: startedAt, source: 'script' }], events: [] };
+        turns: [{ role: 'system', text: DISCLOSURE, at: startedAt }, { role: 'assistant', text: CALLERS.recruiter.opening, at: startedAt, source: 'script' }], events: [], calls: [], leaked: [], codeVisible: false, callbackStep: 0 };
       await withClient(client => client.query('INSERT INTO tell_challenges (id, state) VALUES ($1, $2)', [day.id, JSON.stringify(day)]));
       return day;
     },

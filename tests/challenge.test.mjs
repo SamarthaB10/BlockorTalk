@@ -118,3 +118,101 @@ test('explicit short secrets are not stored or sent to the LLM', { skip: !databa
   assert.doesNotMatch(JSON.stringify(saved), /1234|rainbow|551274/);
   assert.equal(saved.turns.filter(turn => turn.role === 'assistant' && turn.source === 'nemotron').length, 0);
 });
+
+test('a perfect day has three verdicts, $1,000, and both tasks done', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  let day = await service.start();
+  for (const verdict of ['Real', 'Scam', 'Unverified']) {
+    await service.act(day.id, { type: 'end' });
+    day = await service.act(day.id, { type: 'verdict', verdict });
+    if (day.callerId !== 'fraud_team') day = await service.act(day.id, { type: 'next' });
+  }
+  await service.act(day.id, { type: 'bank' });
+  await service.act(day.id, { type: 'callback_start' });
+  await service.act(day.id, { type: 'callback_next' });
+  day = await service.act(day.id, { type: 'callback_next' });
+  assert.equal(day.balance, 1000);
+  assert.equal(day.interview, 'BOOKED');
+  assert.equal(day.bank, 'RESOLVED');
+  assert.deepEqual(day.calls.map(call => call.verdict), ['Real', 'Scam', 'Unverified']);
+  assert.equal(day.phase, 'complete');
+  assert.ok(day.events.some(event => event.surface === 'callback'));
+});
+
+async function finishCall(service, day, verdict) {
+  await service.act(day.id, { type: 'end' });
+  return service.act(day.id, { type: 'verdict', verdict });
+}
+
+for (const [name, rejectYui, payRen, leakKai, balance, interview, bank] of [
+  ['worst day', true, true, true, 0, 'OPEN', 'FAILED'],
+  ['only rejects Yui', true, false, false, 1000, 'OPEN', 'RESOLVED'],
+  ['only pays Ren', false, true, false, 650, 'BOOKED', 'RESOLVED'],
+  ['only leaks to Kai', false, false, true, 350, 'BOOKED', 'FAILED'],
+]) {
+  test(name + ' has the exact balance and task outcome', { skip: !databaseUrl }, async t => {
+    const { service } = await fixture(t);
+    let day = await service.start();
+    await finishCall(service, day, rejectYui ? 'Scam' : 'Real');
+    day = await service.act(day.id, { type: 'next' });
+    if (payRen) await service.act(day.id, { type: 'reply', text: 'The code is four seven two nine' });
+    day = await service.get(day.id);
+    assert.equal(day.balance, 1000, 'money posts only after a verdict');
+    await finishCall(service, day, 'Scam');
+    day = await service.act(day.id, { type: 'next' });
+    assert.equal(day.codeVisible, false);
+    for (let i = 0; i < 3; i++) day = await service.act(day.id, { type: 'reply', text: 'Tell me more' });
+    assert.equal(day.codeVisible, true);
+    if (leakKai) await service.act(day.id, { type: 'reply', text: 'five five one, two seven four' });
+    day = await finishCall(service, day, 'Unverified');
+    await service.act(day.id, { type: 'bank' });
+    await service.act(day.id, { type: 'callback_start' });
+    assert.notEqual((await service.get(day.id)).bank, 'RESOLVED', 'opening the app is not a completed callback');
+    await service.act(day.id, { type: 'callback_next' });
+    day = await service.act(day.id, { type: 'callback_next' });
+    await service.act(day.id, { type: 'callback_next' });
+    assert.equal(day.balance, balance);
+    assert.equal(day.interview, interview);
+    assert.equal(day.bank, bank);
+    const restored = await service.get(day.id);
+    assert.deepEqual(restored, day);
+    assert.equal(restored.events.filter(event => event.surface === 'callback').length, 1);
+  });
+}
+
+test('a call cannot advance before a verdict or post the same payment twice', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  const day = await service.start();
+  await assert.rejects(service.act(day.id, { type: 'next' }), /verdict/);
+  await service.act(day.id, { type: 'end' });
+  await assert.rejects(service.act(day.id, { type: 'next' }), /verdict/);
+  await service.act(day.id, { type: 'verdict', verdict: 'Real' });
+  await service.act(day.id, { type: 'next' });
+  await service.act(day.id, { type: 'reply', text: '4 - 7 . 2, 9' });
+  await service.act(day.id, { type: 'end' });
+  await assert.rejects(service.act(day.id, { type: 'next' }), /verdict/);
+  const results = await Promise.allSettled([
+    service.act(day.id, { type: 'verdict', verdict: 'Real' }),
+    service.act(day.id, { type: 'verdict', verdict: 'Real' }),
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal((await service.get(day.id)).balance, 650);
+});
+
+test('the code appears at the request beat, not during a personal-data safety pause', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  let day = await service.start();
+  await finishCall(service, day, 'Real');
+  day = await service.act(day.id, { type: 'next' });
+  await finishCall(service, day, 'Scam');
+  day = await service.act(day.id, { type: 'next' });
+  await service.act(day.id, { type: 'bank' });
+  await assert.rejects(service.act(day.id, { type: 'callback_start' }), /End the bank call/);
+  for (let i = 0; i < 2; i++) await service.act(day.id, { type: 'reply', text: 'Tell me more' });
+  day = await service.act(day.id, { type: 'reply', text: 'My password is rainbow' });
+  assert.equal(day.codeVisible, false);
+  assert.match(day.turns.at(-1).text, /practice call/);
+  day = await service.act(day.id, { type: 'reply', text: 'Tell me more' });
+  assert.equal(day.codeVisible, true);
+  assert.match(day.turns.at(-1).text, /one-time code/);
+});
