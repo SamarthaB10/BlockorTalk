@@ -26,6 +26,6 @@ export default function Home() {
         <h3>{system.name}</h3><p>{system.description}</p>
       </article>)}
     </section>
-    <footer className="landing-footer">Use fictional details only. The reveal opens after your third call.</footer>
+    <footer className="landing-footer">Use fictional details only. The reveal opens after your third call. <a href="/credits">Credits</a></footer>
   </main>;
 }

@@ -6,6 +6,20 @@ Decided in the grilling session on Nov 7, 2026, for the HackUTD deadline (Sun No
 
 Ships working: email signup, 10 Call scenarios, Blokbuks scoring, results screen, Player analysis, Leaderboard with Season countdown, Carrier insights. Shown but stubbed: prize claims. Untouched: `/challenge`, `/try-it`, `/presenter` (the stage demo). The Challenge does not earn Blokbuks.
 
+The paragraph above is the target scope, not proof of a production release. See the source and production status below.
+
+## Source and production status (Nov 8, 2026)
+
+The BS-09 change adds shared Play, Me and Leaderboard navigation, the signed-in Player's nickname and Season Blokbuks, a reusable plain B mark, and `/credits`. The shell is limited to `/play`, `/me`, `/leaderboard` and `/credits`. The landing page links to Play after sign-in and to Credits. `/practice` redirects to `/play`; its old generated-call screen and battle-card entry are retired. Supporting practice modules and speech adapters remain because the Challenge and the new call engine use them.
+
+This is not yet a complete, verified production loop. At the start of BS-09, [the call engine (#56)](https://github.com/SamarthaB10/BlockorTalk/issues/56), [Play screens (#60)](https://github.com/SamarthaB10/BlockorTalk/issues/60), [results (#61)](https://github.com/SamarthaB10/BlockorTalk/issues/61) and [Carrier insights (#62)](https://github.com/SamarthaB10/BlockorTalk/issues/62) were still open. The shared `/play` layout is ready for BS-10; BS-09 does not add a replacement game or a placeholder Play page. Do not release the redirect until `/play` works.
+
+Two existing integration gaps also prevent the required smoke test: `lib/season/meServer.ts` returns no current Player and no completed calls, and the analysis store expects columns that migration 009 does not create. The later `CREATE TABLE IF NOT EXISTS player_analyses` does not add those columns to the existing table. Resolve these gaps before release.
+
+Read-only production checks during BS-09 found `/play` and `/insights` at HTTP 404, `/api/season` at HTTP 503, and `/api/players` at HTTP 200. The Worker secret-name list did not include `TELL_INSIGHTS_SECRET`. These checks do not prove which migrations or seeds are present. No production database changes, secret changes or deployment were made for BS-09. The production smoke test remains pending. Use [the release steps](BLOKBUKS_RELEASE.md) when the dependencies are ready.
+
+Known limits remain: sign-in by email is not verified, so anyone who knows a Player's email can sign in as that Player. The prize claim is only a request stub; it does not send email, verify ownership or fulfil a prize. This build is for the hackathon and education. A commercial launch needs permission for the Kaggle material or a different dataset. `/credits` records Kaggle's CC BY-NC-ND 4.0 and BothBosu/scam-dialogue's Apache 2.0 licences.
+
 ## Players
 
 - Signup with email and nickname (3–20 characters, unique, basic profanity blocklist). The Leaderboard shows the nickname, never the email.

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Season } from '../../lib/season/routes';
 import { Button } from '../components/ui';
+import Blokbuks from '../components/Blokbuks';
 
 type Rank = { rank: number; nickname: string; blokbuks: number };
 type Board = { season: Season & { status: string }; final: boolean; leaderboard: Rank[]; ownRank: Rank | null; claimEligible: boolean };
@@ -62,9 +63,8 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
     finally { setSaving(false); }
   }
 
-  const row = (rank: Rank) => <tr key={rank.rank}><td>{rank.rank}</td><th scope="row">{rank.nickname}</th><td><strong>B {rank.blokbuks.toLocaleString('en-US')}</strong></td></tr>;
+  const row = (rank: Rank) => <tr key={rank.rank}><td>{rank.rank}</td><th scope="row">{rank.nickname}</th><td><Blokbuks amount={rank.blokbuks} /></td></tr>;
   return <main className="season-page">
-    <nav aria-label="Tell"><a href="/">Tell</a><a href="/leaderboard">Leaderboard</a></nav>
     <header><p className="season-eyebrow">National Leaderboard · {board?.season.name || 'Season 1'}</p>
       <h1>{claim ? 'Claim your prize' : 'Good judgment adds up.'}</h1>
       <p>Practice spotting scam calls. Earn Blokbuks with each Scored call.</p>
@@ -87,7 +87,7 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
             <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Sending…' : 'Send claim request'}</Button>
           </form><p role="status">{message}</p></> : <p>Claims are open only to the final top three Players. Sign in with your Player profile after the Season ends.</p>}
       </section> : <>
-        {board.ownRank && <p className="season-notice">Your rank: <strong>{board.ownRank.rank}</strong> · <strong>B {board.ownRank.blokbuks.toLocaleString('en-US')}</strong></p>}
+        {board.ownRank && <p className="season-notice">Your rank: <strong>{board.ownRank.rank}</strong> · <Blokbuks amount={board.ownRank.blokbuks} /></p>}
         {board.claimEligible && <p><a className="ui-button" href="/leaderboard/claim">Claim your prize</a></p>}
         <h2>Top 100 Players</h2><p>Order: Blokbuks, then accuracy, then who reached the score first.</p>
         {board.leaderboard.length ? <table><caption className="ui-sr-only">National Leaderboard</caption><thead><tr><th scope="col">Rank</th><th scope="col">Nickname</th><th scope="col">Blokbuks</th></tr></thead><tbody>{board.leaderboard.map(row)}</tbody></table> : <p>No Players yet. Be the first to join.</p>}

@@ -49,7 +49,7 @@ export default function PlayerSignup() {
     <h2 id="player-heading">{player ? `Welcome, ${player.nickname}` : mode === 'signup' ? 'Create your Player profile' : 'Sign in to Tell'}</h2>
     <p className="player-message" role="status">{loading ? 'Checking your sign-in…' : message}</p>
     {!loading && <form onSubmit={submit} noValidate>
-      {player ? <p>Your profile is saved on this device for 30 days.</p> : <>
+      {player ? <p>Your profile is saved on this device for 30 days. <a href="/play">Choose a Call scenario</a></p> : <>
         <p>{mode === 'signup' ? 'Use an email and nickname to save your play.' : 'Enter the email you used to sign up.'}</p>
         <div className="player-fields">
           <div><label htmlFor="player-email">Email</label>
