@@ -25,7 +25,6 @@ export default function Landing(){
   const tabWindow=useRef<HTMLDivElement>(null);
   const [section,setSection]=useState(0);
   const [scrolled,setScrolled]=useState(false);
-  const [dismissed,setDismissed]=useState(false);
   const [menu,setMenu]=useState(false);
   const [paused,setPaused]=useState(false);
   const [reduced,setReduced]=useState(true);
@@ -65,12 +64,11 @@ export default function Landing(){
     const selected=strip?.querySelector<HTMLButtonElement>('button.current');
     if(strip&&selected)strip.scrollTo({left:selected.offsetLeft-strip.offsetLeft,behavior:motion?'smooth':'instant'});
   },[tab,motion]);
-  const closeTop=dismissed||scrolled;
+  const closeTop=scrolled;
   return <main className={`nova ${closeTop?'top-hidden':''} ${motion?'motion-on':''}`}>
     <a className="nova-skip" href="#intro">Skip to content</a>
     <div className="nova-guides" aria-hidden="true"><i/><i/><i/></div>
     <SpriteScene paused={!motion}/>
-    <div className="nova-announcement"><span><strong>New:</strong> Meet Block or Talk — Three calls. Two stories. Who gets your trust?</span><button aria-label="Dismiss announcement" onClick={()=>setDismissed(true)}>×</button></div>
     <header className="nova-nav">
       <a className="nova-logo" href="#intro" aria-label="Block or Talk home"><Mark/><span>BLOCK OR TALK</span></a>
       <div className="nova-launch-cell"><a className="nova-launch" href="/dashboard">Dashboard <Arrow/></a></div>

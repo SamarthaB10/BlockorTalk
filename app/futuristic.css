@@ -1,6 +1,6 @@
 /* Futuristic night-city theme. Colours and background only: loaded after globals.css, so it
    re-points the design tokens and paints a fixed scene behind every dark page.
-   The landing page (.nova) stays light and hides the scene.
+   The landing page (.nova) shares the scene; its own overrides are at the end of this file.
    Nothing here depends on or hints at call type. The scene is static, per PRODUCT.md principle 5. */
 
 :root {
@@ -21,10 +21,10 @@
 html { background: #04020f; }
 
 /* Scene: sky, aurora, moon and stars on ::before; two skyline layers on ::after. */
-html body:not(:has(.nova)) { background: transparent; }
-html body:not(:has(.nova))::before,
-html body:not(:has(.nova))::after { content: ''; position: fixed; left: 0; right: 0; pointer-events: none; z-index: -1; }
-html body:not(:has(.nova))::before {
+html body:not([data-plain]) { background: transparent; }
+html body:not([data-plain])::before,
+html body:not([data-plain])::after { content: ''; position: fixed; left: 0; right: 0; pointer-events: none; z-index: -1; }
+html body:not([data-plain])::before {
   top: 0; bottom: 0;
   background:
     /* stars */
@@ -43,7 +43,7 @@ html body:not(:has(.nova))::before {
     linear-gradient(180deg, #02010a 0%, #0a0630 45%, #1b0f5c 78%, #3b1383 100%);
   background-size: 340px 220px, 340px 220px, 340px 220px, 340px 220px, 340px 220px, auto, auto, auto, auto, auto;
 }
-html body:not(:has(.nova))::after {
+html body:not([data-plain])::after {
   bottom: 0; height: 42vh; min-height: 220px;
   background:
     linear-gradient(0deg, #7c2bd9 0, #7c2bd9 5px, transparent 5px),
@@ -105,3 +105,35 @@ body .ins .ins-stat.is-accent { background: var(--paper); }
 .welcome-dialog.welcome-dialog .welcome-friend { background: rgb(60 45 140 / .55); }
 .welcome-dialog.welcome-dialog .welcome-go { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
 .welcome-dialog.welcome-dialog :focus-visible { outline-color: #67e8f9; }
+
+/* Landing page (.nova): same night-city scene and tokens as the app. html body:has(.nova) outranks landing.css. */
+html body:has(.nova) { background: transparent; color: #f4f1ff; color-scheme: dark; }
+body .nova.nova {
+  --field: rgb(8 6 30 / .78); --text: #f4f1ff; --dim: #b9b3e6; --faint: rgb(139 124 248 / .3);
+  --brand: conic-gradient(from 200deg, #8b5cf6, #5eead4 18%, #67e8f9 34%, #ff4fd8 50%, #67e8f9 66%, #5eead4 82%, #8b5cf6);
+  background: transparent; color-scheme: dark;
+}
+.nova.nova :focus-visible { outline-color: #67e8f9; }
+.nova.nova ::selection { background: #8b5cf6; color: #fff; }
+.nova.nova .nova-announcement, .nova.nova .nova-nav, .nova.nova .landing-team, .nova.nova .nova-footer, .nova.nova .nova-drawer { backdrop-filter: blur(8px); }
+.nova.nova .nova-nav { border-bottom-color: #8b7cf866; box-shadow: 0 1px 24px rgb(139 92 246 / .25); }
+.nova.nova .nova-logo stop:first-child { stop-color: #8b5cf6; }
+.nova.nova .nova-logo stop:last-child { stop-color: #5eead4; }
+.nova.nova .nova-launch { background: linear-gradient(135deg, #7c3aed, #a78bfa); border-color: #c4b5fd; color: #fff; box-shadow: var(--glow); }
+.nova.nova .nova-launch:hover { box-shadow: 0 0 26px rgb(167 139 250 / .7); }
+.nova.nova .nova-title-block h1 { text-shadow: 0 0 28px rgb(139 92 246 / .55); }
+.nova.nova .nova-title-line { box-shadow: var(--glow), inset 0 0 18px rgb(139 92 246 / .2); }
+.nova.nova .nova-prompt-box { border-color: #8b7cf8; box-shadow: var(--glow); background: rgb(8 6 30 / .7); backdrop-filter: blur(6px); }
+.nova.nova .nova-caret { background: #5eead4; }
+.nova.nova .nova-scroll>span, .nova.nova .nova-bracket, .nova.nova .nova-menu-toggle { border-color: #8b7cf8 !important; }
+.nova.nova .nova-drawer { border-color: #8b7cf8; box-shadow: var(--glow); }
+.nova.nova .nova-slot-fallback, .nova.nova .landing-team img { mix-blend-mode: screen; }
+.nova.nova .nova-guides i { background: #8b7cf838; }
+.nova.nova .nova-tabs button.current { border-color: #8b7cf8; box-shadow: var(--glow); }
+.nova.nova .nova-review-arrows button { border-color: #8b7cf8; }
+.nova.nova .nova-review-arrows button:hover { background: rgb(139 92 246 / .3); }
+
+/* No announcement bar: the nav sits at the very top. */
+.nova.nova { padding-top: 64px; }
+.nova.nova .nova-nav, .nova.top-hidden .nova-nav { top: 0; }
+@media (max-width: 760px) { .nova.nova { padding-top: 64px; } .nova.nova .nova-nav { top: 0; } .nova.nova .nova-drawer { top: 72px; } }
