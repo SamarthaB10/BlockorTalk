@@ -16,7 +16,7 @@ This is not yet a complete, verified production loop. At the start of BS-09, [th
 
 Two existing integration gaps also prevent the required smoke test: `lib/season/meServer.ts` returns no current Player and no completed calls, and the analysis store expects columns that migration 009 does not create. The later `CREATE TABLE IF NOT EXISTS player_analyses` does not add those columns to the existing table. Resolve these gaps before release.
 
-Read-only production checks during BS-09 found `/play` and `/insights` at HTTP 404, `/api/season` at HTTP 503, and `/api/players` at HTTP 200. The Worker secret-name list did not include `TELL_INSIGHTS_SECRET`. These checks do not prove which migrations or seeds are present. No production database changes, secret changes or deployment were made for BS-09. The production smoke test remains pending. Use [the release steps](BLOKBUKS_RELEASE.md) when the dependencies are ready.
+Read-only production checks during BS-09 found `/play` and `/insights` at HTTP 404, `/api/season` at HTTP 503, and `/api/players` at HTTP 200. These checks do not prove which migrations or seeds are present. No production database changes, secret changes or deployment were made for BS-09. The production smoke test remains pending. Use [the release steps](BLOKBUKS_RELEASE.md) when the dependencies are ready.
 
 Known limits remain: sign-in by email is not verified, so anyone who knows a Player's email can sign in as that Player. The prize claim is only a request stub; it does not send email, verify ownership or fulfil a prize. This build is for the hackathon and education. A commercial launch needs permission for the Kaggle material or a different dataset. `/credits` records Kaggle's CC BY-NC-ND 4.0 and BothBosu/scam-dialogue's Apache 2.0 licences.
 
@@ -93,7 +93,7 @@ Season 1 starts when deployed and ends 55 hours later. The start, end and prizes
 ## Carrier insights (`/insights`)
 
 - Totals only, by Category × Tactic × outcome. Groups under 5 Players are hidden. No emails, nicknames, transcripts or per-Player rows.
-- Locked by `TELL_INSIGHTS_SECRET`, typed once and then kept in a cookie. CSV export.
+- Locked by the password `tmobile`, typed once and then kept in a cookie. CSV export.
 - The Insights analyst reads totals only, and rewrites its summary on open when the current one is more than 15 minutes old.
 - A seed script adds rows marked `synthetic = true`, behind a clearly labelled "Synthetic demo data" toggle that defaults to real.
 

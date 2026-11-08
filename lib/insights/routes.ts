@@ -2,12 +2,12 @@
  * Carrier insights (docs/BLOKBUKS_SEASON.md, docs/adr/0002): anonymous Category × Tactic × outcome
  * totals for T-Mobile. Everything leaving this file is built from `insightTotals`, which returns
  * fresh objects with no Player id, scenario id, email, nickname or transcript, and hides any group
- * under five Players without a count. The store, analyst, clock and secret are injected so tests
+ * under five Players without a count. The store, analyst, clock and password are injected so tests
  * use fakes, as with the other route factories.
  */
 import { insightTotals, MIN_PLAYERS, type CallRow, type InsightGroup } from '../season/analysis.ts';
 import type { ShownGroup } from './analyst.ts';
-import { accessToken, isAuthorized, secretMatches, sessionCookie } from './access.ts';
+import { accessToken, isAuthorized, passwordMatches, sessionCookie } from './access.ts';
 
 export { INSIGHTS_COOKIE } from './access.ts';
 
@@ -28,8 +28,8 @@ export interface InsightsStore {
 }
 
 export interface InsightsDeps {
-  /** TELL_INSIGHTS_SECRET. Unset or empty means nothing can unlock. */
-  secret: string | undefined;
+  /** The shared password (INSIGHTS_PASSWORD in production). Empty means nothing can unlock. */
+  password: string | undefined;
   store: InsightsStore;
   /** Totals in, summary text out; null on any failure. */
   analyst(groups: ShownGroup[], synthetic: boolean): Promise<string | null>;
@@ -109,11 +109,11 @@ export function createInsightsHandlers(deps: InsightsDeps) {
 
   return {
     async GET(request: Request) {
-      if (!await isAuthorized(request, deps.secret)) return locked();
+      if (!await isAuthorized(request, deps.password)) return locked();
       try { return Response.json(await view(wantsSynthetic(request)), { headers }); } catch { return unavailable(); }
     },
     async CSV(request: Request) {
-      if (!await isAuthorized(request, deps.secret)) return locked();
+      if (!await isAuthorized(request, deps.password)) return locked();
       try {
         const data = await view(wantsSynthetic(request));
         return new Response(insightsCsv(data), { headers: {
@@ -131,20 +131,20 @@ export function createInsightsHandlers(deps: InsightsDeps) {
       let submitted = '';
       try {
         submitted = request.headers.get('content-type')?.includes('json')
-          ? String((JSON.parse(raw) as { secret?: unknown }).secret ?? '')
-          : new URLSearchParams(raw).get('secret') ?? '';
-      } catch { /* treated as a wrong secret */ }
-      if (!await secretMatches(submitted, deps.secret)) {
+          ? String((JSON.parse(raw) as { password?: unknown }).password ?? '')
+          : new URLSearchParams(raw).get('password') ?? '';
+      } catch { /* treated as a wrong password */ }
+      if (!await passwordMatches(submitted, deps.password)) {
         return new Response(null, { status: 303, headers: { ...headers, Location: new URL('/insights?error=1', url).toString() } });
       }
       return new Response(null, { status: 303, headers: {
         ...headers,
         Location: new URL('/insights', url).toString(),
-        'Set-Cookie': sessionCookie(await accessToken(deps.secret!), request),
+        'Set-Cookie': sessionCookie(await accessToken(deps.password!), request),
       } });
     },
     view,
     /** Cookie check for the server-rendered page. */
-    isAuthorized: (request: Request) => isAuthorized(request, deps.secret),
+    isAuthorized: (request: Request) => isAuthorized(request, deps.password),
   };
 }

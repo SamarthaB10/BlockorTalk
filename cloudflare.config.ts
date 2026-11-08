@@ -16,7 +16,6 @@ export default defineConfig({
       DATABASE_URL: bindings.secret(),
       NVIDIA_API_KEY: bindings.secret(),
       ELEVENLABS_API_KEY: bindings.secret(),
-      TELL_INSIGHTS_SECRET: bindings.secret(),
       TRY_IT_SECRET: bindings.secret(),
     },
   }),

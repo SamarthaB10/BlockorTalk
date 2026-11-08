@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import SpriteScene from './SpriteScene';
+import AgentPhases from './AgentPhases';
 import './landing.css';
 
 const prompts = [
@@ -103,6 +104,7 @@ export default function Landing(){
     </section>
     <section className="landing-team" aria-labelledby="landing-team-title">
       <header><h2 id="landing-team-title">Meet your practice team.</h2><p>Three companions. A little more confidence with every call.</p></header>
+      <AgentPhases paused={!motion} />
       <div className="landing-team-grid">
         <article><img src="/sprites/purple/idle/idle_01.png" width="160" height="140" alt="Drill Planner, idle" loading="lazy"/><h3>Planner · Prepare your day</h3><p>Start with three callers, two tasks, and fictional details to protect. Your practice day gives you a concrete goal.</p><p>Scene → Tasks → Your first call</p></article>
         <article><img src="/sprites/red/idle/idle_01.png" width="160" height="140" alt="Detector, idle" loading="lazy"/><h3>Detector · Examine the evidence</h3><p>After your decisions, the detector checks your call transcripts for scam signals. The reveal shows its evidence and uncertainty.</p><p>Transcript → Signals → Evidence</p></article>
