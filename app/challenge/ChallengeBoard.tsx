@@ -133,7 +133,10 @@ export default function ChallengeBoard() {
     finally { setBusy(false); }
   }
 
-  const hangUp = useCallback(() => { const live = handleRef.current; handleRef.current = null; setCallHandle(null); return live?.end().catch(() => {}); }, []);
+  // Each connection attempt gets a number. Hanging up bumps it, so an attempt still waiting on the
+  // token or the microphone prompt can't come back later and open the mic after the player left.
+  const attemptRef = useRef(0);
+  const hangUp = useCallback(() => { attemptRef.current += 1; const live = handleRef.current; handleRef.current = null; setCallHandle(null); return live?.end().catch(() => {}); }, []);
   useEffect(() => () => { void hangUp(); }, [hangUp]);
   /** Hang-up by the player (Disconnect, "stop drill", the reply cap): end the session, then the call. */
   function endVoiceCall() {
@@ -143,33 +146,41 @@ export default function ChallengeBoard() {
 
   /** Starts Yui's call by browser voice (voice uses the recruiter agent only). `fresh` creates a new stored day first. */
   async function startVoice(fresh: boolean) {
+    void hangUp();
+    const attempt = attemptRef.current;
+    const current = () => attempt === attemptRef.current;
     setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError(''); repliesRef.current = 0;
-    if (fresh && !(await act({ type: 'start' }))) { setVoice('failed'); return; }
+    if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
+    if (!current()) return;
     let token: string | undefined;
     try {
       const response = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callerId: 'recruiter' }) });
       if (response.ok) token = (await response.json() as { conversationToken?: string }).conversationToken;
     } catch { /* shown as the failure state below */ }
+    if (!current()) return;
     if (!token) { setVoice('failed'); return; }
     try {
       const handle = await startBrowserCall({
         callerId: 'recruiter', conversationToken: token, variables: BROWSER_VOICE_VARIABLES.recruiter,
         onTurn: turn => {
+          if (!current()) return;
           setVoiceTurns(turns => [...turns, turn]);
           if (turn.role !== 'user') return;
           repliesRef.current += 1;
           if (/\bstop\s+drill\b/i.test(turn.message) || repliesRef.current >= REPLY_CAP) endVoiceCall();
         },
         onEnded: () => {
+          if (!current()) return;
           handleRef.current = null; setCallHandle(null);
           if (voiceRef.current === 'live') { setVoice('ended'); void act({ type: 'end' }); }
           else if (voiceRef.current === 'connecting') setVoice('failed');
         },
-        onMicDenied: () => setVoice('mic-denied'),
+        onMicDenied: () => { if (current()) setVoice('mic-denied'); },
       });
+      if (!current()) { void handle?.end().catch(() => {}); return; }
       if (!handle) { if (voiceRef.current === 'connecting') setVoice('failed'); return; }
       handleRef.current = handle; setCallHandle(handle); setVoice('live');
-    } catch { setVoice('failed'); }
+    } catch { if (current()) setVoice('failed'); }
   }
   const caller = CALLERS[day?.callerId ?? 'recruiter'];
   const active = day?.phase === 'call';
@@ -192,7 +203,7 @@ export default function ChallengeBoard() {
     }
   }, [active, seconds, busy, error]); // The server also enforces the deadline after reload.
   // The day left the call (time cap, reload, verdict): the voice session ends with it.
-  useEffect(() => { if (!active && handleRef.current) { setVoice('ended'); void hangUp(); } }, [active, hangUp]);
+  useEffect(() => { if (!active && day && (handleRef.current || voiceRef.current === 'connecting')) { setVoice('ended'); void hangUp(); } }, [active, hangUp]);
   useEffect(() => {
     if (day?.phase === 'verdict') verdictHeading.current?.focus();
     else if (active && !busy && !voiceMode) replyInput.current?.focus();
@@ -243,13 +254,14 @@ export default function ChallengeBoard() {
             {voiceMode ? voiceTurns.map((turn, i) => <div className={`turn ${turn.role === 'user' ? 'user' : 'assistant'}`} key={i}><strong>{turn.role === 'user' ? 'You' : 'Yui'}</strong><p>{turn.message}</p></div>) : day.turns.map((turn, i) => <div className={`turn ${turn.role}`} key={i}><strong>{turn.role === 'system' ? 'Tell' : turn.role === 'user' ? 'You' : caller.name}</strong><p>{turn.text}</p>{turn.role === 'assistant' && <span className="source">{turn.source === 'nemotron' ? 'Nemotron · approved script line' : 'Script'}</span>}</div>)}
           </div>
           {!voiceMode && <p className="source">Each reply shows whether it used Nemotron or the script.</p>}
+          {!voiceMode && active && day.callerId === 'recruiter' && <button className="switch-voice" disabled={busy} onClick={() => void startVoice(false)}>Talk to Yui by voice instead<span>Uses your microphone · the 3-minute clock keeps running</span></button>}
           {active && !voiceMode && <form onSubmit={event => { event.preventDefault(); void act({ type: 'reply', text }); }}>
             <label htmlFor="reply">Your reply · use no real personal details</label><div className="reply-row"><input ref={replyInput} id="reply" maxLength={1000} value={text} onChange={event => setText(event.target.value)} disabled={busy} autoComplete="off" /><button disabled={busy || !text.trim()}>{busy ? 'Saving…' : 'Send'}</button></div>
             <p className="hint">Type “stop drill” to end at any time.</p>
           </form>}
           {day.phase === 'verdict' && <section className="verdict"><h3 ref={verdictHeading} tabIndex={-1}>Could you tell?</h3><p>Choose one verdict.</p>{([['Real', 'I trust this caller.'], ['Scam', 'I do not trust this caller.'], ['Unverified', 'I will check another way.']] as const).map(([verdict, description]) => <button key={verdict} disabled={busy} onClick={() => void act({ type: 'verdict', verdict })}><strong>{verdict}</strong><span>{description}</span></button>)}</section>}
           {day.phase === 'between' && <section role="status" className="between"><h3>Verdict saved: {day.verdict}</h3><p>Balance and tasks saved.</p><button className="primary" disabled={busy} onClick={() => void act({ type: 'next' })}>Next call</button></section>}
-          {day.phase === 'complete' && <section className="day-result" aria-label="Day result"><h3>Your day result</h3><p className="balance">${day.balance.toLocaleString('en-US')}</p><p>{day.balance === 1000 && day.interview === 'BOOKED' && day.bank === 'RESOLVED' ? 'Both tasks done. You kept your $1,000.' : 'Your money and tasks show the outcome of your choices.'}</p><p>Interview: {day.interview === 'BOOKED' ? 'Done · Tuesday at 10 AM' : 'Not completed'}</p><p>Bank alert: {day.bank === 'RESOLVED' ? 'Done' : day.bank === 'FAILED' ? 'Failed · Code shared' : 'Not completed · Call Corvanta to check'}</p><ul>{day.calls.map(call => <li key={call.callerId}>{CALLERS[call.callerId].name}: {call.verdict} · ${call.cost} lost</li>)}</ul><button disabled={busy} onClick={() => { if (mode === 'voice') void startVoice(true); else void act({ type: 'start' }); }}>Play again</button></section>}
+          {day.phase === 'complete' && <section className="day-result" aria-label="Day result"><h3>Your day result</h3><p className="balance">${day.balance.toLocaleString('en-US')}</p><p>{day.balance === 1000 && day.interview === 'BOOKED' && day.bank === 'RESOLVED' ? 'Both tasks done. You kept your $1,000.' : 'Your money and tasks show the outcome of your choices.'}</p><p>Interview: {day.interview === 'BOOKED' ? 'Done · Tuesday at 10 AM' : 'Not completed'}</p><p>Bank alert: {day.bank === 'RESOLVED' ? 'Done' : day.bank === 'FAILED' ? 'Failed · Code shared' : 'Not completed · Call Corvanta to check'}</p><ul>{day.calls.map(call => <li key={call.callerId}>{CALLERS[call.callerId].name}: {call.verdict} · ${call.cost} lost</li>)}</ul><div className="start-row"><button className="primary" disabled={busy} onClick={() => void startVoice(true)}>Play again by voice<span>Talk to Yui with your microphone</span></button><button className="start-text" disabled={busy} onClick={() => { setMode('text'); void act({ type: 'start' }); }}>Play again in text<span>Type your replies</span></button></div></section>}
         </section>
         <aside className="tasks dim"><h2>Your two tasks</h2><div className="task"><span className="pill">{!active && day.interview === 'BOOKED' ? <Stamp>{day.interview}</Stamp> : day.interview}</span><h3>Book your Bluebonnet Labs interview</h3></div><div className="task"><span className="pill">{!active && day.bank !== 'OPEN' ? <Stamp key={day.bank}>{day.bank}</Stamp> : day.bank}</span><h3>Sort out the Corvanta Bank alert</h3></div>
           <button className="app-tile" disabled={busy} onClick={() => void act({ type: 'portal' })}>Bluebonnet portal <span>Open candidate portal ↗</span></button><button className="app-tile" disabled={busy} onClick={() => void act({ type: 'bank' })}>Corvanta Bank <span>Open your bank app ↗</span></button>
@@ -257,7 +269,7 @@ export default function ChallengeBoard() {
       </div>
     </>}
     <nav className="moves" aria-label="Your four moves">{moves.map(([move, hint]) => <button key={move} disabled={busy || !active || (voiceMode && (move === 'Probe' || move === 'Protect'))} onClick={() => {
-      if (move === 'Disconnect') { if (handleRef.current) endVoiceCall(); else { if (voiceMode) setVoice('ended'); void act({ type: 'end' }); } }
+      if (move === 'Disconnect') { if (handleRef.current) endVoiceCall(); else { if (voiceMode) { void hangUp(); setVoice('ended'); } void act({ type: 'end' }); } }
       else if (move === 'Verify') void act({ type: day?.callerId === 'fraud_team' ? 'bank' : 'portal' });
       else { setText(move === 'Probe' ? 'How can I check this through a number I already have?' : 'I do not share personal details on a call.'); replyInput.current?.focus(); }
     }}><strong>{move}</strong><span>{voiceMode && (move === 'Probe' || move === 'Protect') ? `${hint}, out loud` : hint}</span></button>)}</nav>
