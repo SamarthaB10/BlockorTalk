@@ -26,6 +26,7 @@ export function createChallengeHandlers(service: () => ReturnType<typeof createC
     async GET(request: Request) {
       try {
         const id = session(request);
+        if (new URL(request.url).searchParams.has('stage_plan')) return json({ stagePlan: id ? await service().stagePlan(id) ?? null : null });
         return json({ day: id ? playerView(await service().get(id)) : null });
       } catch (error) { return failure(error); }
     },

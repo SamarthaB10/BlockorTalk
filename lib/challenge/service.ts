@@ -49,6 +49,8 @@ export interface ChallengeStore {
   create(day: Challenge): Promise<void>;
   update(id: string, work: (day: Challenge) => Promise<Challenge>): Promise<Challenge>;
   saveReveal(id: string, reveal: NonNullable<Challenge['reveal']>): Promise<void>;
+  /** The stage plan only (lib/stage/plan.ts), read without a lock. Only the saved Postgres day has one. */
+  readStagePlan?(id: string): Promise<Challenge['stagePlan']>;
 }
 
 function postgresStore(connectionString: string): ChallengeStore {
@@ -73,6 +75,11 @@ function postgresStore(connectionString: string): ChallengeStore {
       });
     },
     async saveReveal(id, reveal) { await withClient(client => client.query(`UPDATE tell_challenges SET state = jsonb_set(state, '{reveal}', $2::jsonb), updated_at = now() WHERE id = $1`, [id, JSON.stringify(reveal)])); },
+    async readStagePlan(id) {
+      const result = await withClient(client => client.query(`SELECT state->'stagePlan' AS stage_plan FROM tell_challenges WHERE id = $1`, [id]));
+      if (!result.rowCount) throw new ChallengeError('This day was not found. Start a new challenge.', 404);
+      return result.rows[0].stage_plan ?? undefined;
+    },
   };
 }
 
@@ -289,6 +296,10 @@ export function createChallengeService({ connectionString = '', store = postgres
       return day;
     },
     get: (id: string) => update(id),
+    /** The stage board's once-a-second poll: a plain read that takes no lock and writes nothing. */
+    async stagePlan(id: string): Promise<Challenge['stagePlan']> {
+      return store.readStagePlan?.(id);
+    },
     /** Caches the reveal in the saved day. A concurrent action may overwrite it; the next request recomputes. */
     saveReveal: store.saveReveal,
     act: (id: string, action: Action) => update(id, action),
