@@ -232,7 +232,7 @@ export default function ChallengeBoard() {
   useEffect(() => { if (portal) portalDialog.current?.showModal(); }, [portal]);
 
   return <main className="challenge">
-    <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span></>}</header>
+    <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span><button className="start-over" disabled={busy} onClick={() => { void hangUp(); setMode('text'); setVoice('connecting'); setVoiceTurns([]); setError(''); setDay(null); }}>Start over</button></>}</header>
     {error && <p role="alert" className="error">{error} <button onClick={() => location.reload()}>Reload saved day</button></p>}
     {loading ? <p role="status">Loading your saved day…</p> : !day ? <section className="intro">
       <div className="intro-copy"><p className="eyebrow">THREE CALLS. TWO STORIES.</p><h1>Keep your $1,000.<br />Finish both tasks.</h1>
