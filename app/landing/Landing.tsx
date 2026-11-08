@@ -89,13 +89,11 @@ export default function Landing(){
       <a className="nova-scroll" href="#practice">SCROLL <span><Arrow direction="down"/></span></a><div className="nova-bottom-rule" aria-hidden="true"/>
     </section>
     <section id="practice" className="nova-section nova-product" aria-labelledby="nova-product-title">
-      <div className="nova-scene-slot" data-scene-slot="1" aria-hidden="true"/>
       <div className="nova-tab-window" ref={tabWindow}><div className="nova-tabs">{tabs.map((label,i)=><button key={label} className={i===tab?'current':''} onClick={()=>setTab(i)} aria-pressed={i===tab}><span>{String(i+1).padStart(2,'0')}</span>{label}</button>)}</div></div>
       <div className="nova-product-copy rv"><span className="nova-small-dots" aria-hidden="true">··</span><h2 id="nova-product-title"><span>Your judgment.</span><br/>Under pressure.</h2><p>Start with $1,000 and two tasks.<br/>Three callers want your trust.<br/>What will you do?</p><a className="nova-text-link" href="/challenge">Play the Challenge <Arrow/></a></div>
       <div id="companions" className="nova-companion-note rv"><span>THREE SYSTEMS. ONE PRACTICE DAY.</span><p>Purple plans. Red detects.<br/>Green explains the calls.</p><small>AI practice callers. Fictional details only.</small></div>
     </section>
     <section id="rules" className="nova-section nova-reviews" aria-labelledby="nova-rules-title">
-      <div className="nova-scene-slot" data-scene-slot="2" aria-hidden="true"/>
       <header className="nova-review-strip"><h2 id="nova-rules-title">THE RULES</h2><span className="nova-bracket">{String(rule+1).padStart(2,'0')}</span><span className="nova-review-dot"/><span>{rules[rule].title}</span><span className="nova-review-role">TAKE IT INTO YOUR NEXT CALL</span></header>
       <div className="nova-quote-content rv" key={rule}><blockquote>{rules[rule].quote}</blockquote><p>{rules[rule].detail}</p><a className="nova-text-link" href="/challenge">Try for yourself <Arrow/></a></div>
       <p className="nova-ghost" aria-hidden="true">{rules[(rule+1)%rules.length].quote}</p>
