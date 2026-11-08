@@ -51,7 +51,7 @@ export type HistoryEntry = {
 };
 export type SkillCard = {
   id: SkillId; name: string; short: string; state: SkillState; needsPractice: boolean;
-  successes: number; scenarios: number; guided: number; guidance: string;
+  successes: number; scenarios: number; scenariosTried: number; guided: number; guidance: string;
   latest: string | null; next: string; history: HistoryEntry[];
 };
 export type Recommendation = { skill: SkillId; title: string; reason: string; scenarioId: string; scenario: string; href: string };
@@ -218,6 +218,7 @@ function card(skill: SkillId, folded: Folded, now: Date): SkillCard {
     state: folded.state, needsPractice: folded.needsPractice,
     successes: successes.length,
     scenarios: new Set(successes.map(entry => entry.scenarioId)).size,
+    scenariosTried: new Set(folded.entries.map(entry => entry.scenarioId)).size,
     guided,
     guidance: !successes.length ? 'No successful decisions yet'
       : guided ? `Guidance used in ${guided} of ${successes.length} success${successes.length === 1 ? '' : 'es'}` : 'No guidance needed',

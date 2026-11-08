@@ -15,6 +15,22 @@ function StateMark({ skill }: { skill: Pick<SkillCard, 'state' | 'needsPractice'
   return <span className="skill-state"><span className="skill-dot" data-state={skill.state} aria-hidden="true" />{skill.state}{skill.needsPractice && <span className="skill-flag"> · Needs practice</span>}</span>;
 }
 
+/** Each scale uses saved evidence, without changing the skill state rules. */
+function SkillScales({ skill }: { skill: SkillCard }) {
+  const decisions = skill.history.length;
+  const withoutHints = skill.successes - skill.guided;
+  const scales = [
+    { label: 'Successful decisions', value: skill.successes, total: decisions },
+    { label: 'Success without hints', value: withoutHints, total: decisions },
+    { label: 'Scenarios with success', value: skill.scenarios, total: skill.scenariosTried },
+  ];
+  return <dl className="hub-skill-scales">{scales.map(scale => <div key={scale.label}>
+    <dt>{scale.label}</dt><dd><span>{scale.total ? `${scale.value} / ${scale.total}` : 'No evidence'}</span>
+      <meter min={0} max={scale.total || 1} value={scale.value} aria-label={`${skill.name}: ${scale.label}`} aria-valuetext={scale.total ? `${scale.value} of ${scale.total}` : 'No evidence yet'} />
+    </dd>
+  </div>)}</dl>;
+}
+
 /** Presentational Progress screen: summary, one recommended drill, the Skill Log, and one skill's history. */
 export function ProgressBoard({ progress, selected, onSelect, onStartDrill, onOpenEvidence }: {
   progress: ProgressView; selected: SkillId | null; onSelect: (skill: SkillId | null) => void;
@@ -55,12 +71,14 @@ export function ProgressBoard({ progress, selected, onSelect, onStartDrill, onOp
 
     <section aria-labelledby="skill-log-title">
       <h2 id="skill-log-title" className="hub-progress-eyebrow">Skill log</h2>
+      <p className="hub-skill-key">Stages: Unseen → Practiced → Demonstrated → Independent. Independent means success without hints in at least two scenarios. Each scale shows your saved evidence.</p>
       <ul className="hub-skill-grid">
         {progress.skills.map(skill => <li key={skill.id}>
           <article className={`hub-card hub-skill${skill.id === selected ? ' is-open' : ''}`} aria-labelledby={`skill-${skill.id}`}>
             <h3 id={`skill-${skill.id}`}>{skill.name}</h3>
             <StateMark skill={skill} />
             <p className="hub-skill-count">{plural(skill.successes, 'successful decision')} · {plural(skill.scenarios, 'scenario')}</p>
+            <SkillScales skill={skill} />
             <p className="hub-skill-guidance">{skill.guidance}</p>
             <div><p className="hub-skill-label">Latest evidence</p><p>{skill.latest ?? 'Not seen in a call yet.'}</p></div>
             <div><p className="hub-skill-label">Next practice</p><p>{skill.next}</p></div>
