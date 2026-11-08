@@ -62,6 +62,8 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
   const finish = (reason: string) => {
     if (finished || denied) return;
     finished = true;
+    // An SDK error doesn't always disconnect: close the session so the mic and call stop too.
+    if (reason === "error") void session?.endSession().catch(() => {});
     opts.onEnded({ reason });
   };
   const deny = () => {
@@ -79,7 +81,7 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
         convId = conversationId;
       },
       onMessage: (m: { message: string; role?: string; source?: string }) => {
-        if (denied) return;
+        if (denied || finished) return;
         const role: TurnRole = (m.role ?? (m.source === "ai" ? "agent" : "user")) === "agent" ? "agent" : "user";
         opts.onTurn({ role, message: m.message });
       },
@@ -102,6 +104,11 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
   }
 
   if (denied) {
+    await session?.endSession().catch(() => {});
+    return undefined;
+  }
+  if (finished) {
+    // It errored while starting, before there was a session to close.
     await session?.endSession().catch(() => {});
     return undefined;
   }

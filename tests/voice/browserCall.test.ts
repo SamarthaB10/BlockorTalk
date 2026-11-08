@@ -120,4 +120,36 @@ describe("browser call", () => {
     expect(h.denied()).toBe(1);
     expect(h.ends).toEqual([]);
   });
+
+  it("closes the session when it reports an ended error, and forwards no turns afterwards", async () => {
+    const h = setup();
+    await h.run();
+    h.cb().onMessage({ role: "agent", message: "before" });
+    h.cb().onError("Server error: something broke");
+    h.cb().onMessage({ role: "agent", message: "after" });
+    await Promise.resolve();
+    expect(h.session.ended).toBe(true);
+    expect(h.ends).toEqual(["error"]);
+    expect(h.turns.map((t: { message: string }) => t.message)).toEqual(["before"]);
+  });
+
+  it("closes a session that errored while it was still starting", async () => {
+    let ended = false;
+    const ends: string[] = [];
+    const handle = await startBrowserCall({
+      callerId,
+      conversationToken: "tok",
+      variables,
+      startSession: async (o) => {
+        o.onError("Server error: early failure");
+        return { endSession: async () => void (ended = true) };
+      },
+      onTurn() {},
+      onEnded: ({ reason }) => void ends.push(reason),
+      onMicDenied() {},
+    });
+    expect(handle).toBeUndefined();
+    expect(ended).toBe(true);
+    expect(ends).toEqual(["error"]);
+  });
 });
