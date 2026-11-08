@@ -43,6 +43,8 @@ export interface BrowserSession {
 /** ElevenLabs agent IDs per Challenge caller, written by `npm run voice:provision`. */
 export type AgentIds = Record<ChallengeCallerId, string>;
 
+const E164 = /^\+[1-9]\d{7,14}$/;
+
 export class ElevenLabsVoiceAdapter implements VoiceAdapter {
   constructor(
     private readonly client: Pick<ElevenLabsClient, "conversationalAi">,
