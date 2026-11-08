@@ -7,7 +7,7 @@ import { createVoiceRoutes } from "./routes";
 /**
  * Builds the voice routes from Worker secrets, per request:
  *   ELEVENLABS_API_KEY, DATABASE_URL, TELL_TOOL_SECRET, ELEVENLABS_WEBHOOK_SECRET,
- *   ELEVENLABS_PHONE_NUMBER_ID (only for phone calls).
+ *   ELEVENLABS_PHONE_NUMBER_ID, ELEVENLABS_PHONE_PROVIDER and TELL_TEAM_PHONES (only for phone calls).
  * A missing secret makes the matching route refuse (401/502), never accept unsigned input.
  */
 export function voiceRoutes(env: NodeJS.ProcessEnv = process.env) {
@@ -23,11 +23,13 @@ export function voiceRoutes(env: NodeJS.ProcessEnv = process.env) {
     env.ELEVENLABS_PHONE_NUMBER_ID,
     // Browser-voice tokens go through a plain fetch, read lazily per request.
     { fetch: (url, init) => fetch(url, init), apiKey: () => env.ELEVENLABS_API_KEY },
+    env.ELEVENLABS_PHONE_PROVIDER === "sip_trunk" ? "sip_trunk" : "twilio",
   );
   return createVoiceRoutes({
     voice,
     store: pgVoiceStore(env.DATABASE_URL ?? ""),
     toolSecret: env.TELL_TOOL_SECRET ?? "",
     webhookSecret: env.ELEVENLABS_WEBHOOK_SECRET ?? "",
+    teamPhones: (env.TELL_TEAM_PHONES ?? "").split(",").map((n) => n.trim()).filter(Boolean),
   });
 }

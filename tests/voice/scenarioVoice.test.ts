@@ -63,4 +63,14 @@ describe("catalog voice", () => {
     const js = out.outputFiles.map(file => file.text).join("");
     for (const leak of ["scenario_scam", "scenario_real", "Say you need the practice protection code", "Never say what kind of caller"]) expect(js).not.toContain(leak);
   }, 30_000);
+
+  it("ships Practice this call without the Drill Planner, call types or scenario versions", async () => {
+    const out = await build({ entryPoints: ["app/dashboard/Dashboard.tsx"], bundle: true, platform: "browser", format: "esm", write: false, metafile: true, logLevel: "silent", external: ["react", "react-dom", "react/*", "@elevenlabs/client"], loader: { ".css": "empty" } });
+    const js = out.outputFiles.map(file => file.text).join("");
+    expect(js).toContain("Practice this call");
+    const inputs = Object.keys(out.metafile!.inputs);
+    expect(inputs).toContain("app/dashboard/NewsAlerts.tsx");
+    for (const server of ["lib/practice/planner.ts", "lib/practice/script.ts", "lib/season/scenarios/server.ts", "lib/voice/personas.ts"]) expect(inputs, server).not.toContain(server);
+    for (const leak of ["ask_line", "next_step", "Please read me your fictional", "Drill Planner for Tell", "Details as proof"]) expect(js, leak).not.toContain(leak);
+  }, 30_000);
 });

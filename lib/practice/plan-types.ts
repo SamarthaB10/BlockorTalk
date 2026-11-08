@@ -15,7 +15,8 @@ export interface Plan {
   path: "agent" | "fixed";
   model: string | null;
   fallback_reason: string | null;
-  drill: { kind: "scenario"; id: string; caller: string; org: string };
+  /** `category` is set when the drill is a catalog scenario chosen for a focused FTC alert. */
+  drill: { kind: "scenario"; id: string; caller: string; org: string; category?: string };
   target_rule: Rule;
   /** Shown to the player before the call, so it never names a call type. */
   reason: string;
