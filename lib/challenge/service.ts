@@ -3,6 +3,7 @@ import type { Action, Challenge, Reply, Turn } from './types.ts';
 import { DISCLOSURE } from './recruiter.ts';
 import { CALLERS, CALL_ORDER, CODE_REQUEST_LINES, FAKE_SECRETS } from './scenarios.ts';
 import { mentionsSecret } from '../policy/normalize.mjs';
+import type { DayDebrief } from './debrief.ts';
 
 export class ChallengeError extends Error {
   status: number;
@@ -48,13 +49,15 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           const raw = action.text.trim();
           if (!raw || raw.length > 1000) throw new ChallengeError('Use a reply from 1 to 1,000 characters.', 400);
           // Score the original text before personal-data redaction. Only user turns count.
+          const leakedNow: string[] = [];
           for (const [key, value] of Object.entries(FAKE_SECRETS)) {
             if (key === 'live_code' && !day.codeVisible) continue;
-            if (mentionsSecret(raw, key, value) && !day.leaked.includes(key)) day.leaked.push(key);
+            if (mentionsSecret(raw, key, value) && !day.leaked.includes(key)) { day.leaked.push(key); leakedNow.push(key); }
           }
           const text = safeText(raw);
           const at = new Date(now()).toISOString();
-          day.turns.push({ role: 'user', text, at });
+          // The stored text may be redacted, so the turn keeps which fake secrets it leaked for the debrief.
+          day.turns.push({ role: 'user', text, at, ...(leakedNow.length ? { leaked: leakedNow } : {}) });
           day.replies += 1;
           if (/\bstop\s+drill\b/i.test(raw)) end(day, 'stop');
           else if (day.replies >= 12) end(day, 'reply_cap');
@@ -90,7 +93,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           day.balance -= cost;
           if (day.callerId === 'fraud_team' && cost) day.bank = 'FAILED';
           if (day.callerId === 'recruiter' && (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.some(event => event.surface === 'portal')))) day.interview = 'BOOKED';
-          day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked });
+          day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked, endReason: day.endReason });
           day.phase = day.callerId === 'fraud_team' ? 'complete' : 'between';
         } else if (action?.type === 'portal') {
           day.events.push({ type: 'Verify', surface: 'portal', at: new Date(now()).toISOString() });
@@ -133,5 +136,15 @@ export function createChallengeService({ connectionString, reply, now = Date.now
     },
     get: (id: string) => update(id),
     act: (id: string, action: Action) => update(id, action),
+    /** Saves a finished debrief on the day, unless the day changed while it ran. */
+    async saveDebrief(id: string, debrief: DayDebrief): Promise<boolean> {
+      return withClient(async client => {
+        const result = await client.query(
+          `UPDATE tell_challenges SET state = jsonb_set(state, '{debrief}', $2::jsonb), updated_at = now()
+           WHERE id = $1 AND state->>'phase' = 'complete' AND jsonb_array_length(state->'calls') || ':' || jsonb_array_length(state->'events') = $3`,
+          [id, JSON.stringify(debrief), debrief.key]);
+        return result.rowCount === 1;
+      });
+    },
   };
 }
