@@ -30,12 +30,33 @@ export interface VoiceRouteDeps {
   webhookSecret: string;
 }
 
-const CARD_NUMBER = /\b(?:\d[ -]?){12,18}\d\b/g;
+// 13-19 digits, allowing the separators speech-to-text inserts (spaces, commas, dots, dashes).
+const CARD_CANDIDATE = /\b\d(?:[ ,.-]{0,2}\d){12,18}\b/g;
 const SSN = /\b\d{3}[- ]\d{2}[- ]\d{4}\b/g;
 
-/** Real-looking card numbers and SSNs never reach storage (docs/SPEC.md, Policy and scoring). */
+/** The checksum every real card number passes; run-together fake secrets almost never do. */
+function luhnValid(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+/**
+ * Real-looking card numbers and SSNs never reach storage (docs/SPEC.md, Policy and
+ * scoring). Only Luhn-valid digit runs count as card numbers, so a player reading
+ * several fake secrets in a row keeps them in the transcript for the leak check.
+ */
 export function redact(text: string): string {
-  return text.replace(CARD_NUMBER, "[redacted card number]").replace(SSN, "[redacted SSN]");
+  return text
+    .replace(CARD_CANDIDATE, (m) => (luhnValid(m.replace(/\D/g, "")) ? "[redacted card number]" : m))
+    .replace(SSN, "[redacted SSN]");
 }
 
 export function createVoiceRoutes(deps: VoiceRouteDeps) {

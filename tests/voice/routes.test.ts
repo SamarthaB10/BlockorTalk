@@ -80,6 +80,30 @@ describe("voice routes: post-call", () => {
       "sure it's [redacted card number] and my social is [redacted SSN], code 551 274",
     );
     expect(stored.turns[0]!.message).toBe("Can you confirm your card?");
+    expect(h.voice.deleted).toEqual(["conv_r1"]);
+  });
+});
+
+describe("redact", () => {
+  it("keeps the fake scenario secrets, even several read out in a row", async () => {
+    const { redact } = await import("../../lib/voice/routes");
+    for (const said of [
+      "4417 551 274 8302",
+      "5 5 1 2 7 4 8 3 0 2 4 4 1 7",
+      "1991-03-14 8302 551274",
+      "the code is KQ7R-2M4X-9PLT",
+      "born 03/14/1991, card ends 4417",
+    ]) {
+      expect(redact(said), said).toBe(said);
+    }
+  });
+
+  it("redacts real card numbers however speech-to-text punctuates them", async () => {
+    const { redact } = await import("../../lib/voice/routes");
+    expect(redact("4111 1111 1111 1111")).toBe("[redacted card number]");
+    expect(redact("it's 4111, 1111, 1111, 1111 ok")).toBe("it's [redacted card number] ok");
+    expect(redact("4111.1111.1111.1111")).toBe("[redacted card number]");
+    expect(redact("5500-0000-0000-0004")).toBe("[redacted card number]");
   });
 });
 
@@ -138,5 +162,54 @@ describe("voice routes: browser session", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ agentId: "agent_fake_fraud_team", conversationToken: "fake-token" });
     expect(h.voice.sessions).toEqual([{ callerId: "fraud_team" }]);
+  });
+});
+
+describe("voice routes: missing Worker secrets", () => {
+  function unconfigured() {
+    const voice = new FakeVoiceAdapter();
+    const db = fakeStore();
+    voice.createBrowserSession = async () => {
+      throw new Error("ELEVENLABS_API_KEY is not set");
+    };
+    const routes = createVoiceRoutes({ voice, store: db.store, toolSecret: "", webhookSecret: "" });
+    return { routes, db };
+  }
+
+  it("refuses beats when TELL_TOOL_SECRET is unset, even with no header", async () => {
+    const { routes, db } = unconfigured();
+    const res = await routes.beat(
+      new Request(`${BASE}/api/voice/beat`, {
+        method: "POST",
+        body: JSON.stringify({ beat: "code_requested", conversation_id: "conv_x" }),
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(db.events).toHaveLength(0);
+  });
+
+  it("refuses post-call webhooks when ELEVENLABS_WEBHOOK_SECRET is unset", async () => {
+    const { routes, db } = unconfigured();
+    const body = JSON.stringify(transcriptEvent("hello"));
+    for (const signature of ["", sign(body, "")]) {
+      const res = await routes.postCall(
+        new Request(`${BASE}/api/voice/post-call`, {
+          method: "POST",
+          body,
+          headers: { "ElevenLabs-Signature": signature },
+        }),
+      );
+      expect(res.status).toBe(401);
+    }
+    expect(db.transcripts.size).toBe(0);
+  });
+
+  it("returns a bare 502 for sessions when the ElevenLabs key is missing", async () => {
+    const { routes } = unconfigured();
+    const res = await routes.session(
+      new Request(`${BASE}/api/voice/session`, { method: "POST", body: JSON.stringify({ callerId: "fraud_team" }) }),
+    );
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "voice session unavailable" });
   });
 });
