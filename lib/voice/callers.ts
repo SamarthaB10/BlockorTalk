@@ -38,3 +38,13 @@ export function callVariables(
   }
   return Object.fromEntries(declared.map((k) => [k, variables[k]!]));
 }
+
+/** Spoken name for this call. A saved profile nickname replaces the fictional card name. */
+export function withProfileName(
+  variables: Record<string, string>,
+  nickname?: string | null,
+): Record<string, string> {
+  const name = nickname?.trim();
+  if (!name) return variables;
+  return { ...variables, player_name: name };
+}

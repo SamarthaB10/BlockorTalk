@@ -6,6 +6,8 @@ import { CALLERS, CALL_ORDER, CALLBACK_LINES, FAKE_SECRETS } from '../../lib/cha
 import { Sheet, Toast, Stamp } from '../components/ui';
 // Browser-safe voice modules only: never personas.ts, adapter.ts or agentConfig.ts (they hold the prompts).
 import { startBrowserCall, type BrowserCallHandle, type TurnRole } from '../../lib/voice/browserCall';
+import { withProfileName } from '../../lib/voice/callers';
+import { storedCallName } from '../../lib/callName';
 import { SCENARIOS } from '../../lib/practice/catalog';
 import type { CallerId } from '../../lib/challenge/types';
 import { pendingPlan, STAGE_PLANS, type StagePlan, type StagePlanState } from '../../lib/stage/plan';
@@ -148,6 +150,8 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
   const seenPlan = useRef(0);
   // Never on the anonymous try-it page: it has no saved day for the presenter to switch.
   useEffect(() => { setStage(!tryIt && new URLSearchParams(window.location.search).has('stage')); }, [tryIt]);
+  const profileName = useRef('');
+  useEffect(() => { profileName.current = storedCallName() ?? ''; }, []);
   useEffect(() => {
     if (tryIt) { setLoading(false); return; }
     fetch('/api/challenge').then(async response => {
@@ -236,7 +240,7 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
     if (!token) { setVoice('failed'); return; }
     try {
       const handle = await startBrowserCall({
-        callerId, conversationToken: token, anonymous: tryIt, variables: SCENARIOS.find(s => s.id === callerId)!.voiceVariables,
+        callerId, conversationToken: token, anonymous: tryIt, variables: withProfileName(SCENARIOS.find(s => s.id === callerId)!.voiceVariables, profileName.current),
         onTurn: turn => {
           if (!current()) return;
           voiceLog.current.push(turn);

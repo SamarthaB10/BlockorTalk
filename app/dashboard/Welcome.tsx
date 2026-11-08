@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { saveCallName, storedCallName } from '../../lib/callName';
 import SpritePlayer from '../components/SpritePlayer';
 
 export default function Welcome({ onName }: { onName: (name: string) => void }) {
@@ -8,16 +9,13 @@ export default function Welcome({ onName }: { onName: (name: string) => void }) 
   const input = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('block-or-call-welcome');
-      if (saved !== null) { onName(saved); return; }
-    } catch {}
+    const saved = storedCallName();
+    if (saved !== null) { onName(saved); return; }
     dialog.current?.showModal();
     input.current?.focus();
   }, [onName]);
   function finish(value: string) {
-    try { localStorage.setItem('block-or-call-welcome', value); } catch {}
-    onName(value);
+    onName(saveCallName(value));
     dialog.current?.close();
   }
   return <dialog ref={dialog} className="welcome-dialog" aria-labelledby="welcome-title" aria-describedby="welcome-note" onCancel={() => finish('')}>
@@ -30,7 +28,7 @@ export default function Welcome({ onName }: { onName: (name: string) => void }) 
       <input ref={input} id="welcome-name" value={name} onChange={event => setName(event.target.value)} placeholder="Type your name…" maxLength={40} autoComplete="off" />
       <button className="welcome-go" disabled={!name.trim()}>Let’s meet your next call ↗</button>
     </form>
-    <p id="welcome-note" className="welcome-note">Just for your dashboard. Saved on this device.<br />Practice calls still use fictional details.</p>
+    <p id="welcome-note" className="welcome-note">Saved on this device. Voice callers use this name.<br />Other details stay fictional.</p>
     <button className="welcome-skip" onClick={() => finish('')}>I’ll stay mysterious for now</button>
   </dialog>;
 }
