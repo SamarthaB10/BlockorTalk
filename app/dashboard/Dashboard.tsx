@@ -16,6 +16,7 @@ import Leaderboard from '../leaderboard/Leaderboard';
 import ScenarioMascot from './ScenarioMascot';
 import { dashboardIntro, dashboardView, type DashboardView } from './view';
 import ProgressPanel from './ProgressPanel';
+import type { ProgressView } from '../../lib/skills/log';
 import ProfilePanel from './ProfilePanel';
 import { isSkillId, type SkillId } from '../../lib/skills/catalog';
 
@@ -29,10 +30,13 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
   const [skillParam, setSkillParam] = useState<SkillId | null>(skill);
   const [playerName, setPlayerName] = useState('');
   const [view, setView] = useState<View>(initialView);
+  const [progress, setProgress] = useState<ProgressView | null>(null);
   useEffect(() => {
     const restore = () => {
       const params = new URLSearchParams(location.search);
-      setView(dashboardView(params.get('view') ?? undefined));
+      const restored = dashboardView(params.get('view') ?? undefined);
+      setView(restored);
+      if (restored === 'Profile') setProgress(null);
       const selected = params.get('skill');
       setSkillParam(isSkillId(selected) ? selected : null);
       stopVoice(); setScenario(null); setShowCode(false);
@@ -122,8 +126,6 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
       const { drill, reason, path } = value.plan;
       const note = { link, pick: { link, id: drill.id, category: drill.category ?? drill.org, reason, path } };
       setAlertNote(note);
-      // Long enough to read the pick before the call screen replaces the alert list.
-      await new Promise(resolve => setTimeout(resolve, 1500));
       if (attempt !== connection.current) return;
       navigate('Scenarios'); setAlertNote(note);
       void practiceVoice(drill.id);
@@ -131,17 +133,28 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
       if (attempt === connection.current) setAlertNote({ link, error: failure instanceof Error ? failure.message : 'The Drill Planner is unavailable. Try again in a moment.' });
     } finally { setPlanning(null); }
   }
-  function navigate(next: View) { stopVoice(); setView(next); setScenario(null); setError(''); setAlertNote(null); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
+  function navigate(next: View) { if (next === 'Profile') setProgress(null); stopVoice(); setView(next); setScenario(null); setError(''); setAlertNote(null); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
   return <main className="hub">
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
     <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button aria-current={view === 'Leaderboard' ? 'page' : undefined} onClick={() => navigate('Leaderboard')}>Leaderboard</button>{(['Progress', 'Profile'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}</nav></header>
-    {view !== 'Leaderboard' && view !== 'Progress' && <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>{dashboardIntro(view).kicker}</p><h1>{dashboardIntro(view).title}</h1><p>{dashboardIntro(view).summary}</p></div><BalanceBadge className="hub-balance" /></section>}
+    {view !== 'Leaderboard' && view !== 'Progress' && <section className={`hub-intro${view === 'Home' ? ' hub-home-intro' : ''}`}><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div>{dashboardIntro(view).kicker && <p>{dashboardIntro(view).kicker}</p>}<h1>{dashboardIntro(view).title}</h1>{dashboardIntro(view).summary && <p>{dashboardIntro(view).summary}</p>}</div><BalanceBadge className="hub-balance" /></section>}
     {error && <p role="alert">{error}</p>}
-    {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
-      <article className="hub-card"><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map((item, index) => <span key={item.id}><ScenarioMascot index={index} />{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>
-      <article className="hub-card hub-news"><h2>What’s happening now.</h2>{alerts.slice(0, 2).map(item => <a key={item.link} href={item.link} target="_blank" rel="noreferrer">{item.title} ↗</a>)}{newsState && <p role="status">{newsState}</p>}<button className="hub-link" onClick={() => navigate('News')}>Read the latest ↗</button></article>
-      <article className="hub-card hub-rule"><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
+    {view === 'Home' && <section className="hub-training" aria-labelledby="training-title">
+      <div className="hub-training-meta"><p>Your training ground</p><span>{SCENARIOS.length} AI practice callers</span></div>
+      <h2 id="training-title">Can you spot the scam?</h2>
+      <p className="hub-training-summary">Four callers. Four stories. Not everyone is who they seem.</p>
+      <ul className="hub-callers">
+        {SCENARIOS.map((item, index) => <li className="hub-caller" key={item.id}>
+          <ScenarioMascot index={index} />
+          <h3>{item.caller}</h3>
+          <p>{({ recruiter: 'Recruiter', onboarding: 'Onboarding', fraud_team: 'Fraud team', bank_callback: 'Bank caller' })[item.id]}</p>
+        </li>)}
+      </ul>
+      <button className="hub-primary hub-choose-caller" onClick={() => navigate('Scenarios')}>
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a1 1 0 0 1 1 .9l.5 3a1 1 0 0 1-.3 1l-1.5 1.5a16 16 0 0 0 6.8 6.8l1.5-1.5a1 1 0 0 1 1-.3l3 .5a1 1 0 0 1 .9 1Z" /></svg>
+        Choose your caller <span aria-hidden="true">→</span>
+      </button>
     </section>}
     {view === 'Scenarios' && !scenario && <form className="hub-card hub-phone" onSubmit={event => event.preventDefault()}><label htmlFor="test-phone">Test on a real phone</label><input id="test-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="(512) 555-0123" value={testPhone} onChange={event => setTestPhone(event.target.value)} /><p>Team test numbers only. Choose “Call my phone” on a scenario and an AI practice caller rings this number, opening with the practice disclosure.</p></form>}
     {view === 'Scenarios' && !scenario && <ContactsPhone disabled={busy || connecting} onCall={id => void practiceVoice(id)} actions={phoneButton} contacts={[
@@ -152,7 +165,7 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     {view === 'Scenarios' && scenario && SCENARIOS.some(item => item.id === scenario) && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'Caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{ended && turns.length > 0 && <><h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy} onClick={() => void giveVerdict(scenario as ScenarioId, verdict)}>{verdict}</button>)}</div></>}</>}</section>}
     {view === 'News' && <NewsAlerts alerts={alerts} status={newsState} planning={planning} note={alertNote} onPractice={link => void practiceAlert(link)} />}
     {view === 'Leaderboard' && <Leaderboard embedded />}
-    {view === 'Progress' && <ProgressPanel initialSkill={skillParam} onSignIn={() => navigate('Profile')} />}
+    {view === 'Progress' && <ProgressPanel initialProgress={progress} onProgressLoaded={setProgress} initialSkill={skillParam} onSignIn={() => navigate('Profile')} />}
     {view === 'Profile' && <ProfilePanel returnTo={returnTo} />}
     <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<a href="/insights">Carrier insights</a></footer>
   </main>;
