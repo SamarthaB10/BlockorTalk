@@ -14,11 +14,9 @@ test('the pixel phone is one crisp, labelled drawing, the same for every caller'
   expect(renderToStaticMarkup(createElement(PixelPhone))).toBe(html);
 });
 
-test('the Scenarios view is one candy-bar contacts phone listing every caller, with no mascots', () => {
+test('the Scenarios view is one retro phone whose address book lists every caller, with no mascots', () => {
   const html = renderToStaticMarkup(createElement(Dashboard, { initialView: 'Scenarios' }));
-  expect(html).toContain('class="contacts-phone"');
-  expect(html).toContain('class="contacts-earpiece"');
-  expect(html).toContain('class="contacts-keypad"');
+  expect(html).toContain('class="retro-phone"');
   expect(html.match(/data-contact="true"/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
   expect(html).not.toContain('hub-scenario-mascot');
 });

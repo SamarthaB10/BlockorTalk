@@ -275,49 +275,63 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-pick small{font-size:12px;color:var(--hub-muted,#625e58);}
 
 
-/* Scenarios picker: one big candy-bar handset (PixelPhone palette) whose contacts are the practice callers. */
+/* Scenarios picker: an old candybar phone. Pixel-phone palette (DESIGN.md): graphite #0b0b10, soft white #f2f0ea, periwinkle #9c9bff / #7473e0, cyan screen. */
+@font-face{font-family:'IBM Plex Mono';src:url('/fonts/plex-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'IBM Plex Mono';src:url('/fonts/plex-mono-500.woff2') format('woff2');font-weight:500;font-display:swap}
 .hub .contacts-stage{position:relative;display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;width:100%;max-width:1400px;margin:8px auto 32px;}
-.hub .contacts-wordmark{position:absolute;top:12%;left:0;right:0;margin:0;text-align:center;font:500 clamp(56px,10.5vw,176px)/1 'Sora',sans-serif;letter-spacing:-.045em;color:#9c9bff;opacity:.18;white-space:nowrap;pointer-events:none;animation:contacts-word 1400ms cubic-bezier(.2,.8,.2,1) 150ms both;}
-@keyframes contacts-word{from{opacity:0;transform:translateY(4vh);filter:blur(14px);}to{opacity:.18;transform:none;filter:none;}}
-.hub .contacts-phone{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:14px;width:min(600px,100%);margin:0;padding:22px 22px 26px;border-radius:36px;background:linear-gradient(180deg,#a8a7ff 0%,#9c9bff 42%,#7473e0 100%);border:4px solid #0b0b10;box-shadow:0 28px 60px -28px rgb(11 11 16 / .55),inset 0 0 0 5px #f2f0ea,inset 0 -10px 0 #6a69d0;}
-.hub .contacts-earpiece{display:flex;justify-content:center;align-items:center;gap:5px;height:18px;margin:2px auto 0;padding:0 18px;border-radius:999px;background:#0b0b10;width:min(132px,46%);}
-.hub .contacts-earpiece i{display:block;width:10px;height:3px;border-radius:2px;background:#3a3a48;}
-.hub .contacts-screen{position:relative;height:min(660px,66dvh);display:flex;flex-direction:column;border-radius:10px;background:#0b0b10;color:#f2f0ea;overflow:hidden;padding:10px 0 0;border:3px solid #0b0b10;box-shadow:0 2px 0 #5a59c4;}
-.hub .contacts-screen::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 3px #6fd8e8;pointer-events:none;z-index:2;}
-.hub .contacts-list{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);}
-.hub .contacts-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px;padding:4px 10px 2px;}
-.hub .contacts-keypad span{display:grid;place-items:center;min-height:50px;border-radius:10px;background:linear-gradient(180deg,#f2f0ea,#e4e1d8);border:2px solid #0b0b10;color:#0b0b10;font:600 26px/1 ui-monospace,Menlo,monospace;box-shadow:0 3px 0 #5a59c4;}
-.hub .contacts-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:12px 16px 8px;}
-.hub .contacts-head h2{margin:0;font-size:34px;font-weight:600;letter-spacing:-.03em;color:#6fd8e8;}
-.hub .contacts-shuffle,.hub .contact-call{border:0;border-radius:8px;background:#6fd8e8;color:#0b0b10!important;font-weight:600;font-size:17px;min-height:48px;padding:0 18px;}
-.hub .contacts-shuffle:disabled,.hub .contact-call:disabled{opacity:.5;}
-.hub .contacts-groups{display:flex;gap:6px;overflow-x:auto;padding:4px 16px 8px;scrollbar-width:none;}
-.hub .contacts-groups::-webkit-scrollbar{display:none;}
-.hub .contacts-groups button{flex-shrink:0;min-height:42px;padding:0 15px;border-radius:8px;border:1px solid #6fd8e855;background:transparent;color:#9c9bff;font-size:16px;}
-.hub .contacts-groups button span{opacity:.7;font-variant-numeric:tabular-nums;margin-left:2px;}
-.hub .contacts-groups button[aria-pressed=true]{background:#6fd8e8;border-color:#6fd8e8;color:#0b0b10;}
-.hub .contacts-count{margin:0;padding:2px 16px 8px;font-size:15px;color:#9c9bff;}
-.hub .contacts-list{list-style:none;margin:0;padding:0 10px 16px;overflow-y:auto;flex:1;scrollbar-color:#7473e0 transparent;}
-.hub .contacts-list li{animation:contact-rise 700ms cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 35ms + 120ms);}
-.hub .contacts-letter{margin:12px 6px 4px;font-size:15px;font-weight:600;color:#6fd8e8;}
-.hub .contacts-list button{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;padding:10px;border:0;border-radius:10px;background:rgb(116 115 224 / calc(var(--lift,0) * .55));color:inherit;text-align:left;transform-origin:left center;will-change:transform;}
-.hub .contacts-list button:focus-visible{outline:2px solid #6fd8e8;outline-offset:2px;}
-.hub .contacts-list strong{display:block;font-size:20px;font-weight:600;}
-.hub .contacts-list small{display:block;font-size:15px;color:#9c9bff;line-height:1.4;}
-.hub .contact-avatar{display:grid;place-items:center;flex-shrink:0;width:50px;height:50px;border-radius:8px;background:#1a1a28;color:#6fd8e8;font-size:20px;font-weight:600;box-shadow:0 0 0 1px #6fd8e855;}
-.hub .contact-card>.pixel-phone{--pixel-phone-width:80px;margin-top:8px;}
-.hub .is-ringing .contact-avatar{background:#6fd8e8;color:#0b0b10;animation:pp-ring 900ms cubic-bezier(.36,.07,.19,.97) infinite;box-shadow:0 0 0 6px #6fd8e833;}
-.hub .contact-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 18px 18px;text-align:center;overflow-y:auto;}
-.hub .contact-card h2{margin:6px 0 0;font-size:34px;font-weight:600;letter-spacing:-.03em;color:#f2f0ea;}
-.hub .contact-card p{margin:0;color:#9c9bff;font-size:17px;max-width:32ch;}
-.hub .contact-card .contact-label{font-size:15px;color:#6fd8e8;}
-.hub .contact-card .contact-call{width:100%;margin-top:14px;}
-.hub .contact-card .hub-link{color:#f2f0ea;}
-.hub .contact-back{align-self:flex-start;border:0;background:transparent;color:#6fd8e8;min-height:44px;padding:0;font-size:18px;}
-@keyframes contact-rise{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:none;}}
-@media(max-width:560px){.hub .contacts-phone{padding:12px 12px 16px;border-radius:28px;gap:10px;}.hub .contacts-screen{height:50dvh;}.hub .contacts-keypad{gap:6px 8px;}.hub .contacts-keypad span{min-height:40px;font-size:20px;}}
-@media(max-width:760px){.hub .contacts-wordmark{display:none;}}
-@media(prefers-reduced-motion:reduce){.hub .contacts-wordmark{animation:none;}.hub .contacts-list li{animation:none;}.hub .is-ringing .contact-avatar{animation:none;}}
+
+.hub .retro-phone{position:relative;width:min(480px,100%);padding:30px 28px 34px;border-radius:64px 64px 84px 84px / 48px 48px 110px 110px;background:linear-gradient(100deg,#7473e0 0%,#9c9bff 28%,#aeadff 46%,#9c9bff 64%,#7473e0 100%);border:3px solid #0b0b10;box-shadow:inset 0 3px 0 #f2f0ea8c,inset 0 -6px 0 #0b0b1033,0 30px 70px -24px rgb(124 58 237 / .6);color:#0b0b10;}
+.hub .retro-speaker{display:block;width:64px;height:8px;margin:0 auto 10px;border-radius:8px;background:repeating-linear-gradient(90deg,#0b0b10 0 4px,transparent 4px 7px);opacity:.75;}
+.hub .retro-brand{margin:0 0 10px;text-align:center;font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;color:#0b0b10b3;}
+.hub .retro-lcd{display:flex;flex-direction:column;height:min(480px,56dvh);padding:8px 10px 6px;border:10px solid #0b0b10;border-radius:14px;background:#a9e7ee;background-image:radial-gradient(#0b0b1012 1px,transparent 1.2px);background-size:3px 3px;box-shadow:inset 0 0 18px #0b0b1040;font:400 15px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#0b0b10;overflow:hidden;}
+.hub .retro-status{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:4px;border-bottom:2px solid #0b0b10;font-weight:500;text-transform:uppercase;letter-spacing:.08em;font-size:11px;}
+.hub .retro-signal{display:flex;align-items:flex-end;gap:2px;height:10px;}.hub .retro-signal i{width:3px;background:#0b0b10;}.hub .retro-signal i:nth-child(1){height:3px}.hub .retro-signal i:nth-child(2){height:5px}.hub .retro-signal i:nth-child(3){height:7px}.hub .retro-signal i:nth-child(4){height:10px}
+.hub .retro-battery{width:18px;height:9px;border:2px solid #0b0b10;box-shadow:inset 9px 0 0 #0b0b10;position:relative;}.hub .retro-battery::after{content:"";position:absolute;right:-5px;top:1px;width:2px;height:3px;background:#0b0b10;}
+.hub .retro-group{display:flex;gap:4px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none;}.hub .retro-group::-webkit-scrollbar{display:none;}
+.hub .retro-group button{flex-shrink:0;min-height:34px;padding:0 9px;border:2px solid #0b0b10;border-radius:0;background:transparent;color:#0b0b10;font:inherit;font-size:13px;}
+.hub .retro-group button[aria-pressed=true]{background:#0b0b10;color:#a9e7ee;}
+.hub .contacts-count{margin:4px 0 6px;font-size:12px;letter-spacing:.04em;color:#0b0b10b3;}
+.hub .contacts-list{list-style:none;margin:0;padding:0 2px 4px;overflow-y:auto;flex:1;scrollbar-color:#0b0b10 transparent;scrollbar-width:thin;}
+.hub .contacts-list li{animation:contact-rise 600ms cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 30ms + 120ms);}
+.hub .contacts-letter{margin:8px 0 2px;font-size:12px;font-weight:500;letter-spacing:.1em;}
+.hub .contacts-list button{display:block;width:100%;min-height:52px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;text-align:left;transform-origin:left center;will-change:transform;}
+.hub .contacts-list button[aria-current=true]{background:#0b0b10;color:#a9e7ee;}
+.hub .contacts-list button:focus-visible{outline:2px dashed #0b0b10;outline-offset:1px;}
+.hub .contacts-list strong{display:block;font-weight:500;font-size:18px;}
+.hub .contacts-list small{display:block;font-size:12px;line-height:1.3;opacity:.82;}
+.hub .contacts-list .is-ringing{animation:retro-blink 300ms steps(1,end) infinite;}
+@keyframes retro-blink{50%{background:transparent;color:#0b0b10;}}
+.hub .retro-card{display:flex;flex-direction:column;gap:4px;padding-top:8px;overflow-y:auto;flex:1;}
+.hub .retro-card h2{margin:0;font:500 28px/1.1 'IBM Plex Mono',monospace;letter-spacing:-.02em;}
+.hub .retro-card p{margin:0;font-size:14px;}
+.hub .retro-card .retro-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;}
+.hub .retro-play{margin-top:8px;min-height:40px;border:2px solid #0b0b10;border-radius:0;background:#0b0b10;color:#a9e7ee!important;font:inherit;font-weight:500;}
+.hub .retro-play:disabled{opacity:.5;}
+.hub .retro-card .hub-link{color:#0b0b10;font:inherit;font-size:12px;min-height:40px;}
+.hub .retro-card .hub-phone-status{color:#0b0b10!important;}
+.hub .retro-softkeys{display:flex;justify-content:space-between;padding-top:4px;border-top:2px solid #0b0b10;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;}
+
+.hub .retro-controls{display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto;align-items:center;gap:8px 10px;margin:18px 4px 14px;}
+.hub .retro-soft{height:24px;min-height:24px;border:2px solid #0b0b10;border-radius:12px 12px 18px 18px;background:#f2f0ea;box-shadow:inset 0 -3px 0 #0b0b1026;}
+.hub .retro-soft:disabled{opacity:.55;}
+.hub .retro-dpad{grid-row:1 / span 2;grid-column:2;display:grid;grid-template-areas:". up ." "left ok right" ". down .";grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,36px);width:max-content;padding:4px;border:3px solid #0b0b10;border-radius:50%;background:#f2f0ea;box-shadow:inset 0 -4px 0 #0b0b1026;}
+.hub .retro-dpad button{display:grid;place-items:center;min-width:0;min-height:0;border:0;background:transparent;color:#0b0b10;}
+.hub .retro-dpad button:nth-child(1){grid-area:up}.hub .retro-dpad button:nth-child(2){grid-area:left}.hub .retro-dpad button:nth-child(4){grid-area:right}.hub .retro-dpad button:nth-child(5){grid-area:down}
+.hub .retro-dpad .retro-ok{grid-area:ok;border-radius:50%;border:2px solid #0b0b10;background:#9c9bff;font:500 10px/1 'IBM Plex Mono',monospace;}
+.hub .retro-call,.hub .retro-end{height:40px;border:3px solid #0b0b10;border-radius:10px 10px 18px 18px;display:grid;place-items:center;box-shadow:inset 0 -4px 0 #0b0b1033;}
+.hub .retro-call{grid-column:1;grid-row:2;background:#5ee39a;color:#0b0b10;}
+.hub .retro-end{grid-column:3;grid-row:2;background:#ff7a8a;color:#0b0b10;}
+.hub .retro-end svg{transform:rotate(135deg);}
+.hub .retro-call:disabled{opacity:.55;}
+.hub .retro-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px;padding:0 8px;}
+.hub .retro-keypad>*{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54px;border:2px solid #0b0b10;border-radius:14px 14px 22px 22px / 12px 12px 22px 22px;background:#f2f0ea;color:#0b0b10;box-shadow:inset 0 -4px 0 #0b0b1026;font-family:'IBM Plex Mono',monospace;}
+.hub .retro-keypad b{font-size:22px;line-height:1;font-weight:500;}.hub .retro-keypad small{font-size:9px;letter-spacing:.12em;text-transform:uppercase;}
+.hub .retro-phone button{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.hub .retro-phone :is(.retro-soft,.retro-dpad button,.retro-call,.retro-end,.retro-keypad button):active{transform:translateY(2px);box-shadow:inset 0 -1px 0 #0b0b1026;}
+.hub .retro-phone :is(.retro-soft,.retro-call,.retro-end,.retro-keypad button,.retro-dpad button):focus-visible{outline:3px solid #67e8f9;outline-offset:2px;}
+@keyframes contact-rise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+@media(max-width:380px){.hub .retro-phone{padding:22px 14px 24px;}.hub .retro-dpad{grid-template-columns:repeat(3,32px);}}
+@media(prefers-reduced-motion:reduce){.hub .contacts-list li,.hub .contacts-list .is-ringing{animation:none;}.hub .retro-phone :active{transform:none;}}
 
 /* Home: one practice panel with the existing caller sprites. */
 .hub .hub-home-intro .hub-mascot { display:block; padding:10px; }
