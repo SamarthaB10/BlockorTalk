@@ -204,7 +204,7 @@ export function evidenceHref(entry: Pick<SkillEntry, 'callId' | 'step'>): string
 
 function nextPractice(skill: SkillId, folded: Folded): string {
   if (folded.needsPractice || folded.state === 'Practiced') return SKILLS[skill].practiceNext;
-  if (folded.state === 'Unseen') return 'Try a call where this comes up. A 60-second drill is a quick start.';
+  if (folded.state === 'Unseen') return 'Try a call where this skill comes up.';
   if (folded.state === 'Demonstrated') return 'Try this skill in a different caller scenario, without a hint.';
   return 'Keep it fresh: try it in a new story now and then.';
 }
