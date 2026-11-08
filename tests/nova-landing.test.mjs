@@ -16,15 +16,17 @@ test('nova landing keeps one sprite instead of a robot per section', () => {
   assert.doesNotMatch(html, /\/sprites\/green\//);
 });
 
-test('nova landing has the three sections, prompts, and fictional reviews', () => {
+test('the page is Block or Talk, with four moves and no product catalog', () => {
   for (const id of ['intro', 'product', 'reviews']) assert.match(html, new RegExp(`id="${id}"`));
-  assert.match(html, /Create a smart contract for a token named NOVA on Ethereum\./);
-  assert.match(html, /Explain what a smart contract does in simple terms\./);
-  assert.match(html, /Audit this contract for reentrancy vulnerabilities\./);
-  assert.match(html, /What is the market sentiment on BTC today\?/);
+  assert.match(html, /BLOCK OR TALK/);
+  assert.match(html, /Every scam/);
+  assert.match(html, /const moves = \["Probe", "Protect", "Verify", "Disconnect"\]/);
+  assert.doesNotMatch(html, /labels\.concat/);
+  assert.doesNotMatch(html, /NOVA AGENT|LAUNCH NOVA|NFT Generator|\$NOVA|Web3/);
   assert.match(html, /Ilan Brooks/);
   assert.match(html, /Rhea Okafor/);
   assert.match(html, /Mara Elling/);
+  assert.match(html, /href="\/challenge"/);
   assert.match(html, /@font-face/);
   assert.match(html, /Schibsted Grotesk/);
   assert.match(html, /IBM Plex Mono/);
