@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { safeReturnPath } from '../../lib/players/returnTo';
 
 type Player = { id: string; nickname: string };
 type Result = { player?: Player | null; errors?: { email?: string; nickname?: string }; error?: string };
 
-export default function PlayerSignup() {
+export default function PlayerSignup({ returnTo }: { returnTo?: string | null }) {
+  const next = safeReturnPath(returnTo);
   const [player, setPlayer] = useState<Player | null>(null);
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,7 @@ export default function PlayerSignup() {
     }).catch(() => {}).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, []);
+  useEffect(() => { if (!loading && player && next) window.location.assign(next); }, [loading, player, next]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,9 +51,10 @@ export default function PlayerSignup() {
   return <section className="player-signup" aria-labelledby="player-heading" aria-busy={loading || busy}>
     <h2 id="player-heading">{player ? `Welcome, ${player.nickname}` : mode === 'signup' ? 'Create your Player profile' : 'Sign in to Tell'}</h2>
     <p className="player-message" role="status">{loading ? 'Checking your sign-in…' : message}</p>
+    {next && !player && <p>Sign in to start this practice call. You will come back to it. <a href={next}>Continue this practice call</a></p>}
     {!loading && <form onSubmit={submit} noValidate>
-      {player ? <p>Your profile is saved on this device for 30 days. <a href="/play">Choose a Call scenario</a></p> : <>
-        <p>{mode === 'signup' ? 'Use an email and nickname to save your play.' : 'Enter the email you used to sign up.'}</p>
+      {player ? <p>Your profile is saved on this device for 30 days. <a href={next ?? '/play'}>{next ? 'Continue this practice call' : 'Choose a Call scenario'}</a></p> : <>
+        <p>{next ? 'Use an email and nickname. This practice call stays waiting.' : mode === 'signup' ? 'Use an email and nickname to save your play.' : 'Enter the email you used to sign up.'}</p>
         <div className="player-fields">
           <div><label htmlFor="player-email">Email</label>
             <input ref={emailRef} id="player-email" name="email" type="email" autoComplete="email" required aria-invalid={!!errors?.email} aria-describedby={errors?.email ? 'player-email-error' : undefined} />
