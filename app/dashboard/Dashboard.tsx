@@ -13,7 +13,7 @@ import Welcome from './Welcome';
 import PracticeCard from './PracticeCard';
 import TypedGreeting from './TypedGreeting';
 import Leaderboard from '../leaderboard/Leaderboard';
-import PixelPhone from '../components/PixelPhone';
+import ScenarioMascot from './ScenarioMascot';
 import { dashboardIntro, dashboardView, type DashboardView } from './view';
 import ProgressPanel from './ProgressPanel';
 import ProfilePanel from './ProfilePanel';
@@ -139,7 +139,7 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     {view !== 'Leaderboard' && view !== 'Progress' && <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>{dashboardIntro(view).kicker}</p><h1>{dashboardIntro(view).title}</h1><p>{dashboardIntro(view).summary}</p></div><BalanceBadge className="hub-balance" /></section>}
     {error && <p role="alert">{error}</p>}
     {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
-      <article className="hub-card"><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map((item, index) => <span key={item.id}><PixelPhone label={`${item.caller}, incoming call`} />{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>
+      <article className="hub-card"><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map((item, index) => <span key={item.id}><ScenarioMascot index={index} />{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>
       <article className="hub-card hub-news"><h2>What’s happening now.</h2>{alerts.slice(0, 2).map(item => <a key={item.link} href={item.link} target="_blank" rel="noreferrer">{item.title} ↗</a>)}{newsState && <p role="status">{newsState}</p>}<button className="hub-link" onClick={() => navigate('News')}>Read the latest ↗</button></article>
       <article className="hub-card hub-rule"><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
     </section>}
