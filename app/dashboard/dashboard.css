@@ -30,7 +30,7 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 
 /* Keep the dashboard’s cards and controls comfortable at intermediate widths. */
 .hub{max-width:none;padding-inline:max(20px,calc((100vw - 1440px)/2));}
-.hub-nav,.hub-intro,.hub-grid,.hub-library,.hub-footer{width:100%;max-width:1400px;margin-inline:auto;}
+.hub-nav,.hub-intro,.hub-grid,.hub-library,.hub-footer,.hub-standings{width:100%;max-width:1400px;margin-inline:auto;}
 .hub-nav{flex-wrap:wrap;gap:16px 24px;}
 .hub-intro{gap:28px;margin-block:48px;}
 .hub-card{padding:clamp(20px,2.2vw,32px);gap:16px;overflow-wrap:anywhere;}
@@ -48,3 +48,37 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 @media(max-width:360px){.hub{padding-inline:16px;}.hub-nav>a:first-child{font-size:18px;}.hub-launch{font-size:11px;}.hub-nav button{padding:10px;font-size:14px;}.hub-card,.hub-practice{padding:20px;}}
 
 .hub-fictional-card{margin:24px 0;padding-block:20px;border-block:1px solid #1e1c1a26;}.hub-fictional-card h3{font-size:18px;margin:0 0 12px;}.hub-fictional-card p{font-size:15px;line-height:1.6;}.hub-fictional-card dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;}.hub-fictional-card dt{font-size:12px;color:#625e58;}.hub-fictional-card dd{margin:4px 0 0;overflow-wrap:anywhere;}.hub-fictional-card [role=status]{padding-top:16px;border-top:1px solid #1e1c1a26;}
+
+.hub-standings{margin-top:28px;}
+.hub-standings-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px;margin-bottom:18px;}
+.hub-standings-head h2{font-size:clamp(28px,3vw,40px);font-weight:500;letter-spacing:-.03em;line-height:1.1;margin:8px 0;}
+.hub-standings-head p{margin:0;color:#69645e;}
+.hub-standings-clock{font-variant-numeric:tabular-nums;font-size:clamp(32px,4vw,48px);letter-spacing:-.04em;color:#1e1c1a;line-height:1;}
+.hub-podium{list-style:none;display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:18px;align-items:end;padding:0;margin:0 0 18px;}
+.hub-podium[data-count="1"]{grid-template-columns:minmax(0,420px);justify-content:center;}
+.hub-podium[data-count="2"]{grid-template-columns:1fr 1.15fr;}
+.hub-podium .hub-card{min-height:200px;width:100%;}
+.hub-podium .is-first{min-height:250px;background:#2a2624;color:#fff;}
+.hub-podium .is-first p{color:#d9d4cc;}
+.hub-place{margin:0;font-size:clamp(36px,4vw,56px);font-weight:500;letter-spacing:-.04em;line-height:1;color:#1e1c1a;}
+.hub-podium .is-first .hub-place,.hub-podium .is-first .hub-name,.hub-podium .is-first .hub-score{color:#fff;}
+.hub-name{margin:0;font-size:22px;font-weight:500;letter-spacing:-.02em;overflow-wrap:anywhere;}
+.hub-score{font-variant-numeric:tabular-nums;font-weight:650;color:#1e1c1a;}
+.hub-meter{display:block;height:4px;width:100%;margin-top:auto;background:#1e1c1a14;border-radius:99px;overflow:hidden;}
+.hub-meter>span{display:block;height:100%;width:100%;background:#2a2624;transform-origin:left center;}
+.hub-podium .is-first .hub-meter{background:#ffffff22;}
+.hub-podium .is-first .hub-meter>span{background:#fff;}
+.hub-standings-list{background:#f5f3ef;border:1px solid #1e1c1a12;border-radius:16px;padding:8px 20px 16px;}
+.hub-standings-order{margin:12px 0;color:#69645e;font-size:14px;}
+.hub-standings-scroll{max-height:520px;overflow:auto;}
+.hub-standings-list ol{list-style:none;margin:0;padding:0;}
+.hub-rank-row{display:grid;grid-template-columns:3.5rem minmax(0,1fr) auto;gap:12px;align-items:center;min-height:48px;padding:8px 0;border-bottom:1px solid #1e1c1a18;}
+.hub-rank-row span:first-child{font-variant-numeric:tabular-nums;font-weight:650;}
+.hub-rank-row strong{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.hub-rank-row.is-you{background:#e8e2d8;margin-inline:-12px;padding-inline:12px;border-radius:10px;border-bottom-color:transparent;}
+.hub-move{display:inline-block;margin-left:8px;padding:2px 8px;border:1px solid #1e1c1a33;border-radius:99px;font-size:13px;white-space:nowrap;}
+@media(max-width:700px){
+  .hub-podium,.hub-podium[data-count="1"],.hub-podium[data-count="2"]{grid-template-columns:1fr;}
+  .hub-podium .hub-card,.hub-podium .is-first{min-height:0;}
+  .hub-podium .is-first{order:-1;}
+}
