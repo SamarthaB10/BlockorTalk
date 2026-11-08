@@ -61,7 +61,6 @@ export default function ContactsPhone({ contacts, disabled, onCall, actions }: {
 
   let letter = '';
   return <section className="contacts-stage" aria-label="Choose a practice caller">
-    <p className="contacts-wordmark" aria-hidden="true">Who’s calling?</p>
     <div className="contacts-phone">
       <div className="contacts-earpiece" aria-hidden="true"><i /><i /><i /></div>
       <div className="contacts-screen">
