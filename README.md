@@ -70,7 +70,7 @@ at 10 AM and say Bluebonnet never charges for equipment.
 
 ## Dataset-based practice
 
-Open `/practice` for Nemotron-generated finance and seasonal-package calls, with text replies or ElevenLabs speech. Run `npm run practice:index` to import the linked Kaggle corpus into Tiger DB: 635 prompt examples and 159 held-out examples after duplicate removal. `npm run voice:connect-data` adds its protected retrieval tool to the existing agents after the Worker route and tool secrets are configured. See [the setup, split and data-use notes](docs/GROUNDED_PRACTICE.md).
+Open `/practice` for Nemotron-generated finance and seasonal-package calls, with text replies or ElevenLabs speech. Run `npm run practice:index` to import both supported corpora into Tiger DB. Kaggle keeps its checked 80/20 split (635 prompt examples and 159 held-out examples after duplicate removal). BothBosu publishes only its checked training dialogues as prompt examples, after normalized deduplication, known-overlap removal and a leakage check against all evaluation groups; synthetic test, real-call and hard-negative rows are never imported. Each source has a repeatable lexical pool, and rerunning the command checks stored rows and metadata before registering it. Install `requirements.txt` and set `PYTHON` if needed; the command downloads and caches source files on first use. `npm run voice:connect-data` adds its protected retrieval tool to the existing agents after the Worker route and tool secrets are configured. See [the setup, split and data-use notes](docs/GROUNDED_PRACTICE.md).
 
 ## Detective reveal (issue #9)
 
