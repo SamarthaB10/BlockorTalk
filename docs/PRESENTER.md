@@ -85,3 +85,8 @@ The implementation review found and corrected four code issues: reconnects losin
 voice turns, serial prefix scoring, a fixed batch cutoff leaving backlog, and a
 mascot shown between calls. The standards review corrected width animation and
 internal-call test assertions, and consolidated voice serialization and call identity.
+
+## Stage switch (issue #16)
+
+The presenter also has the one-tap Plan A/B/C switch for the live Kai call and links to the
+recorded clip and the results slide. See [the stage runbook](STAGE.md).

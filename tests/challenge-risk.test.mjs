@@ -22,7 +22,7 @@ async function fixture(t, detect, now = Date.now) {
   try { await setup.query(await readFile(new URL('../migrations/002_challenge.sql', import.meta.url), 'utf8')); }
   finally { await setup.end(); }
   const service = createChallengeService({ connectionString, reply: async ({ options }) => options[0] });
-  return { service, risk: createRiskService({ connectionString, detect, now }) };
+  return { service, risk: createRiskService({ connectionString, detect, now }), connectionString };
 }
 
 test('per-turn risk persists independently for each call and records the first correct flag', { skip: !databaseUrl }, async t => {
@@ -115,6 +115,34 @@ test('player routes hide risk data while the presenter needs its separate capabi
   assert.ok(!body.includes(saved.risk.token));
   assert.ok(!body.includes('firstCorrectTurn'));
   assert.ok(!body.includes('tactics'));
+});
+
+test('the presenter switches the stage plan without touching the day, and the board sees each tap', { skip: !databaseUrl }, async t => {
+  const { service, risk, connectionString } = await fixture(t, async () => ({ source: 'fake', label: null, scam_type: null, confidence: .5, red_flags: [] }));
+  const updatedAt = async id => { const c = new pg.Client({ connectionString }); await c.connect(); try { return (await c.query('SELECT updated_at FROM tell_challenges WHERE id = $1', [id])).rows[0].updated_at.toISOString(); } finally { await c.end(); } };
+  const handlers = createChallengeHandlers(() => service);
+  let day = await service.start();
+  const { token } = (await service.get(day.id)).risk;
+  assert.deepEqual(await risk.read(day.id, token).then(s => [s.plan, s.planSeq]), ['phone', 0]);
+  assert.equal(await risk.setPlan(day.id, '0'.repeat(64), 'voice', 0), null);
+  assert.deepEqual(await risk.setPlan(day.id, token, 'voice', 0), { applied: true, stagePlan: { plan: 'voice', seq: 1 } });
+  day = await service.act(day.id, { type: 'reply', text: 'Who is this?' });
+  assert.deepEqual(day.stagePlan, { plan: 'voice', seq: 1 }, 'a later game write keeps the plan');
+  assert.deepEqual(await risk.setPlan(day.id, token, 'text', 0), { applied: false, stagePlan: { plan: 'voice', seq: 1 } }, 'a stale tap changes nothing');
+  assert.deepEqual(await risk.setPlan(day.id, token, 'voice', 1), { applied: true, stagePlan: { plan: 'voice', seq: 2 } });
+  assert.deepEqual(await risk.setPlan(day.id, token, 'text', 2), { applied: true, stagePlan: { plan: 'text', seq: 3 } });
+  const saved = await service.get(day.id);
+  assert.equal(saved.replies, 1);
+  assert.equal(saved.balance, 1000);
+  assert.deepEqual(await risk.read(day.id, token).then(s => [s.plan, s.planSeq]), ['text', 3]);
+  const before = await updatedAt(day.id);
+  const light = await handlers.GET(new Request('https://tell.test/api/challenge?stage_plan', { headers: { cookie: `tell_challenge=${day.id}` } }));
+  assert.deepEqual(await light.json(), { stagePlan: { plan: 'text', seq: 3 } }, 'the board poll reads only the plan');
+  assert.equal(await updatedAt(day.id), before, 'and writes nothing');
+  const response = await handlers.GET(new Request('https://tell.test/api/challenge', { headers: { cookie: `tell_challenge=${day.id}` } }));
+  const body = await response.json();
+  assert.deepEqual(body.day.stagePlan, { plan: 'text', seq: 3 });
+  assert.ok(!JSON.stringify(body).includes(token));
 });
 
 test('a slow detector holds no game lock and concurrent workers do not score a turn twice', { skip: !databaseUrl }, async t => {

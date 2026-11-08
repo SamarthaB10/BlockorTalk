@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import SpritePlayer from '../components/SpritePlayer';
 import type { PresenterSnapshot } from '../../lib/challenge/presenter-types';
+import { STAGE_PLANS, type StagePlan } from '../../lib/stage/plan';
 
 const statusText: Record<PresenterSnapshot['status'], string> = {
   waiting: 'Waiting for a call', scoring: 'Scoring the next turn', ready: 'Live detection',
@@ -18,6 +19,11 @@ export default function Presenter() {
   const [copied, setCopied] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  // The tap shows at once; the board follows on its next poll. A failed tap reverts to the stored plan.
+  const [chosenPlan, setChosenPlan] = useState<StagePlan | null>(null);
+  const [planError, setPlanError] = useState('');
+  const [switching, setSwitching] = useState(false);
+  const planSeq = useRef(0);
   const lastRisk = useRef<{ caller: string; risk: number | null } | null>(null);
   const prior = useRef<{ caller: string; turn: number | null; since: number } | null>(null);
 
@@ -43,6 +49,7 @@ export default function Presenter() {
         const next = body.snapshot;
         if (prior.current?.caller !== next.callerName || prior.current?.turn !== next.currentTurn) prior.current = { caller: next.callerName, turn: next.currentTurn, since: Date.now() };
         setLate(next.status === 'scoring' && Date.now() - (prior.current?.since ?? Date.now()) > 3000);
+        planSeq.current = Math.max(planSeq.current, next.planSeq);
         setSnapshot(next); setError('');
       } catch (error) {
         if (!stopped) setError(error instanceof Error ? error.message : 'Connection lost · showing the last received score');
@@ -70,6 +77,20 @@ export default function Presenter() {
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not connect this day.'); }
     finally { setConnecting(false); }
   }
+  async function switchPlan(plan: StagePlan) {
+    setSwitching(true); setPlanError(''); setChosenPlan(plan);
+    try {
+      // `seq` is the tap count this screen last saw: if an earlier tap landed after a timeout, the server refuses this one.
+      const response = await fetch('/api/presenter', { method: 'PUT', headers: { Authorization: `Bearer ${proof}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, seq: planSeq.current }), signal: AbortSignal.timeout(10000) });
+      const body = await response.json().catch(() => ({})) as { error?: string; stagePlan?: { plan: StagePlan; seq: number } };
+      if (body.stagePlan) planSeq.current = Math.max(planSeq.current, body.stagePlan.seq);
+      if (!response.ok) throw new Error(body.error ?? 'The plan did not switch. Tap again.');
+    } catch (error) { setChosenPlan(null); setPlanError(error instanceof Error ? error.message : 'The plan did not switch. Tap again.'); }
+    finally { setSwitching(false); }
+  }
+  useEffect(() => { if (!switching && chosenPlan && snapshot?.plan === chosenPlan) setChosenPlan(null); }, [switching, chosenPlan, snapshot?.plan]);
+  const livePlan = chosenPlan ?? snapshot?.plan ?? 'phone';
   async function copy() {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); }
     catch { setCopied(false); setError('Copy the address from your browser to share this presenter screen.'); }
@@ -79,6 +100,7 @@ export default function Presenter() {
   const animation = speaking ? 'talking' : working || snapshot?.status === 'uncertain' || snapshot?.status === 'rate-limited' ? 'thinking' : 'idle';
   return <main className="presenter">
     <header className="presenter-header"><a href="/">TELL</a><span className="ui-pill">PRESENTER ONLY</span>
+      <nav className="presenter-nav" aria-label="Stage views"><a href="/presenter/recorded">Recorded clip</a><a href="/presenter/results">Results slide</a></nav>
       {proof && <button onClick={() => void copy()}>{copied ? 'Link copied' : 'Copy presenter link'}</button>}
     </header>
     {!proof ? <section className="presenter-connect">
@@ -104,6 +126,12 @@ export default function Presenter() {
       </section>
       <section className="presenter-tactics" aria-label="Detected tactics"><p className="presenter-eyebrow">Tactics heard</p>
         <div>{snapshot?.tactics.length ? snapshot.tactics.map(tactic => <span className="presenter-tactic" key={tactic}>{tactic.replaceAll('-', ' ')}</span>) : <p>No supported tactic flags yet.</p>}</div>
+      </section>
+      <section className="presenter-plan" aria-label="Live call path">
+        <p className="presenter-eyebrow">Live call path</p>
+        <div role="group" aria-label="Switch the live call path">{STAGE_PLANS.map(plan => <button key={plan.id} aria-pressed={livePlan === plan.id} disabled={switching}
+          onClick={() => void switchPlan(plan.id)}><strong>Plan {plan.letter}</strong>{plan.label}</button>)}</div>
+        <p role="status">{planError || (switching ? 'Switching…' : livePlan === 'phone' ? 'Plan A · the call rings the verified stage phone.' : livePlan === 'voice' ? 'Plan B · the board is calling by browser voice.' : 'Plan C · the board continues the call in text.')}</p>
       </section>
       <footer className="presenter-footer"><span>{snapshot?.firstCorrectTurn != null ? `First correct detection: turn ${snapshot.firstCorrectTurn} · ${snapshot.firstCorrectSeconds}s into the call` : 'First correct detection: not recorded yet'}</span><span>Results stay on this presenter screen.</span></footer>
     </>}

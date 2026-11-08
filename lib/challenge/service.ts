@@ -270,6 +270,12 @@ export function createChallengeService({ connectionString, reply, now = Date.now
       return day;
     },
     get: (id: string) => update(id),
+    /** The stage board's once-a-second poll: a plain read that takes no lock and writes nothing. */
+    async stagePlan(id: string): Promise<Challenge['stagePlan']> {
+      const result = await withClient(client => client.query(`SELECT state->'stagePlan' AS stage_plan FROM tell_challenges WHERE id = $1`, [id]));
+      if (!result.rowCount) throw new ChallengeError('This day was not found. Start a new challenge.', 404);
+      return result.rows[0].stage_plan ?? undefined;
+    },
     /** Caches the reveal in the saved day. A concurrent action may overwrite it; the next request recomputes. */
     async saveReveal(id: string, reveal: NonNullable<Challenge['reveal']>) {
       await withClient(client => client.query(`UPDATE tell_challenges SET state = jsonb_set(state, '{reveal}', $2::jsonb), updated_at = now() WHERE id = $1`, [id, JSON.stringify(reveal)]));

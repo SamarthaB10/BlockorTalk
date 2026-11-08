@@ -43,6 +43,8 @@ export type Challenge = {
   voiceSession?: string;
   /** The detective reveal, cached after the day completes. Not sent with day responses. */
   reveal?: import('./reveal.ts').RevealPayload;
+  /** The presenter's stage fallback switch (lib/stage/plan.ts). Holds no call type, so the player view keeps it. */
+  stagePlan?: import('../stage/plan.ts').StagePlanState;
   /** The day's one rewind, once started. It is scored on its own and never changes the official day. */
   rewind?: Rewind;
 };

@@ -8,6 +8,7 @@ import { Sheet, Toast, Stamp } from '../components/ui';
 import { startBrowserCall, type BrowserCallHandle, type TurnRole } from '../../lib/voice/browserCall';
 import { SCENARIOS } from '../../lib/practice/catalog';
 import type { CallerId } from '../../lib/challenge/types';
+import { pendingPlan, STAGE_PLANS, type StagePlan, type StagePlanState } from '../../lib/stage/plan';
 import SpritePlayer from '../components/SpritePlayer';
 import Reveal from './Reveal';
 import './challenge.css';
@@ -122,12 +123,21 @@ export default function ChallengeBoard() {
   const [replyBase, setReplyBase] = useState(0);
   const spokenReplies = replyBase + voiceTurns.filter(turn => turn.role === 'user').length;
 
+  // Stage mode (/challenge?stage): the presenter's Plan A/B/C switch drives this board (docs/STAGE.md).
+  const [stage, setStage] = useState(false);
+  // null after a reload with an earlier tap: the board can't restart that call without a click, so it claims no plan.
+  const [stagePlan, setStagePlan] = useState<StagePlan | null>('phone');
+  const seenPlan = useRef(0);
+  useEffect(() => { setStage(new URLSearchParams(window.location.search).has('stage')); }, []);
   useEffect(() => {
     fetch('/api/challenge').then(async response => {
       const result = await response.json() as { day: Challenge | null; error?: string };
       if (!response.ok) throw new Error(result.error);
       setDay(result.day);
       dayRef.current = result.day;
+      // A reload never replays a switch that was already handled.
+      seenPlan.current = result.day?.stagePlan?.seq ?? 0;
+      setStagePlan(result.day?.stagePlan ? null : 'phone');
     }).catch(e => setError(e.message)).finally(() => setLoading(false));
   }, []);
   async function act(action: Action | { type: 'start' }): Promise<boolean> {
@@ -137,6 +147,8 @@ export default function ChallengeBoard() {
       const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action) });
       const result = await response.json() as { day: Challenge | null; error?: string };
       if (!response.ok) throw new Error(result.error);
+      // A new day starts its presenter taps from zero, at Plan A.
+      if (result.day && result.day.id !== dayRef.current?.id) { seenPlan.current = result.day.stagePlan?.seq ?? 0; setStagePlan('phone'); }
       setDay(result.day);
       dayRef.current = result.day;
       if (action.type === 'reply') setText('');
@@ -179,13 +191,14 @@ export default function ChallengeBoard() {
   // Kai's code appears as soon as he brings it up, as in text; the server confirms it when the transcript is saved.
   const [voiceCode, setVoiceCode] = useState(false);
   /** Starts a call by browser voice with that caller's own agent. `fresh` creates a new stored day (Yui first). */
-  async function startVoice(fresh: boolean, callerId: CallerId = fresh ? 'recruiter' : day?.callerId ?? 'recruiter') {
+  async function startVoice(fresh: boolean, callerId: CallerId = fresh ? 'recruiter' : dayRef.current?.callerId ?? 'recruiter') {
     void hangUp();
     const attempt = attemptRef.current;
     const current = () => attempt === attemptRef.current;
     setVoiceSaveError(false); setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setVoiceCode(false); setError(''); voiceLog.current = []; voiceSaved.current = false;
     // Typed replies count toward the cap when this call switches to voice; a new caller starts at 0.
-    const base = fresh || callerId !== day?.callerId ? 0 : day?.replies ?? 0;
+    const saved = dayRef.current;
+    const base = fresh || callerId !== saved?.callerId ? 0 : saved?.replies ?? 0;
     repliesRef.current = base; setReplyBase(base);
     if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
     if (!current()) return;
@@ -242,6 +255,49 @@ export default function ChallengeBoard() {
     if (await act({ type: 'next' }) && voiceMode && next) void startVoice(false, next);
   }
   function playInText() { void hangUp(); setMode('text'); if (day?.phase !== 'call') void act({ type: 'start' }); }
+  /**
+   * One presenter tap. Plan B rings the current caller by browser voice (or makes the next call voice);
+   * Plans A and C leave the browser call so only the phone, or the typed transcript, carries the call.
+   * Returns false when the board is busy, so the poll retries the same tap.
+   */
+  async function applyPlan(next: StagePlanState): Promise<boolean> {
+    if (busy) return false;
+    seenPlan.current = next.seq;
+    setStagePlan(next.plan);
+    if (dayRef.current?.phase === 'call' && handleRef.current) {
+      // Leave the browser call first. Its spoken turns were uploaded live: reload them, and the reply
+      // count, before a typed reply or a fresh voice call continues the same call.
+      void hangUp();
+      await voiceUploads.current;
+      try {
+        const response = await fetch('/api/challenge');
+        const fresh = (await response.json() as { day: Challenge | null }).day;
+        if (response.ok && fresh) { setDay(fresh); dayRef.current = fresh; }
+      } catch { /* The next action response carries the saved day. */ }
+    } else void hangUp();
+    if (next.plan === 'voice') { if (dayRef.current?.phase === 'call') void startVoice(false); else setMode('voice'); }
+    else setMode('text');
+    return true;
+  }
+  const applyPlanRef = useRef(applyPlan);
+  applyPlanRef.current = applyPlan;
+  const polling = stage && Boolean(day) && day?.phase !== 'complete';
+  useEffect(() => {
+    if (!polling) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        // A lock-free read of the plan only; the full day GET would take the game's row lock every second.
+        const response = await fetch('/api/challenge?stage_plan', { signal: AbortSignal.timeout(4000) });
+        const next = pendingPlan(seenPlan.current, response.ok ? (await response.json() as { stagePlan?: StagePlanState | null }).stagePlan ?? undefined : undefined);
+        if (next && !stopped) await applyPlanRef.current(next);
+      } catch { /* Keep polling: the presenter can tap again. */ }
+      finally { if (!stopped) timer = setTimeout(poll, 1000); }
+    }
+    void poll();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [polling]);
   function callAgain() { void startVoice(day?.phase !== 'call'); }
   const seconds = day ? Math.min(180, Math.max(0, 180 - Math.floor((clock - Date.parse(day.startedAt)) / 1000))) : 180;
   useEffect(() => {
@@ -281,7 +337,7 @@ export default function ChallengeBoard() {
   useEffect(() => { if (portal) portalDialog.current?.showModal(); }, [portal]);
 
   return <main className="challenge">
-    <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span><button className="start-over" disabled={busy} onClick={() => { void hangUp(); setMode('text'); setVoice('connecting'); setVoiceTurns([]); setError(''); setDay(null); }}>Start over</button></>}</header>
+    <header className="running-head"><a href="/">TELL</a><span className="pill">{voiceMode ? 'CHALLENGE · VOICE' : 'CHALLENGE · TEXT'}</span>{stage && <span className="pill">{stagePlan ? `STAGE · PLAN ${STAGE_PLANS.find(plan => plan.id === stagePlan)!.letter}` : 'STAGE · TAP A PLAN'}</span>}{day && <><span className="pill">CALL {CALL_ORDER.indexOf(day.callerId) + 1} OF 3</span><span className="pill">{caller.org.toUpperCase()}</span><button className="start-over" disabled={busy} onClick={() => { void hangUp(); setMode('text'); setVoice('connecting'); setVoiceTurns([]); setError(''); setDay(null); }}>Start over</button></>}</header>
     {error && <p role="alert" className="error">{error} <button onClick={() => location.reload()}>Reload saved day</button></p>}
     {loading ? <p role="status">Loading your saved day…</p> : !day ? <section className="intro">
       <div className="intro-copy"><p className="eyebrow">THREE CALLS. TWO STORIES.</p><h1>Keep your $1,000.<br />Finish both tasks.</h1>
@@ -300,6 +356,7 @@ export default function ChallengeBoard() {
           <p className={`call-state ${voiceMode && !voiceLive ? 'still' : ''}`}><span className="dot" aria-hidden="true">●</span>{voiceMode && active && !voiceLive ? (voice === 'connecting' ? 'Connecting' : 'Not connected') : active ? 'Call active' : 'Call ended'}</p><h2>{caller.name}</h2><p>{caller.org}</p><p className="scenario">{caller.scenario}</p><p className="limits">Fictional details only · Date of birth: {FAKE_SECRETS.date_of_birth} · Address: {FAKE_SECRETS.home_address} · PIN: {FAKE_SECRETS.account_pin}</p>
           {active && (day.codeVisible || (voiceMode && voiceCode)) && <Toast><strong>Corvanta · One-time code</strong><p className="bank-code">{FAKE_SECRETS.live_code}</p><p>Do not share this code with a caller.</p></Toast>}
           <p className="limits">12 replies or 3 minutes · {voiceMode ? spokenReplies : day.replies}/12 replies{voiceMode && ' · say “stop drill” to end'}</p>
+          {stage && stagePlan === 'phone' && active && !voiceMode && <p className="voice-note" role="status">Plan A · {caller.name} is on the stage phone. Switch to Plan B or C on the presenter screen if the call drops.</p>}
           {voiceMode && active && voice === 'connecting' && <p className="voice-note" role="status">Calling {caller.name}. Allow the microphone when your browser asks.</p>}
           {voiceBlocked && active && <div className="voice-failed" role="alert"><p ref={voiceStatus} tabIndex={-1}>{voice === 'mic-denied' ? `Your microphone is off, so ${caller.name} can’t hear you. Play this call in text instead.` : 'The call didn’t connect. Your day is saved.'}</p><div className="voice-actions">{voice === 'mic-denied' ? <><button className="primary" disabled={busy} onClick={playInText}>Play in text</button><button disabled={busy} onClick={callAgain}>Call again</button></> : <><button className="primary" disabled={busy} onClick={callAgain}>Call again</button><button disabled={busy} onClick={playInText}>Play in text</button></>}</div></div>}
           {voiceLive && callHandle && <Waveform handle={callHandle} caller={caller.name} />}

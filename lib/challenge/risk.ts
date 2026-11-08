@@ -4,6 +4,7 @@ import type { Detection, Transcript, Tactic } from '../debrief/index.mjs';
 import { DetectorRateLimitError, DETECTION_TACTICS } from './detector.ts';
 import { CALLERS } from './scenarios.ts';
 import type { PresenterSnapshot } from './presenter-types.ts';
+import type { StagePlan, StagePlanState } from '../stage/plan.ts';
 
 export type RiskPoint = {
   turn: number; at: string; status: 'pending' | 'scoring' | 'done' | 'unavailable';
@@ -74,8 +75,28 @@ export function createRiskService({ connectionString, detect, now = Date.now }: 
           status: (day.risk.cooldownUntil ?? 0) > now() ? 'rate-limited' : !last ? 'waiting'
             : last.status === 'pending' || last.status === 'scoring' ? 'scoring' : last.status === 'unavailable' ? 'unavailable' : last.risk === null ? 'uncertain' : 'ready',
           firstCorrectTurn: call?.firstCorrectTurn ?? null, firstCorrectSeconds: call?.firstCorrectSeconds ?? null,
+          plan: day.stagePlan?.plan ?? 'phone', planSeq: day.stagePlan?.seq ?? 0,
           series: call?.series.map(({ turn, at, risk, status }) => ({ turn, at, risk, status })) ?? [],
         };
+      } finally { await client.end(); }
+    },
+    /**
+     * One guarded statement: it waits for any open day transaction and applies to the committed
+     * state, so it never overwrites a game write, and a game write never drops it. It applies only
+     * when `expected` is the current tap count, so a retry of a tap that already landed is refused.
+     * Returns null for a wrong capability.
+     */
+    async setPlan(id: string, token: string, plan: StagePlan, expected: number): Promise<{ applied: boolean; stagePlan: StagePlanState | undefined } | null> {
+      const client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
+      await client.connect();
+      try {
+        const result = await client.query(`UPDATE tell_challenges SET state = jsonb_set(state, '{stagePlan}',
+            jsonb_build_object('plan', $3::text, 'seq', $4::int + 1)), updated_at = now()
+          WHERE id = $1 AND state #>> '{risk,token}' = $2 AND COALESCE((state #>> '{stagePlan,seq}')::int, 0) = $4
+          RETURNING state->'stagePlan' AS stage_plan`, [id, token, plan, expected]);
+        if (result.rowCount) return { applied: true, stagePlan: result.rows[0].stage_plan as StagePlanState };
+        const current = await client.query(`SELECT state->'stagePlan' AS stage_plan FROM tell_challenges WHERE id = $1 AND state #>> '{risk,token}' = $2`, [id, token]);
+        return current.rowCount ? { applied: false, stagePlan: (current.rows[0].stage_plan ?? undefined) as StagePlanState | undefined } : null;
       } finally { await client.end(); }
     },
     async score(id: string) {

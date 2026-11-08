@@ -3,6 +3,14 @@
 .presenter-header a { font-weight: 750; letter-spacing: .15em; color: var(--ink); text-decoration: none; }
 .presenter button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 20px; cursor: pointer; min-height: 48px; }
 .presenter-header button { margin-left: auto; }
+.presenter-nav { display: flex; gap: 20px; }
+.presenter-header .presenter-nav a { font-weight: 400; letter-spacing: 0; color: var(--ink-muted); text-decoration: underline; text-underline-offset: 4px; }
+.presenter-plan { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 24px; }
+.presenter-plan > div { display: flex; flex-wrap: wrap; gap: 12px; }
+.presenter-plan button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 180px; text-align: left; }
+.presenter-plan button strong { font-weight: 650; }
+.presenter-plan button[aria-pressed="true"] { background: var(--paper); color: #000; border-color: var(--paper); }
+.presenter-plan p[role="status"] { color: var(--ink-muted); margin: 12px 0 0; min-height: 1.5em; }
 .presenter button:disabled { opacity: .6; cursor: wait; }
 .presenter-caller { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 28px; }
 .presenter-eyebrow { color: var(--ink-muted); text-transform: uppercase; letter-spacing: .12em; font-size: 16px; margin: 0 0 8px; }
