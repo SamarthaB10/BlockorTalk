@@ -1,0 +1,33 @@
+name: Detection
+
+on:
+  pull_request:
+    paths: ['detection/**', 'tests/test_detection.py', 'tests/test_detectors.py', 'tests/fixtures/**', 'requirements.txt', 'migrations/007_detection_examples.sql', '.github/workflows/detection.yml']
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  detectors:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: tell_detection_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/tell_detection_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m unittest tests.test_detection tests.test_detectors
