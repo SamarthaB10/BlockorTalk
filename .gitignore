@@ -17,3 +17,9 @@ next-env.d.ts
 .cloudflare/
 
 .dev.vars*
+
+# detection datasets downloaded by python -m detection.evaluate
+data/cache/
+__pycache__/
+*.pyc
+.venv/
