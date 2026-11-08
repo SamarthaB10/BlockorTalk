@@ -1,15 +1,14 @@
-import { FTC_ALERTS_PAGE } from '../../../lib/practice/news.ts';
-import { latestNews } from '../../../lib/practice/newsapi.ts';
+import { FTC_ALERTS_PAGE, ftcAlerts } from '../../../lib/practice/news.ts';
 
 export const dynamic = 'force-dynamic';
 
-/** Latest scam news: FTC consumer alerts, plus NewsAPI headlines when NEWSAPI_KEY is set. */
+/** Latest FTC consumer alerts for the scam-news section. */
 export async function GET() {
   try {
-    const { items, fetchedAt } = await latestNews({ apiKey: process.env.NEWSAPI_KEY || undefined });
+    const { items, fetchedAt } = await ftcAlerts();
     return Response.json({ items, fetchedAt, source: FTC_ALERTS_PAGE }, { headers: { 'Cache-Control': 'public, max-age=600' } });
   } catch (err) {
-    console.error('Scam news unavailable', err instanceof Error ? err.message : 'unknown');
+    console.error('FTC alerts unavailable', err instanceof Error ? err.message : 'unknown');
     return Response.json({ items: [], error: 'unavailable', source: FTC_ALERTS_PAGE }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
 }
