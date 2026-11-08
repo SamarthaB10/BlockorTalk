@@ -24,6 +24,7 @@ export interface BrowserSessionLike {
 export type StartSessionFn = (options: any) => Promise<BrowserSessionLike>;
 
 export interface BrowserCallOptions {
+  anonymous?: boolean;
   callerId: ChallengeCallerId;
   conversationToken: string;
   /** Scenario-card values; validated against the caller's declared variables. */
@@ -76,7 +77,7 @@ export async function startBrowserCall(opts: BrowserCallOptions): Promise<Browse
     session = await start({
       conversationToken: opts.conversationToken,
       connectionType: "webrtc",
-      dynamicVariables,
+      dynamicVariables: { ...dynamicVariables, ...(opts.anonymous ? { tell_try_it: "true" } : {}) },
       onConnect: ({ conversationId }: { conversationId: string }) => {
         convId = conversationId;
       },

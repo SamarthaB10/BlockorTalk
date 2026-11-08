@@ -95,6 +95,14 @@ export function postCallWebhookHandler(deps: PostCallDeps) {
     // Other event types (audio, etc.) are acknowledged and ignored.
     if (!transcript) return new Response("ignored", { status: 200 });
 
+    // Try-it voice stays in the browser. The signed vendor event carries the client marker.
+    const variables = (event as { data?: { conversation_initiation_client_data?: { dynamic_variables?: Record<string, unknown> } } })?.data?.conversation_initiation_client_data?.dynamic_variables;
+    if (variables?.tell_try_it === 'true') {
+      try { await deps.deleteConversation(transcript.conversationId); }
+      catch { return new Response('delete failed', { status: 500 }); }
+      return new Response('ok', { status: 200 });
+    }
+
     let outcome: "stored" | "duplicate";
     try {
       outcome = await deps.store(transcript);

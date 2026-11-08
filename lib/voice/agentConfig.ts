@@ -69,6 +69,7 @@ function beatTool(opts: BeatToolOptions): ElevenLabs.PromptAgentApiModelOutputTo
         type: "object",
         required: ["beat", "conversation_id"],
         properties: {
+          tell_try_it: { type: "string", dynamicVariable: "tell_try_it" },
           beat: {
             type: "string",
             enum: [...BEATS],
@@ -127,7 +128,7 @@ export function buildAgentConfig(
         disableFirstMessageInterruptions: true,
         maxConversationDurationMessage: "We're out of time for this practice call. Goodbye!",
         // Typed `unknown` in the SDK, so it is sent as-is: use the API's snake_case key.
-        dynamicVariables: { dynamic_variable_placeholders: { ...p.variables } },
+        dynamicVariables: { dynamic_variable_placeholders: { ...p.variables, ...(opts.beatTool ? { tell_try_it: "false" } : {}) } },
         prompt: {
           prompt,
           llm: opts.llm ?? DEFAULT_VOICE_LLM,

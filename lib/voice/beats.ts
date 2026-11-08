@@ -48,7 +48,7 @@ export function beatHandler(deps: BeatDeps) {
     if (!BEATS.includes(beat) || typeof conversationId !== "string" || !conversationId) {
       return Response.json({ error: "invalid beat" }, { status: 400 });
     }
-    await deps.onBeat({ conversationId, beat });
+    if (body.tell_try_it !== "true") await deps.onBeat({ conversationId, beat });
     return Response.json({ result: REPLY[beat as Beat] });
   };
 }
