@@ -145,7 +145,8 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
   // null after a reload with an earlier tap: the board can't restart that call without a click, so it claims no plan.
   const [stagePlan, setStagePlan] = useState<StagePlan | null>('phone');
   const seenPlan = useRef(0);
-  useEffect(() => { setStage(new URLSearchParams(window.location.search).has('stage')); }, []);
+  // Never on the anonymous try-it page: it has no saved day for the presenter to switch.
+  useEffect(() => { setStage(!tryIt && new URLSearchParams(window.location.search).has('stage')); }, [tryIt]);
   useEffect(() => {
     if (tryIt) { setLoading(false); return; }
     fetch('/api/challenge').then(async response => {
