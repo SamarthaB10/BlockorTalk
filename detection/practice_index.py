@@ -1,53 +1,77 @@
-"""Import the published 80/20 split for practice, without moving any evaluation item."""
+"""Import the requested Kaggle data with a repeatable, duplicate-free 80/20 split."""
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
+from zipfile import ZipFile
 
-from detection.corpus import load_real_corpus, assert_no_leakage, normalize
-from detection.nvidia import NvidiaClient, NvidiaEmbeddings
-from detection.retrieval import PgvectorPool, item_id
+SOURCE = 'teeconnie/scam-and-non-scam-call-conversation-dataset'
+SEED = 'tell-kaggle-80-20-v1'
+ROOT = Path(__file__).parents[1]
+ARCHIVE = ROOT / 'data/cache/kaggle-scam-calls.zip'
+
+
+def corpus():
+    records = {}
+    duplicates = 0
+    with ZipFile(ARCHIVE) as archive:
+        for filename, label in [('English_NonScam.txt', 0), ('English_Scam.txt', 1)]:
+            text = archive.read(filename).decode('utf-8-sig').replace('\r\n', '\n')
+            for entry in re.split(r'\n\s*\n', text):
+                dialogue = re.sub(r'^\d+\.\s*', '', entry.strip())
+                if not dialogue:
+                    continue
+                digest = hashlib.sha256(' '.join(dialogue.lower().split()).encode()).hexdigest()
+                if digest in records:
+                    if records[digest][1] != label:
+                        raise ValueError('One conversation has conflicting source labels')
+                    duplicates += 1
+                    continue
+                records[digest] = (dialogue, label)
+    rows = []
+    for label in (0, 1):
+        members = sorted((key for key, (_, value) in records.items() if value == label),
+                         key=lambda key: hashlib.sha256((SEED + key).encode()).hexdigest())
+        if len(members) < 10:
+            raise ValueError('Too few conversations for a checked 80/20 split')
+        held_out = set(members[:round(len(members) * 0.2)])
+        for key in members:
+            dialogue, value = records[key]
+            rows.append((key, dialogue, value, 'held_out' if key in held_out else 'prompt'))
+    pool_id = hashlib.sha256(json.dumps([SOURCE, SEED, sorted((key, label, split)
+        for key, _, label, split in rows)]).encode()).hexdigest()
+    return pool_id, rows, duplicates
 
 
 def main():
     import psycopg
-    corpus = load_real_corpus()
-    assert_no_leakage(corpus)
-    prompt = corpus.train
-    held_out = corpus.synthetic_test
-    # Preserve the publisher's test set. Two known duplicate training rows were removed.
-    if abs(len(held_out) / (len(prompt) + len(held_out)) - 0.2) > 0.005:
-        raise ValueError('The published split is not approximately 80/20; inspect the source before importing')
-    root = Path(__file__).parents[1]
+    pool_id, rows, duplicates = corpus()
+    prompt_count = sum(row[3] == 'prompt' for row in rows)
+    held_out_count = len(rows) - prompt_count
     with psycopg.connect(os.environ['DATABASE_URL_DIRECT'], autocommit=True, connect_timeout=10) as conn:
-        conn.execute((root / 'migrations/007_detection_examples.sql').read_text())
-        conn.execute((root / 'migrations/20261108_grounded_practice.sql').read_text())
-        pool = PgvectorPool(conn, NvidiaEmbeddings(NvidiaClient()), corpus)
-        pool.index()  # Reuse existing vectors; request only missing embeddings.
+        conn.execute((ROOT / 'migrations/20261108_grounded_practice.sql').read_text())
+        conn.execute((ROOT / 'migrations/20261109_kaggle_agent_context.sql').read_text())
         with conn.transaction():
             conn.execute('CREATE TEMP TABLE practice_import (LIKE practice_examples INCLUDING DEFAULTS) ON COMMIT DROP')
             with conn.cursor().copy('COPY practice_import (pool_id,id,dialogue,label,topic,split,source,content_hash) FROM STDIN') as copy:
-                for split, items in [('prompt', prompt), ('held_out', held_out)]:
-                    for item in items:
-                        copy.write_row((pool.pool_id, item_id(item), item.text, item.label, item.scam_type,
-                                        split, item.source, hashlib.sha256(normalize(item.text).encode()).hexdigest()))
+                for key, dialogue, label, split in rows:
+                    copy.write_row((pool_id, key, dialogue, label, None, split, SOURCE, key))
             conn.execute('INSERT INTO practice_examples SELECT * FROM practice_import ON CONFLICT (pool_id,id) DO NOTHING')
-            rows = conn.execute('SELECT id,dialogue,label,topic,split,source FROM practice_examples WHERE pool_id=%s', (pool.pool_id,)).fetchall()
-            expected = {(item_id(i), i.text, i.label, i.scam_type, split, i.source)
-                        for split, items in [('prompt', prompt), ('held_out', held_out)] for i in items}
-            if set(rows) != expected:
-                raise ValueError('Stored practice dataset differs from the checked split')
-            conn.execute('''INSERT INTO practice_datasets (pool_id,source,embedding_model,prompt_count,held_out_count)
-                VALUES (%s,%s,%s,%s,%s) ON CONFLICT (pool_id) DO UPDATE
-                SET prompt_count=EXCLUDED.prompt_count,held_out_count=EXCLUDED.held_out_count''',
-                (pool.pool_id, 'BothBosu/scam-dialogue', pool.embeddings.model, len(prompt), len(held_out)))
-        print(json.dumps({'pool_id': pool.pool_id, 'prompt': len(prompt), 'held_out': len(held_out),
-                          'overlap': 0, 'embedding_model': pool.embeddings.model}))
+            stored = conn.execute('SELECT id,dialogue,label,split FROM practice_examples WHERE pool_id=%s', (pool_id,)).fetchall()
+            if set(stored) != set(rows):
+                raise ValueError('Stored data differs from the checked Kaggle split')
+            conn.execute('''INSERT INTO practice_datasets
+                (pool_id,source,embedding_model,prompt_count,held_out_count,retrieval_method)
+                VALUES (%s,%s,NULL,%s,%s,'lexical') ON CONFLICT (pool_id) DO NOTHING''',
+                (pool_id, SOURCE, prompt_count, held_out_count))
+    print(json.dumps({'source': SOURCE, 'pool_id': pool_id, 'prompt': prompt_count,
+        'held_out': held_out_count, 'duplicates_removed': duplicates, 'overlap': 0, 'retrieval': 'Postgres full-text'}))
 
 
 if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        print(f'Practice import failed ({type(error).__name__}); inspect the source split, database and endpoint configuration.')
+        print(f'Practice import failed ({type(error).__name__}); check the archive and database configuration.')
         raise SystemExit(1)
