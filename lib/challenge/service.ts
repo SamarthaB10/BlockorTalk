@@ -100,9 +100,9 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked, startedAt: day.startedAt, endedAt: day.endedAt, endReason: day.endReason });
           day.phase = day.callerId === 'fraud_team' ? 'complete' : 'between';
         } else if (action?.type === 'voice_turns') {
-          // Yui's browser-voice call is spoken, so its transcript only exists in the browser. Accept it once,
-          // after the call has ended and before the verdict, so the reveal has something to show.
-          if (day.phase !== 'verdict' || day.callerId !== 'recruiter' || day.voiceSaved) throw new ChallengeError('This call has no voice transcript to save.');
+          // A browser-voice call is spoken, so its transcript only exists in the browser. Accept it once per call,
+          // after the call has ended and before the verdict, and score it exactly like typed replies.
+          if (day.phase !== 'verdict' || day.voiceSaved) throw new ChallengeError('This call has no voice transcript to save.');
           day.voiceSaved = true;
           if (!Array.isArray(action.turns) || action.turns.length > 40) throw new ChallengeError('That voice transcript is too long.', 400);
           // A call can start in text and switch to voice: spoken turns come after the typed ones.
@@ -110,16 +110,23 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           const span = Math.max(0, Date.parse(day.endedAt ?? day.startedAt) - start);
           const spoken = action.turns.filter(turn => (turn.role === 'assistant' || turn.role === 'user') && typeof turn.text === 'string' && turn.text.trim());
           // The disclosure and opening line are already in day.turns; drop spoken repeats of them.
-          const fresh = spoken.filter(turn => !(turn.role === 'assistant' && (turn.text.includes('Tell practice call') || turn.text.includes('This is Yui from'))));
+          const opening = `This is ${CALLERS[day.callerId].name} from`;
+          const fresh = spoken.filter(turn => !(turn.role === 'assistant' && (turn.text.includes('Tell practice call') || turn.text.includes(opening))));
           fresh.forEach((turn, i) => {
             const raw = turn.text.trim().slice(0, 1000);
-            const leaked = turn.role === 'user' ? scanLeaks(day, raw) : [];
             const at = new Date(start + Math.round(span * (i + 1) / (fresh.length + 1))).toISOString();
-            day.turns.push(turn.role === 'user'
-              ? { role: 'user', text: safeText(raw), at, ...(leaked.length ? { leaked } : {}) }
-              : { role: 'assistant', text: raw, at, source: 'script' });
+            if (turn.role === 'assistant') {
+              // Kai's one-time code appears when he brings it up; only after that does reading it count.
+              if (day.callerId === 'fraud_team' && /\bcode\b/i.test(raw)) day.codeVisible = true;
+              day.turns.push({ role: 'assistant', text: raw, at, source: 'script' });
+              return;
+            }
+            // Same 12-reply cap as text: a spoken reply past it is neither stored nor scored.
+            if (day.replies >= 12) return;
+            const leaked = scanLeaks(day, raw);
+            day.turns.push({ role: 'user', text: safeText(raw), at, ...(leaked.length ? { leaked } : {}) });
+            day.replies += 1;
           });
-          day.replies = day.turns.filter(turn => turn.role === 'user').length;
         } else if (action?.type === 'portal') {
           day.events.push({ type: 'Verify', surface: 'portal', at: new Date(now()).toISOString() });
           if (day.calls.some(call => call.callerId === 'recruiter' && call.verdict === 'Unverified')) day.interview = 'BOOKED';
@@ -127,7 +134,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (day.phase !== 'between') throw new ChallengeError('Give this caller a verdict before the next call.');
           const callerId = CALL_ORDER[CALL_ORDER.indexOf(day.callerId) + 1];
           const at = new Date(now()).toISOString();
-          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false,
+          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false, voiceSaved: false,
             turns: [{ role: 'system', text: DISCLOSURE, at }, { role: 'assistant', text: CALLERS[callerId].opening, at, source: 'script' }] });
         } else if (action?.type === 'bank') {
           day.events.push({ type: 'Verify', surface: 'bank', at: new Date(now()).toISOString() });
