@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import Dashboard from '../app/dashboard/Dashboard';
 import Welcome from '../app/dashboard/Welcome';
 import { scenarioCatalog } from '../lib/season/scenarios/catalog';
+import { SCENARIO_CALLERS } from '../lib/voice/scenarioVoice';
 import { SCENARIOS } from '../lib/practice/catalog';
 
 test('every scenario has a voice session: no text practice, no /play link, no /profile', () => {
@@ -13,6 +14,7 @@ test('every scenario has a voice session: no text practice, no /play link, no /p
   expect(html).not.toContain('Practice in text');
   expect(html).not.toContain('href="/play');
   for (const row of scenarioCatalog) {
+    expect(html).toContain(`<h2>${SCENARIO_CALLERS[row.id]}</h2>`);
     expect(html).toContain(row.category);
     for (const secret of row.secrets) expect(html).not.toContain(secret.value);
   }
