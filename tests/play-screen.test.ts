@@ -14,6 +14,11 @@ test('the call has a neutral identity, fictional card, secrets, editable reply a
  for(const text of ['AI practice caller','Alex Practice','8302','Open your own app','Type your reply','End call','Practice · 0 B']) expect(html).toContain(text);
  expect(html).not.toContain('caller-link');
 });
+test('a suggestion from finished calls is named and listed first', () => {
+  const html = renderToStaticMarkup(createElement(PlayCatalog, { model: { scenarios: [{ id: 'bank', category: 'Bank fraud alert', org: 'Puffinvale Bank' }, { id: 'delivery', category: 'Delivery or customs fee', org: 'Mossparcel' }], blokbuks: 0, scoredCallsLeft: 5, nextCallScored: true, season: { id: 's', name: 'Season 1', startsAt: '2026-11-01T00:00:00Z', endsAt: '2026-11-10T00:00:00Z', status: 'live' }, serverNow: call.startedAt, suggested: { id: 'delivery', category: 'Delivery or customs fee' } } }));
+  expect(html).toContain('Suggested from your finished calls');
+  expect(html.indexOf('/play/delivery')).toBeLessThan(html.indexOf('/play/bank'));
+});
 test('a missing Season keeps personal totals absent and calls unavailable',()=>{
  const html=renderToStaticMarkup(createElement(PlayCatalog,{model:{scenarios:[],blokbuks:0,scoredCallsLeft:5,nextCallScored:false,season:null,serverNow:call.startedAt}}));
  expect(html).toContain('Season unavailable');expect(html).not.toContain('B 0');
