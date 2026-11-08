@@ -50,7 +50,7 @@ test('each news alert has Practice this call, and the Drill Planner pick shows i
   ];
   const pick = { link: alerts[0]!.link, id: 'delivery', category: 'Delivery or customs fee', reason: 'A parcel fee with a deadline. Practise slowing down.', path: 'fixed' as const };
   const html = renderToStaticMarkup(createElement(NewsAlerts, { alerts, status: '', planning: null, note: { link: pick.link, pick }, onPractice: () => {} }));
-  expect(html.match(/>Practice this call ↗<\/button>/g)).toHaveLength(alerts.length);
+  expect(html.match(/>Practice this call →<\/button>/g)).toHaveLength(alerts.length);
   expect(html).toContain('Delivery or customs fee');
   expect(html).toContain(pick.reason);
   expect(html).toMatch(/fixed plan/i);
