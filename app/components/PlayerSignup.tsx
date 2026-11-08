@@ -6,7 +6,7 @@ import { safeReturnPath } from '../../lib/players/returnTo';
 type Player = { id: string; nickname: string };
 type Result = { player?: Player | null; errors?: { email?: string; nickname?: string }; error?: string };
 
-export default function PlayerSignup({ returnTo }: { returnTo?: string | null }) {
+export default function PlayerSignup({ returnTo, onSession }: { returnTo?: string | null; onSession?: () => void }) {
   const next = safeReturnPath(returnTo);
   const [player, setPlayer] = useState<Player | null>(null);
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
@@ -44,6 +44,7 @@ export default function PlayerSignup({ returnTo }: { returnTo?: string | null })
       }
       setPlayer(result.player ?? null);
       setMessage(result.player ? `You are signed in as ${result.player.nickname}.` : 'You are signed out.');
+      onSession?.();
     } catch { setMessage('Sign-in is unavailable. Please try again.'); }
     finally { setBusy(false); }
   }

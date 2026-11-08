@@ -1,6 +1,7 @@
 import type { CallAction } from './types';
 import { CallError, publicCall, type createCallService } from './service';
 import { DISCLOSURE_LINE } from '../../voice/disclosure';
+import { isSkillId } from '../../skills/catalog';
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 async function limitedBody(request: Request, limit: number) {
@@ -63,7 +64,8 @@ export function createCallHandlers(deps: {
         const action = raw as Record<string, unknown>;
         if (!id) {
           if (action.type !== 'start' || typeof action.scenarioId !== 'string' || action.scenarioId.length > 100) throw new CallError(400, 'Invalid call action.');
-          return json({ call: publicCall(await deps.service.start(playerId, action.scenarioId)) }, 201);
+          if (action.drill !== undefined && !isSkillId(action.drill)) throw new CallError(400, 'Choose a skill for this drill.');
+          return json({ call: publicCall(await deps.service.start(playerId, action.scenarioId, isSkillId(action.drill) ? { drill: action.drill } : {})) }, 201);
         }
         if (action.type === 'speech') {
           const call = await deps.service.get(playerId, id);
@@ -74,7 +76,7 @@ export function createCallHandlers(deps: {
           if (!response.ok) throw new Error('Speech unavailable');
           return new Response(response.body, { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
         }
-        const valid = ['end', 'own-app', 'caller-link'].includes(String(action.type)) ||
+        const valid = ['end', 'own-app', 'caller-link', 'hint'].includes(String(action.type)) ||
           (action.type === 'reply' && typeof action.text === 'string') ||
           (action.type === 'verdict' && ['Real', 'Scam', 'Unverified'].includes(String(action.verdict)));
         if (!valid) throw new CallError(400, 'Invalid call action.');

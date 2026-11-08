@@ -2,8 +2,8 @@ import type { ResultsView } from '../../lib/season/results';
 
 /**
  * The results screen after each call (BS-11). Presentational only: the server builds the view.
- * Order: Call type, Scored moments, right/wrong, Blokbuks and rank, Scored calls left.
- * Every right/wrong carries a text label, never colour alone.
+ * Order: Call type, Scored moments, skill update and next drill, right/wrong, Blokbuks and rank,
+ * Scored calls left, then the transcript. Every right/wrong carries a text label, never colour alone.
  */
 export default function CallResults({ view }: { view: ResultsView }) {
   return (
@@ -13,7 +13,7 @@ export default function CallResults({ view }: { view: ResultsView }) {
 
       <ol className="call-results-moments" aria-label="Scored moments">
         {view.moments.map(moment => (
-          <li key={moment.n} className={`call-results-moment ${moment.right ? 'is-right' : 'is-wrong'}`}>
+          <li key={moment.n} id={moment.label === 'Your Verdict' ? 'verdict' : undefined} className={`call-results-moment ${moment.right ? 'is-right' : 'is-wrong'}`}>
             <p className="call-results-moment-head">
               <span className="call-results-mark" aria-hidden="true">{moment.mark}</span>
               <strong>{moment.status}</strong>
@@ -24,6 +24,22 @@ export default function CallResults({ view }: { view: ResultsView }) {
           </li>
         ))}
       </ol>
+
+      {view.skill && <section className="call-results-skill" aria-labelledby="skill-update-title">
+        <p id="skill-update-title" className="call-results-eyebrow">Skill updated</p>
+        <p className="call-results-skill-label"><span className="skill-dot" data-state={view.skill.outcome === 'Needs practice' ? 'needs' : view.skill.state} aria-hidden="true" />{view.skill.label}</p>
+        <blockquote className="call-results-words">{view.skill.why}</blockquote>
+        {view.skill.note && <p className="call-results-note">{view.skill.note}</p>}
+        <p className="call-results-why">{view.skill.next}</p>
+      </section>}
+
+      {view.next && <section className="call-results-skill" aria-labelledby="next-drill-title">
+        <p id="next-drill-title" className="call-results-eyebrow">Recommended next</p>
+        <p className="call-results-skill-label">{view.next.title}</p>
+        <p className="call-results-why">{view.next.reason}</p>
+        <p className="call-results-note">A new story: {view.next.scenario}. The caller may be real or a scam.</p>
+        <a className="call-results-link is-primary" href={view.next.href}>Start 60-second drill</a>
+      </section>}
 
       <div className="call-results-score" role="status">
         <p className="call-results-summary">{view.summary}</p>
@@ -39,11 +55,17 @@ export default function CallResults({ view }: { view: ResultsView }) {
 
       <nav className="call-results-actions" aria-label="What next">
         <a className="call-results-link is-primary" href="/play">Play another</a>
+        <a className="call-results-link" href="/dashboard?view=Progress">Your progress</a>
         {view.analysisUnlocked
           ? <a className="call-results-link" href="/me">See my analysis</a>
           : <span className="call-results-locked">Play one more call to unlock your analysis</span>}
         <a className="call-results-link" href="/leaderboard">Leaderboard</a>
       </nav>
+
+      {view.transcript.length > 0 && <details className="call-results-transcript" open>
+        <summary>The call</summary>
+        <ol>{view.transcript.map((turn, index) => <li key={index} id={turn.id} data-who={turn.who}><strong>{turn.who}</strong> {turn.text}</li>)}</ol>
+      </details>}
     </section>
   );
 }

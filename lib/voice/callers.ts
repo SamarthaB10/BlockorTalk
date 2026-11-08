@@ -28,10 +28,12 @@ export class VoiceRequestError extends Error {}
 
 /** Validates and returns exactly the variables this caller declares. */
 export function callVariables(
-  callerId: ChallengeCallerId,
+  callerId: string,
   variables: Record<string, string>,
+  names?: readonly string[],
 ): Record<string, string> {
-  const declared = CALLER_VARIABLE_NAMES[callerId];
+  const declared = names ?? CALLER_VARIABLE_NAMES[callerId as ChallengeCallerId];
+  if (!declared) throw new VoiceRequestError(`Unknown caller ${callerId}`);
   const missing = declared.filter((k) => !variables[k]?.trim());
   if (missing.length) {
     throw new VoiceRequestError(`Missing variables for ${callerId}: ${missing.join(", ")}`);

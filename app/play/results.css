@@ -25,8 +25,24 @@
 .call-results-link:focus-visible { outline: var(--focus-ring); outline-offset: 3px; }
 .call-results-locked { font-size: var(--text-body); color: var(--ink-muted); }
 
+.call-results-skill { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 20px; margin: 0 0 16px; display: grid; gap: 8px; justify-items: start; }
+.call-results-skill .call-results-eyebrow { margin: 0; }
+.call-results-skill-label { display: flex; align-items: center; gap: 10px; font-size: 1.375rem; margin: 0; }
+.call-results .skill-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink-muted); flex-shrink: 0; }
+.call-results .skill-dot[data-state="Practiced"] { border-color: var(--ink); }
+.call-results .skill-dot[data-state="Demonstrated"] { background: var(--ink-muted); border-color: var(--ink-muted); }
+.call-results .skill-dot[data-state="Independent"] { background: var(--ink); border-color: var(--ink); }
+.call-results .skill-dot[data-state="needs"] { border-style: dashed; border-color: var(--ink); }
+.call-results-transcript { border-top: 1px solid var(--line); margin-top: 32px; padding-top: 16px; }
+.call-results-transcript summary { cursor: pointer; font-size: 1.25rem; min-height: 44px; }
+.call-results-transcript ol { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+.call-results-transcript li { line-height: 1.5; padding: 10px 12px; border-radius: var(--radius-sm); scroll-margin-top: 24px; }
+.call-results-transcript li[data-who="You"] { background: var(--surface); }
+.call-results-transcript li:target, .call-results-moment:target { outline: 2px solid var(--ink); outline-offset: 2px; }
+
 @media (max-width: 480px) {
   .call-results-headline { font-size: 1.875rem; }
   .call-results-actions { flex-direction: column; align-items: stretch; }
   .call-results-link { text-align: center; }
+  .call-results-skill { justify-items: stretch; }
 }

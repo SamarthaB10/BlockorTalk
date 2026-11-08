@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { FakeVoiceAdapter } from "../../lib/voice/adapter";
+import agentIds from "../../config/voice-agents.json";
+import { ElevenLabsVoiceAdapter, FakeVoiceAdapter, type AgentIds } from "../../lib/voice/adapter";
 import { browserSessionHandler } from "../../lib/voice/browserSession";
 import { CHALLENGE_CALLER_IDS } from "../../lib/voice/personas";
 
@@ -24,6 +25,34 @@ describe("browser session handler", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(await res.json()).toEqual({ agentId: `agent_fake_${id}`, conversationToken: "fake-token" });
     expect(h.voice.sessions).toEqual([{ callerId: id }]);
+  });
+
+  it("gives every catalog scenario a voice session, and never redirects when the agent is missing", async () => {
+    const h = harness();
+    const accepted = await h.post({ callerId: "insurance" });
+    expect(accepted.status).toBe(200);
+    expect(accepted.headers.get("Location")).toBeNull();
+    expect(await accepted.json()).toEqual({ conversationToken: "fake-token" });
+
+    const voice = new ElevenLabsVoiceAdapter(
+      { conversationalAi: {} as never },
+      agentIds as AgentIds,
+      undefined,
+      { fetch: async () => { throw new Error("should not fetch a token"); }, apiKey: () => "present" },
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await browserSessionHandler({ voice })(
+      new Request("https://tell.test/api/voice/session", {
+        method: "POST",
+        body: JSON.stringify({ callerId: "bank" }),
+      }),
+    );
+    log.mockRestore();
+    expect(res.status).toBe(502);
+    expect(res.headers.get("Location")).toBeNull();
+    const text = await res.text();
+    expect(JSON.parse(text)).toEqual({ error: "voice session unavailable" });
+    expect(text).not.toMatch(/\/play|\/profile|returnTo/);
   });
 
   it("rejects unknown callers and bad JSON without calling the adapter", async () => {
