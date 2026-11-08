@@ -1,0 +1,142 @@
+import { createHmac } from "node:crypto";
+import { describe, expect, it } from "vitest";
+import { FakeVoiceAdapter } from "../../lib/voice/adapter";
+import { createVoiceRoutes, type VoiceEvent, type VoiceStore } from "../../lib/voice/routes";
+import type { PostCallTranscript } from "../../lib/voice/transcript";
+
+const WEBHOOK_SECRET = "wsec_routes";
+const TOOL_SECRET = "tool_routes";
+const BASE = "https://tell.test";
+
+function sign(body: string, secret = WEBHOOK_SECRET) {
+  const at = Math.floor(Date.now() / 1000);
+  return `t=${at},v0=${createHmac("sha256", secret).update(`${at}.${body}`).digest("hex")}`;
+}
+
+function fakeStore() {
+  const transcripts = new Map<string, PostCallTranscript>();
+  const events: VoiceEvent[] = [];
+  const store: VoiceStore = {
+    async saveTranscript(t) {
+      if (transcripts.has(t.conversationId)) return "duplicate";
+      transcripts.set(t.conversationId, t);
+      return "stored";
+    },
+    async addEvent(e) {
+      events.push({ id: events.length + 1, at: new Date(0).toISOString(), ...e });
+    },
+    async listEvents(conversationId, afterId) {
+      return events.filter((e) => e.conversationId === conversationId && e.id > afterId);
+    },
+  };
+  return { store, transcripts, events };
+}
+
+function setup() {
+  const voice = new FakeVoiceAdapter();
+  const db = fakeStore();
+  const routes = createVoiceRoutes({
+    voice,
+    store: db.store,
+    toolSecret: TOOL_SECRET,
+    webhookSecret: WEBHOOK_SECRET,
+  });
+  const postCall = (payload: unknown) => {
+    const body = JSON.stringify(payload);
+    return routes.postCall(
+      new Request(`${BASE}/api/voice/post-call`, {
+        method: "POST",
+        body,
+        headers: { "ElevenLabs-Signature": sign(body) },
+      }),
+    );
+  };
+  return { routes, voice, db, postCall };
+}
+
+const transcriptEvent = (userSays: string) => ({
+  type: "post_call_transcription",
+  data: {
+    conversation_id: "conv_r1",
+    agent_id: "agent_f",
+    status: "done",
+    transcript: [
+      { role: "agent", message: "Can you confirm your card?", time_in_call_secs: 5 },
+      { role: "user", message: userSays, time_in_call_secs: 9 },
+    ],
+    metadata: { call_duration_secs: 30 },
+  },
+});
+
+describe("voice routes: post-call", () => {
+  it("redacts real-looking card numbers and SSNs before storing the transcript", async () => {
+    const h = setup();
+    const res = await h.postCall(
+      transcriptEvent("sure it's 4111 1111 1111 1111 and my social is 123-45-6789, code 551 274"),
+    );
+    expect(res.status).toBe(200);
+    const stored = h.db.transcripts.get("conv_r1")!;
+    expect(stored.turns[1]!.message).toBe(
+      "sure it's [redacted card number] and my social is [redacted SSN], code 551 274",
+    );
+    expect(stored.turns[0]!.message).toBe("Can you confirm your card?");
+  });
+});
+
+describe("voice routes: live events", () => {
+  const beat = (h: ReturnType<typeof setup>, body: unknown, secret = TOOL_SECRET) =>
+    h.routes.beat(
+      new Request(`${BASE}/api/voice/beat`, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "X-Tell-Tool-Secret": secret },
+      }),
+    );
+  const events = (h: ReturnType<typeof setup>, query: string) =>
+    h.routes.events(new Request(`${BASE}/api/voice/events?${query}`));
+
+  it("records an agent beat so the app can pick it up for the code pop-up", async () => {
+    const h = setup();
+    expect((await beat(h, { beat: "code_requested", conversation_id: "conv_r1" })).status).toBe(200);
+    const res = await events(h, "conversation_id=conv_r1");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const body = (await res.json()) as { events: VoiceEvent[] };
+    expect(body.events.map((e) => [e.id, e.kind])).toEqual([[1, "code_requested"]]);
+  });
+
+  it("turns a failed outbound call into a call_failed event with its reason", async () => {
+    const h = setup();
+    const res = await h.postCall({
+      type: "call_initiation_failure",
+      data: { conversation_id: "conv_r2", agent_id: "agent_f", failure_reason: "no-answer" },
+    });
+    expect(res.status).toBe(200);
+    const body = (await (await events(h, "conversation_id=conv_r2")).json()) as { events: VoiceEvent[] };
+    expect(body.events.map((e) => [e.kind, e.detail])).toEqual([["call_failed", "no-answer"]]);
+    expect(h.db.transcripts.size).toBe(0);
+  });
+
+  it("needs a conversation ID, and returns only events after the cursor", async () => {
+    const h = setup();
+    expect((await events(h, "")).status).toBe(400);
+    await beat(h, { beat: "identity_requested", conversation_id: "conv_r3" });
+    await beat(h, { beat: "code_requested", conversation_id: "conv_r3" });
+    const after1 = (await (await events(h, "conversation_id=conv_r3&after=1")).json()) as { events: VoiceEvent[] };
+    expect(after1.events.map((e) => e.kind)).toEqual(["code_requested"]);
+    const junk = (await (await events(h, "conversation_id=conv_r3&after=abc")).json()) as { events: VoiceEvent[] };
+    expect(junk.events).toHaveLength(2);
+  });
+});
+
+describe("voice routes: browser session", () => {
+  it("issues a browser-voice token for a Challenge caller", async () => {
+    const h = setup();
+    const res = await h.routes.session(
+      new Request(`${BASE}/api/voice/session`, { method: "POST", body: JSON.stringify({ callerId: "fraud_team" }) }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ agentId: "agent_fake_fraud_team", conversationToken: "fake-token" });
+    expect(h.voice.sessions).toEqual([{ callerId: "fraud_team" }]);
+  });
+});
