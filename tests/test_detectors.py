@@ -245,6 +245,50 @@ class DetectorInterfaceTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("TEST_DATABASE_URL"), "TEST_DATABASE_URL required (pgvector)")
 class RetrievalTests(unittest.TestCase):
+    def test_interrupted_index_retains_successes_and_resumes_only_missing_embeddings(self):
+        from detection.corpus import Corpus, Item
+        from detection.nvidia import NvidiaError
+        class Embeddings:
+            model = "fixture-resume"
+            resumed = False
+            def embed(self, texts, input_type):
+                if input_type == "passage":
+                    for text in texts:
+                        i = int(text.split(":")[0])
+                        if not self.resumed and i == 5:
+                            raise NvidiaError("NVIDIA /embeddings HTTP 429")
+                        if self.resumed and i < 5:
+                            raise RuntimeError("previously stored examples should remain available offline")
+                return [[1.0, float(text.split(":")[0]), *([0.0] * 1022)] for text in texts]
+        corpus = Corpus([Item(f"{i}: train", i % 2, "train", "fixture") for i in range(8)], [], [], [])
+        embeddings = Embeddings()
+        with self.database() as connection:
+            pool = PgvectorPool(connection, embeddings, corpus)
+            with self.assertRaisesRegex(NvidiaError, "HTTP 429"):
+                pool.index()
+            self.assertEqual([item.text for item in pool.nearest("0: query")],
+                             ["0: train", "1: train", "2: train", "3: train", "4: train"])
+            embeddings.resumed = True
+            pool.index()
+            pool.require_ready()
+            self.assertEqual(len(pool.nearest("0: query")), 5)
+
+    @contextlib.contextmanager
+    def database(self):
+        import psycopg
+        from psycopg import sql
+        schema = "detector_test_" + uuid.uuid4().hex
+        with psycopg.connect(os.environ["TEST_DATABASE_URL"], autocommit=True) as connection:
+            connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+            try:
+                connection.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
+                connection.execute((Path(__file__).parents[1] / "migrations/007_detection_examples.sql").read_text())
+                yield connection
+            finally:
+                connection.execute("SET search_path TO public")
+                connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
+
     def test_five_nearest_are_train_only_and_retrieval_uses_shared_contract(self):
         import psycopg
         from psycopg import sql
@@ -258,26 +302,18 @@ class RetrievalTests(unittest.TestCase):
 
         train = [Item(f"{i}: train dialogue", i % 2, "train", "fixture") for i in range(8)]
         corpus = Corpus(train, [Item("0.001: held out", 1, "synthetic_test", "fixture")], [], [])
-        schema = "detector_test_" + uuid.uuid4().hex
-        with psycopg.connect(os.environ["TEST_DATABASE_URL"], autocommit=True) as connection:
-            connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
-            try:
-                connection.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
-                connection.execute((Path(__file__).parents[1] / "migrations/007_detection_examples.sql").read_text())
-                pool = PgvectorPool(connection, Embeddings(), corpus)
-                pool.index()
-                self.assertEqual([i.text for i in pool.nearest("0: query")],
-                                 ["0: train dialogue", "1: train dialogue", "2: train dialogue",
-                                  "3: train dialogue", "4: train dialogue"])
-                self.assertTrue(all(i.split == "train" for i in pool.nearest("0: query")))
-                result = NemotronDetector(FakeLLM(0.59), pool).detect("0: right now")
-                self.assertEqual(result, {"label": None, "scam_type": None, "red_flags": [],
-                                         "confidence": 0.59,
-                                         "message": "Can't tell — verify by calling back on a number you already have"})
-            finally:
-                connection.execute("SET search_path TO public")
-                connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
+        with self.database() as connection:
+            pool = PgvectorPool(connection, Embeddings(), corpus)
+            pool.index()
+            self.assertEqual([i.text for i in pool.nearest("0: query")],
+                             ["0: train dialogue", "1: train dialogue", "2: train dialogue",
+                              "3: train dialogue", "4: train dialogue"])
+            self.assertTrue(all(i.split == "train" for i in pool.nearest("0: query")))
+            result = NemotronDetector(FakeLLM(0.59), pool).detect("0: right now")
+            self.assertEqual(result, {"label": None, "scam_type": None, "red_flags": [],
+                                     "confidence": 0.59,
+                                     "message": "Can't tell — verify by calling back on a number you already have"})
+
 
 
 if __name__ == "__main__":

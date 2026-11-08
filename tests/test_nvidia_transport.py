@@ -2,6 +2,7 @@ import io
 import json
 import unittest
 import urllib.error
+import contextlib
 from email.utils import formatdate
 
 from detection.detectors import NemotronDetector
@@ -30,6 +31,18 @@ def answer():
 
 
 class NvidiaTransportTests(unittest.TestCase):
+    def test_embedding_batch_stops_at_the_first_terminal_failure(self):
+        from detection.nvidia import NvidiaError
+        clock = Clock()
+        starts = []
+        def endpoint(request, timeout):
+            starts.append(clock.monotonic())
+            raise urllib.error.HTTPError(request.full_url, 429, "limited", {}, io.BytesIO())
+        client = NvidiaClient({"NVIDIA_API_KEY": "fake"}, clock=clock, opener=endpoint, jitter=lambda: 0)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaisesRegex(NvidiaError, "HTTP 429"):
+            NvidiaEmbeddings(client).embed([str(i) for i in range(32)], "passage")
+        self.assertEqual(starts, [0, 30, 90, 210, 450, 750])
+
     def test_malformed_vendor_message_abstains_and_legitimate_type_is_null(self):
         for message in (None, [], "invalid", {"tool_calls": []}, {"tool_calls": [{"function": {
                 "name": "classify_call", "arguments": json.dumps({"label": "legit", "scam_type": "None",

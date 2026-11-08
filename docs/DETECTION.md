@@ -32,6 +32,8 @@ python -m detection.detect < transcript.txt
 The index command applies the additive `007_detection_examples.sql` migration
 (also supported by `npm run migrate`) and embeds the full checked training split.
 It resumes missing rows after interruption. It never inserts held-out transcripts.
+Each successful training embedding commits immediately; a later failure cannot
+discard earlier completed rows. Embedding work stops on the first terminal failure.
 The migration creates a 1,024-dimension vector column and HNSW cosine index.
 Retrieval uses exact cosine ordering for this small pool, avoiding approximate
 index filtering that can return fewer than five examples when corpus versions coexist.

@@ -11,7 +11,6 @@ import threading
 import sys
 from email.utils import parsedate_to_datetime
 from datetime import timezone
-from concurrent.futures import ThreadPoolExecutor
 
 from detection.result import TACTICS
 
@@ -180,9 +179,9 @@ class NvidiaEmbeddings:
 
     def embed(self, texts, input_type):
         # The hosted 3.5 endpoint currently returns HTTP 500 for multi-input
-        # requests. Parallel single-input requests retain order and use bounded quota.
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            return list(executor.map(lambda text: self._embed_one(text, input_type), texts))
+        # requests. The shared gate serializes network calls anyway; sequential
+        # dispatch also stops immediately when one item exhausts its retries.
+        return [self._embed_one(text, input_type) for text in texts]
 
     def _embed_one(self, text, input_type):
         response = self.client._post("/embeddings", {
