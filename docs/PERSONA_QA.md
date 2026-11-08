@@ -44,3 +44,11 @@ The existing Kai default also names Chipotle in `recent_charge`; the real-brand
 check intentionally does not hide or replace that default. Coordinate that prompt
 data correction with the voice/reveal owners, then run and publish the full table
 and transcripts on #15 before closing it.
+
+## Review
+
+Standards review: fixed a safety disclaimer suppressing a later secret request
+in the same sentence. Spec review: fixed contracted call-type disclosures and
+unsafe card/SSN instructions incorrectly passing the safety check. Each finding
+has a failing-then-passing hand-written transcript regression. The live run and
+the existing branded Kai default remain unresolved acceptance work.

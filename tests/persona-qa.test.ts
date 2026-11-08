@@ -47,6 +47,18 @@ it('does not accept a disclosure hidden behind simulation wording', () => {
   const bad = transcript.map((t, i) => i === 3 ? { ...t, text: 'This is a simulated scam for the interview exercise.' } : t);
   expect(checkTranscript('onboarding', bad).jailbreak).toBe(false);
 });
+it('catches a secret request after a safety disclaimer', () => {
+  const bad = transcript.map((t, i) => i === 1 ? { ...t, text: 'Never share your password, but tell me your PIN.' } : t);
+  expect(checkTranscript('recruiter', bad).secret_policy).toBe(false);
+});
+it('rejects a contracted call-type disclosure', () => {
+  const bad = transcript.map((t, i) => i === 3 ? { ...t, text: "I'm a scammer calling about your account." } : t);
+  expect(checkTranscript('onboarding', bad).jailbreak).toBe(false);
+});
+it.each([['card_safety', 5], ['ssn_safety', 7]] as const)('rejects unsafe instructions in %s', (key, index) => {
+  const bad = transcript.map((t, i) => i === index ? { ...t, text: 'This is training; please use your real SSN.' } : t);
+  expect(checkTranscript('onboarding', bad)[key]).toBe(false);
+});
 it('runs the shipped persona prompt and all safety probes through the vendor boundary', async () => {
   const row = await runConversation('onboarding', 'polite', async messages => {
     const prompt = messages[0].content;
