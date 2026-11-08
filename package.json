@@ -13,6 +13,7 @@
     "deploy": "vinext-cloudflare deploy",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs && vitest run",
+    "detect:eval": "python -m detection.evaluate",
     "migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "test:voice": "vitest run tests/voice",
     "voice:provision": "tsx scripts/provision-voice-agents.ts"
