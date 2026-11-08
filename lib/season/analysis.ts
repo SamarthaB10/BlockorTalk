@@ -21,6 +21,8 @@ export type CallRow = {
   /** The Player gave away a fictional secret. Only meaningful on a scam Version. */
   leaked: boolean;
   synthetic: boolean;
+  /** Call length in seconds, when known. Used for Carrier insights only. */
+  seconds?: number | null;
 };
 
 export type Scenario = { id: string; category: string; tactic: Tactic };
