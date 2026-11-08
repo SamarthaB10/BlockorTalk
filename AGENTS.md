@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Agents.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance toAgents when working with code in this repository.
 
 Tell trains people to spot phone scams by playing AI callers (some scams, some legitimate, some "hijacked") through a fictional "Challenge day". The product spec is `docs/SPEC.md`. It holds the product rules, modules, data model, and the agent and voice decisions. `PRODUCT.md` holds product and design truth for UI work. Read the relevant section of each before changing behaviour.
 
