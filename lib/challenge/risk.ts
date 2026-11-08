@@ -1,11 +1,10 @@
 import pg from 'pg';
 import type { Challenge, CallerId, Turn } from './types.ts';
 import type { Detection, Transcript, Tactic } from '../debrief/index.mjs';
-import { DetectorRateLimitError } from './detector.ts';
+import { DetectorRateLimitError, DETECTION_TACTICS } from './detector.ts';
 import { CALLERS } from './scenarios.ts';
 import type { PresenterSnapshot } from './presenter-types.ts';
 
-const TACTICS: readonly string[] = ['authority', 'urgency', 'details-as-proof', 'reward', 'fear'];
 export type RiskPoint = {
   turn: number; at: string; status: 'pending' | 'scoring' | 'done' | 'unavailable';
   risk: number | null; label: 'scam' | 'legit' | null; tactics: Tactic[];
@@ -118,7 +117,7 @@ export function createRiskService({ connectionString, detect, now = Date.now }: 
               point.risk = Math.round(100 * (result.label === 'scam' ? result.confidence : 1 - result.confidence));
               point.tactics = [...new Set(result.red_flags.filter(flag => {
                 const turn = job.transcript.turns.find(turn => turn.turn === flag.turn);
-                return TACTICS.includes(flag.tactic) && turn?.text.slice(flag.span.start, flag.span.end) === flag.span.text;
+                return DETECTION_TACTICS.some(tactic => tactic === flag.tactic) && turn?.text.slice(flag.span.start, flag.span.end) === flag.span.text;
               }).map(flag => flag.tactic as Tactic))];
             }
             const expected = call.callerId === 'recruiter' ? 'legit' : 'scam';

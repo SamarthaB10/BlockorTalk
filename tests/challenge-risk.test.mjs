@@ -71,7 +71,7 @@ test('rate limiting keeps an honest pending result and persists cooldown across 
 test('live spoken turns are scored before hang-up and a final save never duplicates them', { skip: !databaseUrl }, async t => {
   const { service, risk } = await fixture(t, async () => ({ source: 'fake', label: 'legit', scam_type: null, confidence: .9, red_flags: [] }));
   let day = await service.start();
-  const turns = [{ role: 'assistant', text: 'Tuesday at 10 AM works. Check the candidate portal.' }, { role: 'user', text: 'Yes, thank you.' }];
+  const turns = [{ role: 'assistant', text: 'I see 418 Pecan Hollow Drive and March 14, 1991. Card 4111 1111 1111 1111, SSN 123-45-6789.' }, { role: 'user', text: 'Yes, thank you.' }];
   const sessionId = crypto.randomUUID();
   await service.act(day.id, { type: 'voice_start', callerId: day.callerId, startedAt: day.startedAt, sessionId });
   const action = { type: 'voice_live', callerId: day.callerId, startedAt: day.startedAt, sessionId, turns };
@@ -79,6 +79,9 @@ test('live spoken turns are scored before hang-up and a final save never duplica
   assert.equal(day.phase, 'call');
   assert.equal(day.replies, 1);
   assert.equal(day.turns.length, 4);
+  assert.match(day.turns[2].text, /418 Pecan Hollow Drive/);
+  assert.match(day.turns[2].text, /March 14, 1991/);
+  assert.doesNotMatch(day.turns[2].text, /4111|123-45-6789/);
   assert.equal((await service.act(day.id, action)).turns.length, 4);
   await risk.score(day.id);
   assert.equal((await service.get(day.id)).risk.calls[0].series.at(-1).status, 'done');

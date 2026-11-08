@@ -2,7 +2,7 @@
 import pg from 'pg';
 import type { Detection, Transcript, Tactic } from '../debrief/index.mjs';
 
-const TACTICS: Tactic[] = ['authority', 'urgency', 'details-as-proof', 'reward', 'fear'];
+export const DETECTION_TACTICS: readonly Tactic[] = ['authority', 'urgency', 'details-as-proof', 'reward', 'fear'];
 type Classification = { label: 'scam' | 'legit'; scam_type: string | null; confidence: number; red_flags: Array<{ tactic: Tactic; text: string }> };
 const uncertain = (): Detection => ({ source: 'nemotron-retrieval (cannot tell)', label: null, scam_type: null, confidence: 0, red_flags: [] });
 
@@ -19,7 +19,7 @@ export function anchorDetection(transcript: Transcript, value: unknown): Detecti
     !['scam', 'legit'].includes(p.label ?? '') || (p.scam_type !== null && typeof p.scam_type !== 'string') || !Array.isArray(p.red_flags)) return uncertain();
   const red_flags: Detection['red_flags'] = [];
   for (const flag of p.red_flags) {
-    if (!flag || !TACTICS.includes(flag.tactic) || typeof flag.text !== 'string' || !flag.text) return uncertain();
+    if (!flag || !DETECTION_TACTICS.includes(flag.tactic) || typeof flag.text !== 'string' || !flag.text) return uncertain();
     const matches = transcript.turns.filter(turn => turn.text.includes(flag.text));
     if (matches.length !== 1) return uncertain();
     const turn = matches[0];
@@ -78,7 +78,7 @@ export function createRetrievalDetector(env: NodeJS.ProcessEnv, { fetchImpl = gl
       tools: [{ type: 'function', function: { name: 'classify_call', description: 'Classify the conversation', parameters: {
         type: 'object', required: ['label', 'scam_type', 'confidence', 'red_flags'], properties: {
           label: { type: 'string', enum: ['scam', 'legit'] }, scam_type: { type: ['string', 'null'] }, confidence: { type: 'number', minimum: 0, maximum: 1 },
-          red_flags: { type: 'array', items: { type: 'object', required: ['tactic', 'text'], properties: { tactic: { type: 'string', enum: TACTICS }, text: { type: 'string' } } } },
+          red_flags: { type: 'array', items: { type: 'object', required: ['tactic', 'text'], properties: { tactic: { type: 'string', enum: DETECTION_TACTICS }, text: { type: 'string' } } } },
         },
       } } }], tool_choice: { type: 'function', function: { name: 'classify_call' } },
     });

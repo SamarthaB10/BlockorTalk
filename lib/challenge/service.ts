@@ -4,6 +4,7 @@ import { DISCLOSURE } from './recruiter.ts';
 import { CALLERS, CALL_ORDER, CODE_REQUEST_LINES, FAKE_SECRETS } from './scenarios.ts';
 import { mentionsSecret } from '../policy/normalize.mjs';
 import { queueRisk } from './risk.ts';
+import { redact } from '../policy/redact.ts';
 
 export class ChallengeError extends Error {
   status: number;
@@ -125,7 +126,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
             if (turn.role === 'assistant') {
               // Kai's one-time code appears when he brings it up; only after that does reading it count.
               if (day.callerId === 'fraud_team' && /\bcode\b/i.test(raw)) day.codeVisible = true;
-              day.turns.push({ role: 'assistant', text: safeText(raw), at, source: 'script' });
+              day.turns.push({ role: 'assistant', text: redact(raw), at, source: 'script' });
               return;
             }
             // Same 12-reply cap as text: a spoken reply past it is neither stored nor scored.

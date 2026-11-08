@@ -76,7 +76,7 @@ export default function Presenter() {
   }
 
   const working = snapshot?.status === 'scoring' && !error;
-  const animation = working || snapshot?.status === 'uncertain' || snapshot?.status === 'rate-limited' ? 'thinking' : speaking ? 'talking' : 'idle';
+  const animation = speaking ? 'talking' : working || snapshot?.status === 'uncertain' || snapshot?.status === 'rate-limited' ? 'thinking' : 'idle';
   return <main className="presenter">
     <header className="presenter-header"><a href="/">TELL</a><span className="ui-pill">PRESENTER ONLY</span>
       {proof && <button onClick={() => void copy()}>{copied ? 'Link copied' : 'Copy presenter link'}</button>}
