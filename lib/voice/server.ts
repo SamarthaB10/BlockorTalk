@@ -21,6 +21,8 @@ export function voiceRoutes(env: NodeJS.ProcessEnv = process.env) {
     lazyClient,
     agentIds as AgentIds,
     env.ELEVENLABS_PHONE_NUMBER_ID,
+    // Browser-voice tokens go through a plain fetch, read lazily per request.
+    { fetch: (url, init) => fetch(url, init), apiKey: () => env.ELEVENLABS_API_KEY },
   );
   return createVoiceRoutes({
     voice,
