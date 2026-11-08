@@ -20,6 +20,7 @@
     "insights:unseed": "node --env-file=.env.local --import tsx scripts/seed-insights.ts --remove",
     "test:voice": "vitest run tests/voice",
     "voice:provision": "tsx scripts/provision-voice-agents.ts",
+    "voice:import-twilio": "node --env-file=.env.local --import tsx scripts/import-twilio-line.ts",
     "practice:index": "node --env-file=.env.local scripts/practice-index.mjs",
     "voice:connect-data": "node --env-file=.env.local --import tsx scripts/provision-voice-agents.ts --with-dataset",
     "practice:evaluate": "node --env-file=.env.local scripts/practice-index.mjs --evaluate"
