@@ -3,7 +3,7 @@
  * Fetched on the server, cached for a few hours, and parsed from RSS or Atom.
  * Nothing is invented: if the feed can't be read, the page says so.
  */
-export const FTC_FEED_URL = "https://consumer.ftc.gov/consumer-alerts/feed";
+export const FTC_FEED_URL = "https://consumer.ftc.gov/blog/gd-rss.xml";
 export const FTC_ALERTS_PAGE = "https://consumer.ftc.gov/consumer-alerts";
 const CACHE_MS = 3 * 60 * 60 * 1000;
 

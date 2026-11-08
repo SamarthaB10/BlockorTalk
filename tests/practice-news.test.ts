@@ -30,6 +30,14 @@ describe("FTC news", () => {
     expect(item).toMatchObject({ title: "Your phone carrier didn't text you", link: "https://consumer.ftc.gov/consumer-alerts/2026/11/example-three" });
   });
 
+  it("loads alerts from the FTC's published RSS address", async () => {
+    const publishedFeed = (async (url: string | URL | Request) => new Response(
+      String(url) === "https://consumer.ftc.gov/blog/gd-rss.xml" ? RSS : "Not found",
+      { status: String(url) === "https://consumer.ftc.gov/blog/gd-rss.xml" ? 200 : 404 },
+    )) as typeof fetch;
+    expect((await ftcAlerts(publishedFeed, 0)).items).toHaveLength(2);
+  });
+
   it("caches, serves a stale copy on failure, and throws with nothing cached", async () => {
     const ok = (async () => new Response(RSS)) as typeof fetch;
     const down = (async () => new Response("", { status: 503 })) as typeof fetch;

@@ -1,0 +1,41 @@
+.news-feed{max-width:1400px;margin:0 auto;}
+.news-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;padding:0 0 28px;border-bottom:1px solid #1e1c1a24;}
+.news-eyebrow{font-size:11px;letter-spacing:.13em;color:#785b46;margin:0 0 12px;font-weight:600;}
+.news-heading h2{font-size:clamp(25px,2.5vw,36px);font-weight:500;letter-spacing:-.035em;line-height:1.2;margin:0 0 12px;}
+.news-heading p:not(.news-eyebrow){max-width:64ch;color:#69645e;font-size:14px;line-height:1.7;margin:0;}
+.news-coverage{flex-shrink:0;display:grid;text-align:right;gap:3px;color:#625e58;font-size:12px;}
+.news-coverage strong{font-size:38px;font-weight:500;line-height:1;letter-spacing:-.05em;color:#1e1c1a;}
+.news-coverage small{font-size:11px;}
+.news-toolbar{display:flex;gap:16px;align-items:flex-end;margin:24px 0 16px;}
+.news-toolbar label{display:grid;gap:8px;font-size:12px;color:#625e58;}
+.news-search{flex:1;min-width:0;}
+.news-toolbar input,.news-toolbar select{width:100%;height:50px;padding:12px 16px;border:1px solid #c8c2b9;border-radius:10px;background:#f7f5f1;color:#1e1c1a;font:inherit;font-size:16px;}
+.news-source{min-width:220px;}
+.news-refresh{display:flex;align-items:center;justify-content:center;gap:18px;min-height:50px;border:1px solid #c8c2b9;border-radius:10px;background:transparent;padding:12px 18px;font-size:14px;}
+.news-refresh span{font-size:22px;line-height:1;}
+.news-categories{display:flex;flex-wrap:wrap;gap:8px;}
+.news-categories button{background:transparent;border:1px solid #c8c2b9;border-radius:30px;min-height:44px;padding:10px 16px;font-size:13px;}
+.news-categories button[aria-pressed=true]{background:#2a2624;border-color:#2a2624;color:#fff;}
+.news-result-count{font-size:12px;color:#69645e;margin:24px 0 16px;overflow-wrap:anywhere;}
+.news-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;}
+.news-article{display:flex;flex-direction:column;min-width:0;gap:20px;background:#f7f5f1;border:1px solid #1e1c1a18;border-radius:16px;padding:28px;overflow-wrap:anywhere;}
+.news-article-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11px;color:#69645e;}
+.news-type{padding:5px 10px;border:1px solid #c8c2b9;border-radius:20px;}
+.news-article h3{font-size:22px;letter-spacing:-.03em;line-height:1.35;font-weight:500;margin:0;}
+.news-article h3 a{text-decoration:none;}
+.news-arrow{display:inline-block;white-space:nowrap;margin-left:8px;color:#785b46;}
+.news-article>p{font-size:14px;line-height:1.8;color:#69645e;margin:0;}
+.news-article-footer{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-top:auto;padding-top:20px;border-top:1px solid #1e1c1a18;}
+.news-publisher{font-size:12px;font-weight:600;}
+.news-article-footer small{display:block;margin-top:4px;font-size:11px;color:#69645e;}
+.news-article-footer>a{display:flex;align-items:center;gap:12px;font-size:12px;min-height:44px;text-underline-offset:4px;}
+.news-featured{background:#e7e0d4;}
+.news-notice,.news-empty{padding:24px;background:#e8e2d8;border-radius:12px;margin:24px 0;font-size:14px;}
+.news-notice p{margin-bottom:0;}
+.news-empty h3{font-size:22px;font-weight:500;margin:0;}
+.news-sources-note{font-size:11px;color:#69645e;line-height:1.8;margin:28px 0;}
+.news-sources-note a{text-underline-offset:3px;}
+@media(hover:hover){.news-article h3 a:hover{text-decoration:underline;text-underline-offset:4px;}.news-refresh:hover,.news-categories button[aria-pressed=false]:hover{background:#e8e2d8;}}
+@media(max-width:1100px){.news-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:700px){.news-heading{align-items:flex-start;gap:20px;}.news-coverage strong{font-size:30px;}.news-toolbar{flex-wrap:wrap;gap:12px;}.news-search{flex-basis:100%;}.news-source{min-width:0;flex:1;}.news-refresh{padding-inline:14px;}.news-grid{grid-template-columns:1fr;}.news-article{padding:24px;}.news-heading h2{font-size:26px;}}
+@media(max-width:400px){.news-heading{display:block;}.news-coverage{margin-top:20px;text-align:left;}.news-coverage strong{display:none;}.news-toolbar select{padding-inline:10px;}}
