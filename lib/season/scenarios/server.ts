@@ -2,14 +2,20 @@ import pg from 'pg';
 import { scenarioCatalog } from './catalog.ts';
 import type { Scenario } from './types.ts';
 
-const tactics: Scenario['tactic'][] = ['Details as proof', 'Urgency', 'Reward', 'Authority', 'Urgency', 'Fear', 'Authority', 'Reward', 'Reward', 'Details as proof'];
-export const scenarios: Scenario[] = scenarioCatalog.map((publicRow, index) => {
+const tactics: Record<string, Scenario['tactic']> = {
+  bank: 'Details as proof', delivery: 'Urgency', holiday: 'Reward', business: 'Authority', phishing: 'Urgency',
+  support: 'Fear', government: 'Authority', prize: 'Reward', investment: 'Reward', carrier: 'Details as proof',
+  refund: 'Reward', insurance: 'Fear', sales: 'Reward', 'wrong-number': 'Details as proof',
+};
+export const scenarios: Scenario[] = scenarioCatalog.map((publicRow) => {
+  const tactic = tactics[publicRow.id];
+  if (!tactic) throw new Error(`Missing tactic for ${publicRow.id}`);
   const next_step = `End this call and check the notice through your own ${publicRow.org} app using its saved contact.`;
   const ask_line = 'Please read me your fictional Practice protection code to complete this request.';
   const detail = publicRow.card.facts[0]!;
-  return { ...publicRow, tactic: tactics[index]!, versions: {
+  return { ...publicRow, tactic, versions: {
     real: { steps: [`Introduce ${publicRow.org} and explain the practice notice.`, detail, 'Explain why the notice matters without asking for a secret.', next_step], next_step },
-    scam: { steps: [`Claim to represent ${publicRow.org} about the practice notice.`, detail, publicRow.id === 'phishing' ? 'Send the caller link to the look-alike sheet and urge immediate renewal.' : `Apply ${tactics[index]} to push for immediate cooperation.`, ask_line], ask_line,
+    scam: { steps: [`Claim to represent ${publicRow.org} about the practice notice.`, detail, publicRow.id === 'phishing' ? 'Send the caller link to the look-alike sheet and urge immediate renewal.' : `Apply ${tactic} to push for immediate cooperation.`, ask_line], ask_line,
       ...(publicRow.id === 'phishing' ? { link: { href: 'https://cloudpetal-check.invalid/renew', sheet: { title: 'Cloudpetal renewal check', facts: ['Caller-sent page requesting your practice protection code.'] } } } : {}),
     },
   } };
