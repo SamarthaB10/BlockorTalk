@@ -35,7 +35,7 @@ export function meView(analysis: PlayerAnalysis, sentences: Sentences | null, so
     source,
     sections: SECTION_IDS.map((id): MeSection => ({
       id, title: TITLES[id], sentence: sentences[id], facts: facts[id],
-      ...(id === 'tryNext' && next ? { link: { href: `/play/${next.id}`, label: next.category } } : {}),
+      ...(id === 'tryNext' && next ? { link: { href: '/dashboard?view=Scenarios', label: next.category } } : {}),
     })),
   };
 }

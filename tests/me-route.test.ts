@@ -56,7 +56,7 @@ describe('/me', () => {
   it('links Try next to the suggested Call scenario', async () => {
     const { body } = await fixture([call({ leaked: true }), call()]).get();
     const tryNext = body.sections[3];
-    expect(tryNext.link).toEqual({ href: '/play/delivery', label: 'Delivery or customs fee' });
+    expect(tryNext.link).toEqual({ href: '/dashboard?view=Scenarios', label: 'Delivery or customs fee' });
   });
 
   it('shows the stored sentences instantly, but the numbers always come from code', async () => {
