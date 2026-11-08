@@ -19,17 +19,14 @@ export interface PostCallDeps {
   /** HMAC secret ElevenLabs shows when the workspace webhook is created. */
   secret: string;
   /**
-   * Atomically claims a conversation ID. Returns false if it was already
-   * processed: ElevenLabs retries resend the same payload.
+   * Hands the transcript to the drill service, which redacts real-looking data,
+   * stores it and triggers the Debrief agent. It must be idempotent on
+   * conversation ID in a single atomic write (e.g. INSERT ... ON CONFLICT DO
+   * NOTHING on a unique conversation_id) and return "duplicate" when the row
+   * already existed. ElevenLabs retries resend the same payload, and a throw
+   * returns 500 so the retry is processed.
    */
-  claim(conversationId: string): Promise<boolean>;
-  /** Undoes a claim when storing failed, so the ElevenLabs retry is processed. */
-  release(conversationId: string): Promise<void>;
-  /**
-   * Hands the transcript to the drill service, which redacts real-looking data
-   * before storing and then triggers the Debrief agent.
-   */
-  onTranscript(t: PostCallTranscript): Promise<void>;
+  store(t: PostCallTranscript): Promise<"stored" | "duplicate">;
   /** Deletes the conversation from ElevenLabs once stored (docs/SPEC.md data handling). */
   deleteConversation(conversationId: string): Promise<void>;
   /** Signature verifier; defaults to the ElevenLabs SDK helper. */
@@ -86,20 +83,20 @@ export function postCallWebhookHandler(deps: PostCallDeps) {
     // Other event types (audio, call-initiation failures) are acknowledged and ignored.
     if (!transcript) return new Response("ignored", { status: 200 });
 
-    if (!(await deps.claim(transcript.conversationId))) {
-      return new Response("duplicate", { status: 200 });
-    }
+    let outcome: "stored" | "duplicate";
     try {
-      await deps.onTranscript(transcript);
-    } catch {
-      await deps.release(transcript.conversationId);
+      outcome = await deps.store(transcript);
+    } catch (err) {
+      console.error("post-call store failed", transcript.conversationId, err);
       return new Response("store failed", { status: 500 });
     }
     try {
+      // Also retried on a duplicate, in case the first delivery stored but failed to delete.
       await deps.deleteConversation(transcript.conversationId);
-    } catch {
-      // Best effort: retention is already 1 day on the agent, so a failed delete still expires.
+    } catch (err) {
+      // Retention is already 1 day on the agent, so a missed delete still expires.
+      console.warn("ElevenLabs conversation delete failed", transcript.conversationId, err);
     }
-    return new Response("ok", { status: 200 });
+    return new Response(outcome === "stored" ? "ok" : "duplicate", { status: 200 });
   };
 }

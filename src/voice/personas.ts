@@ -44,6 +44,7 @@ export interface PersonaDefinition {
   /** ElevenLabs premade voice. Fixed per agent; chosen without regard to call type. */
   voiceId: string;
   voiceLabel: string;
+  voiceGender: "female" | "male";
   /** Spoken right after the disclosure line. */
   openingLine: string;
   /** Dynamic variables this agent needs at conversation start, with safe dashboard-test defaults. */
@@ -76,6 +77,7 @@ export const PERSONAS: Record<ChallengeCallerId, PersonaDefinition> = {
     claimedOrg: "Bluebonnet Labs recruiting",
     voiceId: "XrExE9yKIg1WjnnlVkGX",
     voiceLabel: "Matilda",
+    voiceGender: "female",
     openingLine: openingLineFor("Yui", "Bluebonnet Labs recruiting"),
     variables: {
       ...CARD_IDENTITY,
@@ -111,8 +113,9 @@ An outbound phone call. The person may be busy or cautious about unknown callers
     agentName: "Tell · Ren (Bluebonnet Labs onboarding)",
     displayName: "Ren",
     claimedOrg: "Bluebonnet Labs onboarding",
-    voiceId: "iP95p4xoKVk53GoZ742B",
-    voiceLabel: "Chris",
+    voiceId: "hpp4J3VqNfWAUOO0d1Us",
+    voiceLabel: "Bella",
+    voiceGender: "female",
     openingLine: openingLineFor("Ren", "Bluebonnet Labs onboarding"),
     variables: {
       ...CARD_IDENTITY,
@@ -148,6 +151,7 @@ The gift card code on the player's card is {{gift_card_code}}. Recognise it if t
     claimedOrg: "Corvanta Bank's fraud team",
     voiceId: "cjVigY5qzO86Huf0OWal",
     voiceLabel: "Eric",
+    voiceGender: "male",
     openingLine: openingLineFor("Kai", "Corvanta Bank's fraud team"),
     variables: {
       ...CARD_IDENTITY,
@@ -180,8 +184,9 @@ The one-time code shown to the player is {{live_code}}. Recognise it if they rea
     agentName: "Tell · Corvanta Bank callback line",
     displayName: "Aki",
     claimedOrg: "Corvanta Bank",
-    voiceId: "EXAVITQu4vr4xnSDxMaL",
-    voiceLabel: "Sarah",
+    voiceId: "nPczCjzI2devNBz1zQrb",
+    voiceLabel: "Brian",
+    voiceGender: "male",
     // The player calls this agent from the in-app bank app, so it answers like a bank line.
     openingLine:
       "Thanks for calling Corvanta Bank, this is Aki. Am I speaking with {{player_name}}?",

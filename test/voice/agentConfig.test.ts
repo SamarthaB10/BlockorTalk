@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentConfig } from "../../src/voice/agentConfig";
+import { buildAgentConfig, NO_BEAT_TOOL_NOTE } from "../../src/voice/agentConfig";
 import { CHALLENGE_CALLER_IDS, PERSONAS } from "../../src/voice/personas";
 
 const DISCLOSURE =
@@ -63,6 +63,23 @@ describe("shared opening-line template", () => {
   });
 });
 
+describe("anti-shortcut: voice", () => {
+  // Call types live with the Challenge script, never in the voice layer; listed here only to test.
+  const legit = new Set(["recruiter", "bank_callback"]);
+
+  it("voice gender does not separate legit callers from the rest", () => {
+    for (const gender of ["female", "male"] as const) {
+      const ids = CHALLENGE_CALLER_IDS.filter((id) => PERSONAS[id].voiceGender === gender);
+      expect(ids.some((id) => legit.has(id)), `${gender} has a legit caller`).toBe(true);
+      expect(ids.some((id) => !legit.has(id)), `${gender} has a non-legit caller`).toBe(true);
+    }
+  });
+
+  it("every agent has its own voice", () => {
+    expect(new Set(CHALLENGE_CALLER_IDS.map((id) => PERSONAS[id].voiceId)).size).toBe(4);
+  });
+});
+
 describe("beat tool", () => {
   it("is only attached once there is a public https URL, and sends the secret and conversation ID", () => {
     expect(buildAgentConfig("fraud_team").conversationConfig.agent!.prompt!.tools).toEqual([]);
@@ -78,5 +95,26 @@ describe("beat tool", () => {
     expect(() =>
       buildAgentConfig("fraud_team", { beatTool: { publicUrl: "http://insecure.test", toolSecretId: "s" } }),
     ).toThrow(/https/);
+  });
+
+  it("sets exactly one value source on each body property (ElevenLabs rejects more)", () => {
+    const cfg = buildAgentConfig("fraud_team", {
+      beatTool: { publicUrl: "https://tell.example.com", toolSecretId: "sec_1" },
+    });
+    const props = (cfg.conversationConfig.agent!.prompt!.tools![0] as any).apiSchema.requestBodySchema
+      .properties as Record<string, Record<string, unknown>>;
+    const sources = ["description", "dynamicVariable", "isSystemProvided", "constantValue"];
+    for (const [name, prop] of Object.entries(props)) {
+      expect(sources.filter((s) => prop[s] !== undefined), name).toHaveLength(1);
+    }
+  });
+
+  it("tells the agent to skip report_beat steps only when the tool is absent", () => {
+    const without = buildAgentConfig("fraud_team").conversationConfig.agent!.prompt!.prompt!;
+    const withTool = buildAgentConfig("fraud_team", {
+      beatTool: { publicUrl: "https://tell.example.com", toolSecretId: "sec_1" },
+    }).conversationConfig.agent!.prompt!.prompt!;
+    expect(without).toContain(NO_BEAT_TOOL_NOTE);
+    expect(withTool).not.toContain(NO_BEAT_TOOL_NOTE);
   });
 });

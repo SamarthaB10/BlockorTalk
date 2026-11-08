@@ -36,8 +36,12 @@ export function placeholdersIn(text: string): string[] {
   return [...names];
 }
 
-export function systemPromptFor(id: ChallengeCallerId): string {
-  return `${PERSONAS[id].persona}\n\n${SHARED_GUARDRAILS}`;
+export const NO_BEAT_TOOL_NOTE =
+  "The report_beat tool is not available on this call: skip every step that says to call it, and carry on.";
+
+export function systemPromptFor(id: ChallengeCallerId, hasBeatTool = false): string {
+  const base = `${PERSONAS[id].persona}\n\n${SHARED_GUARDRAILS}`;
+  return hasBeatTool ? base : `${base}\n- ${NO_BEAT_TOOL_NOTE}`;
 }
 
 export function firstMessageFor(id: ChallengeCallerId): string {
@@ -68,11 +72,8 @@ function beatTool(opts: BeatToolOptions): ElevenLabs.PromptAgentApiModelOutputTo
             enum: [...BEATS],
             description: "Which scripted moment just happened.",
           },
-          conversation_id: {
-            type: "string",
-            dynamicVariable: "system__conversation_id",
-            description: "The current conversation ID.",
-          },
+          // Filled by ElevenLabs, not the LLM. Only one value source may be set per property.
+          conversation_id: { type: "string", dynamicVariable: "system__conversation_id" },
         },
       },
     },
@@ -88,7 +89,7 @@ export function buildAgentConfig(
   opts: AgentConfigOptions = {},
 ): ElevenLabs.conversationalAi.BodyCreateAgentV1ConvaiAgentsCreatePost {
   const p = PERSONAS[id];
-  const prompt = systemPromptFor(id);
+  const prompt = systemPromptFor(id, Boolean(opts.beatTool));
   const firstMessage = firstMessageFor(id);
 
   const missing = [...placeholdersIn(prompt), ...placeholdersIn(firstMessage)].filter(

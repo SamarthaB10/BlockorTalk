@@ -24,17 +24,20 @@ const payload = JSON.stringify({
   },
 });
 
-function harness(opts: { failStore?: boolean } = {}) {
-  const claimed = new Set<string>();
+function harness() {
+  // Stands in for the drill service's unique-keyed insert.
+  const rows = new Map<string, PostCallTranscript>();
   const stored: PostCallTranscript[] = [];
   const deleted: string[] = [];
+  const db = { down: false };
   const handler = postCallWebhookHandler({
     secret: SECRET,
-    claim: async (id) => (claimed.has(id) ? false : (claimed.add(id), true)),
-    release: async (id) => void claimed.delete(id),
-    onTranscript: async (t) => {
-      if (opts.failStore) throw new Error("db down");
+    store: async (t) => {
+      if (db.down) throw new Error("db down");
+      if (rows.has(t.conversationId)) return "duplicate";
+      rows.set(t.conversationId, t);
       stored.push(t);
+      return "stored";
     },
     deleteConversation: async (id) => void deleted.push(id),
   });
@@ -46,7 +49,7 @@ function harness(opts: { failStore?: boolean } = {}) {
         headers: { "ElevenLabs-Signature": signature },
       }),
     );
-  return { post, stored, deleted, claimed };
+  return { post, stored, deleted, db };
 }
 
 describe("post-call webhook", () => {
@@ -100,11 +103,16 @@ describe("post-call webhook", () => {
     expect(h.stored).toHaveLength(0);
   });
 
-  it("returns 500 and lets the retry through when storing fails", async () => {
-    const failing = harness({ failStore: true });
-    expect((await failing.post(payload, sign(payload))).status).toBe(500);
-    expect(failing.claimed.has("conv_123")).toBe(false);
-    expect(failing.deleted).toHaveLength(0);
+  it("returns 500 when storing fails, then stores the retry exactly once", async () => {
+    const h = harness();
+    h.db.down = true;
+    expect((await h.post(payload, sign(payload))).status).toBe(500);
+    expect(h.deleted).toHaveLength(0);
+    h.db.down = false;
+    expect((await h.post(payload, sign(payload))).status).toBe(200);
+    expect((await h.post(payload, sign(payload))).status).toBe(200);
+    expect(h.stored).toHaveLength(1);
+    expect(h.stored[0]!.conversationId).toBe("conv_123");
   });
 
   it("acknowledges other event types without storing them", async () => {

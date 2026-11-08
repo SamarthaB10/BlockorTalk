@@ -11,7 +11,7 @@ let client: ElevenLabsClient | undefined;
 
 export function elevenLabs(): ElevenLabsClient {
   if (!process.env.ELEVENLABS_API_KEY) {
-    throw new Error("ELEVENLABS_API_KEY is not set (see .env.local / docs/VOICE.md)");
+    throw new Error("ELEVENLABS_API_KEY is not set (see .env.local)");
   }
   client ??= new ElevenLabsClient();
   return client;
