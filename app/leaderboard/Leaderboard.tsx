@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Season } from '../../lib/season/routes';
 import { Button } from '../components/ui';
-import Blokbuks from '../components/Blokbuks';
+import StandingsBoard, { type Rank } from './StandingsBoard';
 
-type Rank = { rank: number; nickname: string; blokbuks: number };
 type Board = { season: Season & { status: string }; final: boolean; leaderboard: Rank[]; ownRank: Rank | null; claimEligible: boolean };
 
-export default function Leaderboard({ claim = false }: { claim?: boolean }) {
+export function seasonHeading(board: Board, remaining: number) {
+  if (board.final) return 'Final Leaderboard';
+  if (remaining === 0) return 'Waiting for final results';
+  if (board.season.status === 'upcoming') return 'Season starts soon';
+  return 'Season ends in';
+}
+
+export default function Leaderboard({ claim = false, embedded = false }: { claim?: boolean; embedded?: boolean }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState(0);
@@ -63,22 +69,36 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
     finally { setSaving(false); }
   }
 
-  const row = (rank: Rank) => <tr key={rank.rank}><td>{rank.rank}</td><th scope="row">{rank.nickname}</th><td><Blokbuks amount={rank.blokbuks} /></td></tr>;
+  if (!claim) {
+    const remainingClock = { hours: Math.floor(remaining / 3600), minutes: Math.floor(remaining % 3600 / 60), seconds: remaining % 60 };
+    return <StandingsBoard embedded={embedded} loading={!board && !error} error={error} onRetry={() => void refresh()} model={board ? {
+      name: board.season.name,
+      heading: seasonHeading(board, remaining),
+      final: board.final,
+      ...remainingClock,
+      endsAtLabel: board.final ? 'The Season has ended. Scores are final.' : `Ends ${new Date(board.season.endsAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })} CT`,
+      prizes: board.season.prizes,
+      rows: board.leaderboard,
+      ownRank: board.ownRank,
+      claimEligible: board.claimEligible,
+    } : null} />;
+  }
+
   return <main className="season-page">
     <header><p className="season-eyebrow">National Leaderboard · {board?.season.name || 'Season 1'}</p>
-      <h1>{claim ? 'Claim your prize' : 'Good judgment adds up.'}</h1>
+      <h1>Claim your prize</h1>
       <p>Practice spotting scam calls. Earn Blokbuks with each Scored call.</p>
     </header>
     {error && <p role="alert" className="season-notice">{error} <a href="/leaderboard">Try again</a></p>}
     {!board && !error && <p role="status">Loading the Leaderboard…</p>}
     {board && <>
       <section className="season-summary" aria-label="Season status">
-        <div><h2>{board.final ? 'Final Leaderboard' : remaining === 0 ? 'Waiting for final results' : board.season.status === 'upcoming' ? 'Season starts soon' : 'Season ends in'}</h2>
+        <div><h2>{seasonHeading(board, remaining)}</h2>
           <p className="season-countdown" role="timer" aria-label="Time until Season ends">{Math.floor(remaining / 3600)}h {Math.floor(remaining % 3600 / 60)}m {remaining % 60}s</p>
           <p>{board.final ? 'The Season has ended. Scores are final.' : `Ends ${new Date(board.season.endsAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })} CT`}</p></div>
         <div><h2>Season prizes</h2><ol>{board.season.prizes.map(prize => <li key={prize.place}>{prize.prize}</li>)}</ol><p>provided by sponsor · rules apply</p></div>
       </section>
-      {claim ? <section aria-label="Prize claim">
+      <section aria-label="Prize claim">
         {board.claimEligible ? <><h2>Confirm your details</h2><p>This is a claim request. The sponsor must verify your email and approve the prize.</p>
           <form className="season-claim" onSubmit={submit}>
             <label htmlFor="claim-email">Confirm your profile email</label><input id="claim-email" name="email" type="email" autoComplete="email" maxLength={254} required />
@@ -86,12 +106,7 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
             <label><input type="checkbox" name="usResident" required /> I am a US resident.</label>
             <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Sending…' : 'Send claim request'}</Button>
           </form><p role="status">{message}</p></> : <p>Claims are open only to the final top three Players. Sign in with your Player profile after the Season ends.</p>}
-      </section> : <>
-        {board.ownRank && <p className="season-notice">Your rank: <strong>{board.ownRank.rank}</strong> · <Blokbuks amount={board.ownRank.blokbuks} /></p>}
-        {board.claimEligible && <p><a className="ui-button" href="/leaderboard/claim">Claim your prize</a></p>}
-        <h2>Top 100 Players</h2><p>Order: Blokbuks, then accuracy, then who reached the score first.</p>
-        {board.leaderboard.length ? <table><caption className="ui-sr-only">National Leaderboard</caption><thead><tr><th scope="col">Rank</th><th scope="col">Nickname</th><th scope="col">Blokbuks</th></tr></thead><tbody>{board.leaderboard.map(row)}</tbody></table> : <p>No Players yet. Be the first to join.</p>}
-      </>}
+      </section>
     </>}
   </main>;
 }

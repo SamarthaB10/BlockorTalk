@@ -1,0 +1,61 @@
+.standings { color: #eeeae1; background: #2a2624; border: 1px solid #575757; border-radius: 16px; width: min(1400px, 100%); margin: 0 auto 32px; padding: clamp(24px, 4vw, 40px); }
+main.standings { width: min(1400px, calc(100% - 32px)); margin: 24px auto 48px; }
+.standings, .standings * { box-sizing: border-box; }
+.standings a { color: inherit; }
+.standings-kicker { margin: 0 0 12px; font-size: 13px; color: #bdbdbd; }
+.standings h1 { font-size: clamp(36px, 5vw, 60px); line-height: 1.05; font-weight: 550; letter-spacing: -.03em; margin: 0 0 8px; max-width: 16ch; }
+.standings-lede { max-width: 42ch; margin: 8px 0 20px; }
+.standings h2 { font-size: clamp(22px, 2.5vw, 32px); line-height: 1.15; font-weight: 550; letter-spacing: -.03em; margin: 0; }
+.standings-clock { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 12px 0 0; }
+.standings-digits { display: flex; align-items: baseline; }
+.standings-clock .ui-dot { --dot-size: clamp(40px, 5vw, 64px); }
+.standings-colon { font-size: clamp(28px, 4vw, 48px); line-height: 1; padding: 0 4px; }
+.standings-clock-caption { font-size: 13px; color: #bdbdbd; }
+.standings-ends, .standings-prizes, .standings-order { color: #bdbdbd; font-size: 15px; }
+.standings-prizes { max-width: 70ch; }
+.standings-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.standings-own { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; margin: 20px 0 0; padding: 14px 16px; border-radius: 12px; background: #e8e2d8; color: #1e1c1a; }
+.standings-own .blokbuks { white-space: nowrap; }
+.standings-own strong { font-size: 28px; font-variant-numeric: tabular-nums; font-weight: 650; }
+.standings-actions { margin: 16px 0 0; }
+.standings-claim, .standings-retry { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 18px; border: 0; border-radius: 10px; background: #e8e2d8; color: #1e1c1a; font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; }
+.hub .standings .standings-claim, .hub .standings .standings-retry, .standings .standings-claim, .standings .standings-retry { color: #1e1c1a; background: #e8e2d8; }
+.standings-podium { display: grid; gap: 12px; align-items: end; list-style: none; margin: 28px 0 0; padding: 0; }
+.standings-podium[data-count="1"] { grid-template-columns: minmax(0, 520px); }
+.standings-podium[data-count="2"] { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+.standings-podium[data-count="3"] { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); }
+.standings-place { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; min-width: 0; min-height: 148px; padding: 20px; border: 1px solid #575757; border-radius: 16px; }
+.standings-place[data-place="1"] { min-height: 240px; background: #e8e2d8; color: #1e1c1a; border-color: #e8e2d8; }
+.standings-place[data-place="2"] { min-height: 188px; }
+.standings-place.is-you { box-shadow: inset 0 0 0 3px #a24616; }
+.standings-place-label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #bdbdbd; }
+.standings-place[data-place="1"] .standings-place-label { color: #625e58; }
+.standings-place[data-place="1"] .ui-dot { --dot-size: clamp(80px, 10vw, 132px); }
+.standings-place[data-place="2"] .ui-dot { --dot-size: clamp(52px, 6vw, 80px); }
+.standings-place[data-place="3"] .ui-dot { --dot-size: clamp(44px, 5vw, 64px); }
+.standings .blokbuks { color: inherit; }
+.standings-name { font-size: clamp(18px, 2vw, 28px); font-weight: 650; overflow-wrap: anywhere; }
+.standings-place[data-place="1"] .standings-name { font-size: clamp(22px, 2.4vw, 34px); }
+.standings-list-title { font-size: 22px; font-weight: 650; margin: 32px 0 4px; }
+.standings-order { margin: 0 0 8px; }
+.standings table { width: 100%; border-collapse: collapse; }
+.standings th, .standings td { padding: 14px 8px; border-bottom: 1px solid #575757; text-align: left; }
+.standings thead th { font-size: 12px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: #bdbdbd; }
+.standings tbody th { font-size: 16px; font-weight: 550; color: inherit; letter-spacing: 0; text-transform: none; overflow-wrap: anywhere; }
+.standings td:first-child { width: 4.5rem; font-variant-numeric: tabular-nums; font-weight: 650; }
+.standings td:last-child, .standings th:last-child { text-align: right; white-space: nowrap; }
+.standings tr.is-you td, .standings tr.is-you th { background: #e8e2d8; color: #1e1c1a; }
+.standings-you { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 20px; background: #2a2624; color: #eeeae1; font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.standings :focus-visible { outline: 3px solid #a23e0b; outline-offset: 4px; }
+@media (hover: hover) {
+  .standings-claim:hover, .standings-retry:hover { background: #f5f3ef; }
+}
+@media (max-width: 700px) {
+  .standings { padding: 20px 16px; }
+  .standings-podium[data-count="1"], .standings-podium[data-count="2"], .standings-podium[data-count="3"] { grid-template-columns: 1fr; }
+  .standings-place, .standings-place[data-place="1"], .standings-place[data-place="2"] { min-height: 0; }
+  .standings td:last-child, .standings th:last-child { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .standings-claim, .standings-retry { transition: none; }
+}
