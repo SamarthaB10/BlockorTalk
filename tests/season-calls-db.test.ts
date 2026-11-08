@@ -15,7 +15,7 @@ test.skipIf(!database)('concurrent starts reserve only five and concurrent Verdi
   const url = new URL(database!); url.searchParams.set('options', `-csearch_path=${schema}`);
   const db = new pg.Client({ connectionString: url.toString() }); await db.connect();
   try {
-    await db.query(`CREATE TABLE players(id uuid PRIMARY KEY);
+    await db.query(`CREATE TABLE players(id uuid PRIMARY KEY,email text,nickname text);
       CREATE TABLE player_sessions(token_hash text PRIMARY KEY,player_id uuid REFERENCES players,expires_at timestamptz);
       CREATE TABLE seasons(id text PRIMARY KEY,starts_at timestamptz,ends_at timestamptz);
       CREATE TABLE calls(id uuid PRIMARY KEY,player_id uuid REFERENCES players,season_id text REFERENCES seasons,scenario_id text,version text,scored boolean,state jsonb,verdict text,moments jsonb,"right" int,wrong int,blokbuks_delta int,scored_by text,outcome text,synthetic boolean DEFAULT false,started_at timestamptz,ended_at timestamptz);
