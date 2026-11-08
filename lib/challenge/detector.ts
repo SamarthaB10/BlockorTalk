@@ -6,6 +6,11 @@ const TACTICS: Tactic[] = ['authority', 'urgency', 'details-as-proof', 'reward',
 type Classification = { label: 'scam' | 'legit'; scam_type: string | null; confidence: number; red_flags: Array<{ tactic: Tactic; text: string }> };
 const uncertain = (): Detection => ({ source: 'nemotron-retrieval (cannot tell)', label: null, scam_type: null, confidence: 0, red_flags: [] });
 
+export class DetectorRateLimitError extends Error {
+  retryAt: number;
+  constructor(retryAt: number) { super('Detector HTTP 429'); this.retryAt = retryAt; }
+}
+
 /** Quotes are anchored to one turn. JavaScript indexes give UTF-16 spans, including after emoji. */
 export function anchorDetection(transcript: Transcript, value: unknown): Detection {
   if (!value || typeof value !== 'object') return uncertain();
@@ -26,16 +31,24 @@ export function anchorDetection(transcript: Transcript, value: unknown): Detecti
 }
 
 /** Needs the train-only pool loaded by `python -m detection.index`. A failure never invents flags. */
-export function createRetrievalDetector(env: NodeJS.ProcessEnv) {
+export function createRetrievalDetector(env: NodeJS.ProcessEnv, { fetchImpl = globalThis.fetch, now = Date.now } = {}) {
   return async (transcript: Transcript): Promise<Detection> => {
     const signal = AbortSignal.timeout(7000);
     const text = transcript.turns.map(t => `${t.turn} ${t.speaker}: ${t.text}`).join('\n');
     const base = (env.NVIDIA_BASE_URL ?? 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '');
     async function post(path: string, body: unknown) {
       if (!env.NVIDIA_API_KEY) throw new Error('Detector key not configured');
-      const response = await fetch(`${base}/${path}`, { method: 'POST', signal,
+      const response = await fetchImpl(`${base}/${path}`, { method: 'POST', signal,
         headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!response.ok) throw new Error(`Detector HTTP ${response.status}`);
+      if (response.status === 429) {
+        const value = response.headers.get('retry-after');
+        const seconds = value?.trim() ? Number(value) : NaN;
+        const date = value ? Date.parse(value) : NaN;
+        const retryAt = Number.isFinite(seconds) && seconds >= 0 ? now() + seconds * 1000 : Number.isFinite(date) ? date : now() + 30000;
+        await response.body?.cancel();
+        throw new DetectorRateLimitError(Math.max(now(), retryAt));
+      }
+      if (!response.ok) { await response.body?.cancel(); throw new Error(`Detector HTTP ${response.status}`); }
       return response.json();
     }
     const embedded = await post('embeddings', { model: 'nvidia/nemotron-3.5-embed-1b', input: [text], input_type: 'query', truncate: 'END', dimensions: 1024 }) as { data?: Array<{ embedding?: unknown }> };

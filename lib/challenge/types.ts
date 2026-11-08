@@ -16,6 +16,8 @@ export type CallResult = {
 };
 export type VoiceTurnInput = { role: 'assistant' | 'user'; text: string };
 export type Challenge = {
+  /** Server-only detection queue and presenter capability. Excluded from player responses. */
+  risk?: import('./risk.ts').RiskState;
   id: string;
   balance: number;
   interview: 'OPEN' | 'BOOKED';
@@ -35,9 +37,11 @@ export type Challenge = {
   events: VerifyRecord[];
   /** Set once this call's spoken transcript has been saved, so it can't be appended twice. */
   voiceSaved?: boolean;
+  /** Number of raw cumulative voice messages already ingested; retries cannot append them twice. */
+  voiceReceived?: number;
   /** The detective reveal, cached after the day completes. Not sent with day responses. */
   reveal?: import('./reveal.ts').RevealPayload;
 };
-export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; turns: VoiceTurnInput[] };
+export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; turns: VoiceTurnInput[] } | { type: 'voice_live'; callerId: CallerId; startedAt: string; turns: VoiceTurnInput[] };
 export type ReplyRequest = { turns: Turn[]; options: readonly string[] };
 export type Reply = (request: ReplyRequest) => Promise<string>;

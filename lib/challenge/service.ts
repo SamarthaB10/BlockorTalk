@@ -3,6 +3,7 @@ import type { Action, Challenge, Reply, Turn } from './types.ts';
 import { DISCLOSURE } from './recruiter.ts';
 import { CALLERS, CALL_ORDER, CODE_REQUEST_LINES, FAKE_SECRETS } from './scenarios.ts';
 import { mentionsSecret } from '../policy/normalize.mjs';
+import { queueRisk } from './risk.ts';
 
 export class ChallengeError extends Error {
   status: number;
@@ -29,7 +30,7 @@ function scanLeaks(day: Challenge, raw: string) {
   return added;
 }
 
-export function createChallengeService({ connectionString, reply, now = Date.now }: { connectionString: string; reply: Reply; now?: () => number }) {
+export function createChallengeService({ connectionString, reply, now = Date.now, scheduleRisk }: { connectionString: string; reply: Reply; now?: () => number; scheduleRisk?: (id: string) => void }) {
   async function withClient<T>(work: (client: pg.Client) => Promise<T>) {
     const client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
     await client.connect();
@@ -99,28 +100,28 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (day.callerId === 'recruiter' && (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.some(event => event.surface === 'portal')))) day.interview = 'BOOKED';
           day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked, startedAt: day.startedAt, endedAt: day.endedAt, endReason: day.endReason });
           day.phase = day.callerId === 'fraud_team' ? 'complete' : 'between';
-        } else if (action?.type === 'voice_turns') {
-          // A browser-voice call is spoken, so its transcript only exists in the browser. Accept it once per call,
-          // after the call has ended and before the verdict, and score it exactly like typed replies.
-          // A repeated save (a retry after a lost response) returns the day unchanged.
+        } else if (action?.type === 'voice_turns' || action?.type === 'voice_live') {
+          const live = action.type === 'voice_live';
+          if (live && (action.callerId !== day.callerId || action.startedAt !== day.startedAt)) throw new ChallengeError('That transcript belongs to a different call.');
+          // Live snapshots grow cumulatively. Retries, out-of-order snapshots and the final save
+          // only append messages not previously accepted; scoring still sees the original text.
           if (day.voiceSaved) { await client.query('COMMIT'); return day; }
-          if (day.phase !== 'verdict') throw new ChallengeError('This call has no voice transcript to save.');
-          day.voiceSaved = true;
+          if (day.phase !== 'verdict' && !(live && day.phase === 'call')) throw new ChallengeError('This call has no voice transcript to save.');
           if (!Array.isArray(action.turns) || action.turns.length > 40) throw new ChallengeError('That voice transcript is too long.', 400);
           // A call can start in text and switch to voice: spoken turns come after the typed ones.
           const start = Date.parse(day.turns.at(-1)?.at ?? day.startedAt);
           const span = Math.max(0, Date.parse(day.endedAt ?? day.startedAt) - start);
-          const spoken = action.turns.filter(turn => (turn.role === 'assistant' || turn.role === 'user') && typeof turn.text === 'string' && turn.text.trim());
+          const spoken = action.turns.slice(day.voiceReceived ?? 0).filter(turn => (turn.role === 'assistant' || turn.role === 'user') && typeof turn.text === 'string' && turn.text.trim());
           // The disclosure and opening line are already in day.turns; drop spoken repeats of them.
           const opening = `This is ${CALLERS[day.callerId].name} from`;
           const fresh = spoken.filter(turn => !(turn.role === 'assistant' && (turn.text.includes('Tell practice call') || turn.text.includes(opening))));
           fresh.forEach((turn, i) => {
             const raw = turn.text.trim().slice(0, 1000);
-            const at = new Date(start + Math.round(span * (i + 1) / (fresh.length + 1))).toISOString();
+            const at = live ? new Date(now()).toISOString() : new Date(start + Math.round(span * (i + 1) / (fresh.length + 1))).toISOString();
             if (turn.role === 'assistant') {
               // Kai's one-time code appears when he brings it up; only after that does reading it count.
               if (day.callerId === 'fraud_team' && /\bcode\b/i.test(raw)) day.codeVisible = true;
-              day.turns.push({ role: 'assistant', text: raw, at, source: 'script' });
+              day.turns.push({ role: 'assistant', text: safeText(raw), at, source: 'script' });
               return;
             }
             // Same 12-reply cap as text: a spoken reply past it is neither stored nor scored.
@@ -128,7 +129,11 @@ export function createChallengeService({ connectionString, reply, now = Date.now
             const leaked = scanLeaks(day, raw);
             day.turns.push({ role: 'user', text: safeText(raw), at, ...(leaked.length ? { leaked } : {}) });
             day.replies += 1;
+            if (live && /\bstop\s+drill\b/i.test(raw)) end(day, 'stop');
+            else if (live && day.replies >= 12) end(day, 'reply_cap');
           });
+          day.voiceReceived = Math.max(day.voiceReceived ?? 0, action.turns.length);
+          if (!live) day.voiceSaved = true;
         } else if (action?.type === 'portal') {
           day.events.push({ type: 'Verify', surface: 'portal', at: new Date(now()).toISOString() });
           if (day.calls.some(call => call.callerId === 'recruiter' && call.verdict === 'Unverified')) day.interview = 'BOOKED';
@@ -136,7 +141,7 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           if (day.phase !== 'between') throw new ChallengeError('Give this caller a verdict before the next call.');
           const callerId = CALL_ORDER[CALL_ORDER.indexOf(day.callerId) + 1];
           const at = new Date(now()).toISOString();
-          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false, voiceSaved: false,
+          Object.assign(day, { callerId, phase: 'call', startedAt: at, endedAt: undefined, endReason: undefined, replies: 0, verdict: undefined, leaked: [], codeVisible: false, voiceSaved: false, voiceReceived: 0,
             turns: [{ role: 'system', text: DISCLOSURE, at }, { role: 'assistant', text: CALLERS[callerId].opening, at, source: 'script' }] });
         } else if (action?.type === 'bank') {
           day.events.push({ type: 'Verify', surface: 'bank', at: new Date(now()).toISOString() });
@@ -154,8 +159,10 @@ export function createChallengeService({ connectionString, reply, now = Date.now
             }
           }
         }
+        queueRisk(day);
         await client.query('UPDATE tell_challenges SET state = $2, updated_at = now() WHERE id = $1', [id, JSON.stringify(day)]);
         await client.query('COMMIT');
+        scheduleRisk?.(id);
         return day;
       } catch (error) { await client.query('ROLLBACK'); throw error; }
     });
@@ -165,7 +172,9 @@ export function createChallengeService({ connectionString, reply, now = Date.now
       const startedAt = new Date(now()).toISOString();
       const day: Challenge = { id: crypto.randomUUID(), balance: 1000, interview: 'OPEN', bank: 'OPEN', callerId: 'recruiter', phase: 'call', startedAt, replies: 0,
         turns: [{ role: 'system', text: DISCLOSURE, at: startedAt }, { role: 'assistant', text: CALLERS.recruiter.opening, at: startedAt, source: 'script' }], events: [], calls: [], leaked: [], codeVisible: false, callbackStep: 0 };
+      queueRisk(day);
       await withClient(client => client.query('INSERT INTO tell_challenges (id, state) VALUES ($1, $2)', [day.id, JSON.stringify(day)]));
+      scheduleRisk?.(day.id);
       return day;
     },
     get: (id: string) => update(id),
