@@ -90,18 +90,22 @@ export function createPlayerAnalyst(llm: AnalystLlm | undefined) {
 }
 
 // NVIDIA's chat-completions API, as in lib/challenge/nemotron.ts.
-export function createNemotronAnalystLlm(env: Record<string, string | undefined> = process.env): AnalystLlm | undefined {
+/** Defaults suit the short Player analysis; the Carrier insights report asks for more room. */
+export function createNemotronAnalystLlm(
+  env: Record<string, string | undefined> = process.env,
+  { maxTokens = 400, timeoutMs = 8000 }: { maxTokens?: number; timeoutMs?: number } = {},
+): AnalystLlm | undefined {
   if (!env.NVIDIA_API_KEY) return undefined;
   return async ({ system, user }) => {
     const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(timeoutMs),
       body: JSON.stringify({
         model: env.NVIDIA_MODEL || 'nvidia/nemotron-3.5-bolt-e4b',
         messages: [{ role: 'system', content: `/no_think\n${system}` }, { role: 'user', content: user }],
         temperature: 0.3,
-        max_tokens: 400,
+        max_tokens: maxTokens,
         chat_template_kwargs: { enable_thinking: false },
         stream: false,
       }),

@@ -35,9 +35,41 @@ describe('Insights analyst', () => {
     ['empty text', '   '],
     ['shaming words', 'Players were foolish to trust bank fraud alerts.'],
     ['dataset names', 'Kaggle examples suggest bank fraud alerts work.'],
-    ['an overlong answer', 'Bank fraud alerts lead. '.repeat(40)],
+    ['an overlong answer', 'Bank fraud alerts lead. '.repeat(200)],
   ])('rejects %s', async (_name, text) => {
     expect(await createInsightsAnalyst(async () => text)(groups, false)).toBeNull();
+  });
+
+  it('gives the model the rates code computed, and lets it quote them', async () => {
+    let user = '';
+    const report = [
+      'Overview',
+      'Of 49 scam calls, 31 fooled someone, a fell-for rate of 63%.',
+      'Scams people fall for most',
+      'Bank fraud alerts using details as proof had a 100% fell-for rate.',
+      'What carriers can do',
+      '- Warn customers that a caller knowing their details is not proof.',
+    ].join('\n');
+    const analyst = createInsightsAnalyst(async request => { user = request.user; return report; });
+    expect(await analyst(groups, false)).toBe(report);
+    const sent = JSON.parse(user);
+    expect(sent.overview).toMatchObject({ scamCalls: 49, fellFor: 31, caught: 18, fellForRate: 63 });
+    expect(sent.byCategory[0]).toMatchObject({ key: 'Bank fraud alert', fellForRate: 100 });
+    expect(sent.byTactic.map((t: { key: string }) => t.key)).toEqual(['Details as proof', 'Fear']);
+  });
+
+  it('asks for the five report sections and carrier actions', async () => {
+    let system = '';
+    await createInsightsAnalyst(async request => { system = request.system; return 'Overview'; })(groups, false);
+    for (const heading of ['Overview', 'Scams people fall for most', 'Pressure tactics that work', 'Real calls people doubted', 'What carriers can do']) expect(system).toContain(heading);
+  });
+
+  it('rejects a percentage it was not given', async () => {
+    expect(await createInsightsAnalyst(async () => 'About 70% of bank fraud alerts fooled someone.')(groups, false)).toBeNull();
+  });
+
+  it('strips bold markers but still checks the text', async () => {
+    expect(await createInsightsAnalyst(async () => '**Overview**\nBank fraud alerts lead, with 31 calls.')(groups, false)).toBe('Overview\nBank fraud alerts lead, with 31 calls.');
   });
 
   it('allows the numbers it was given, including 5', async () => {
