@@ -60,8 +60,14 @@ The app deploys as the `blockortalk` Cloudflare Worker from `main`. Set these as
 | `DATABASE_URL` | everything stored: Challenge days, calls, leaderboard |
 | `NVIDIA_API_KEY` | Nemotron agents and the detector |
 | `ELEVENLABS_API_KEY` | browser voice and phone calls |
+| `TRY_IT_SECRET` | try-it sessions |
 | `TELL_TOOL_SECRET` | agents reporting mid-call beats and reading training examples |
 | `ELEVENLABS_WEBHOOK_SECRET` | the signed post-call transcript webhook |
+| `ELEVENLABS_PHONE_NUMBER_ID` | Call my phone (ElevenLabs ID of the imported Twilio number) |
+| `ELEVENLABS_PHONE_PROVIDER` | `twilio` (or `sip_trunk` for Photon) |
+| `TELL_TEAM_PHONES` | E.164 team phones allowed for Call my phone |
+
+These names must also be listed in `cloudflare.config.ts` as `bindings.secret()` or `wrangler secret put` will refuse them. Twilio SID/token/number stay in `.env.local` for `npm run voice:import-twilio` only — they are not Worker secrets.
 
 ```bash
 npx wrangler secret put DATABASE_URL --name blockortalk
