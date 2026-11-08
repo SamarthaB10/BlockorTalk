@@ -7,7 +7,8 @@ import Conversation from '../../challenge/Conversation';
 import { resumePlayCall, playServerTime } from '../../../lib/season/play/client';
 import { signupLocation } from '../PlayCatalog';
 import { CALL_SECONDS, DRILL_SECONDS, SKILLS, isSkillId } from '../../../lib/skills/catalog';
-export function CallScreen({ scenarioId, initialCall, onComplete, drill }: { scenarioId:string; initialCall?:PublicCall; onComplete?:(call:PublicCall)=>void; drill?:string|null }) {
+/** `onOtherCall` lets a host page (the dashboard) switch to a different open call instead of navigating to /play. */
+export function CallScreen({ scenarioId, initialCall, onComplete, drill, onOtherCall }: { scenarioId:string; initialCall?:PublicCall; onComplete?:(call:PublicCall)=>void; drill?:string|null; onOtherCall?:(scenarioId:string)=>void }) {
  const drillSkill=isSkillId(drill)?drill:null;
  const [call,setCall]=useState<PublicCall|null>(initialCall??null);const [model,setModel]=useState<PlayModel|null>(null);const [text,setText]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [ready,setReady]=useState(!!initialCall);const [seconds,setSeconds]=useState(initialCall?.limitSeconds??(isSkillId(drill)?DRILL_SECONDS:CALL_SECONDS));const [sheetKind,setSheetKind]=useState<'own-app'|'caller-link'|null>(null);
  const [resumePending,setResumePending]=useState(false);const [loadRevision,setLoadRevision]=useState(0);const [modelElapsed,setModelElapsed]=useState(0);const modelReceivedAt=useRef(0);
@@ -19,8 +20,8 @@ export function CallScreen({ scenarioId, initialCall, onComplete, drill }: { sce
  const resumed=await resumePlayCall(sessionStorage,url=>fetch(url,{signal:controller.signal,cache:'no-store'}));if(controller.signal.aborted)return;
  if(resumed.status==='signed-out'){window.location.assign(signupLocation('/play/'+scenarioId));return;}
  if(resumed.status==='retry'){setResumePending(true);setError('Your saved call could not load. Resume it before starting another call.');}
- else {setResumePending(false);if(resumed.status==='resumed'){if(resumed.call.phase==='complete')sessionStorage.removeItem('tell-active-call');else if(resumed.call.scenario.id===scenarioId)install(resumed.call);else window.location.assign('/play/'+encodeURIComponent(resumed.call.scenario.id));}}
- }catch(error){if(!controller.signal.aborted)setError(error instanceof Error?error.message:'Play is unavailable.');}finally{if(!controller.signal.aborted)setReady(true);}})();return()=>controller.abort();},[scenarioId,initialCall,install,loadRevision]);
+ else {setResumePending(false);if(resumed.status==='resumed'){if(resumed.call.phase==='complete')sessionStorage.removeItem('tell-active-call');else if(resumed.call.scenario.id===scenarioId)install(resumed.call);else if(onOtherCall)onOtherCall(resumed.call.scenario.id);else window.location.assign('/play/'+encodeURIComponent(resumed.call.scenario.id));}}
+ }catch(error){if(!controller.signal.aborted)setError(error instanceof Error?error.message:'Play is unavailable.');}finally{if(!controller.signal.aborted)setReady(true);}})();return()=>controller.abort();},[scenarioId,initialCall,install,loadRevision,onOtherCall]);
  useEffect(()=>{if(!model)return;const timer=setInterval(()=>setModelElapsed(Date.now()-modelReceivedAt.current),1000);return()=>clearInterval(timer);},[model]);
  async function mutate(action:CallAction|'start') {
  if(busy)return;setBusy(true);setError('');const controller=new AbortController();request.current=controller;

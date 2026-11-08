@@ -195,7 +195,9 @@ function entryLabel(entry: SkillEntry): EntryLabel {
   return entry.outcome === 'success' && !entry.guided ? 'Demonstrated' : 'Practiced';
 }
 
+/** Where the evidence happened in the call's transcript. Example quizzes have no transcript, so no link. */
 export function evidenceHref(entry: Pick<SkillEntry, 'callId' | 'step'>): string {
+  if (entry.callId.startsWith('example-')) return '';
   const anchor = entry.step && entry.step <= 4 ? `step-${entry.step}` : 'verdict';
   return `/play/results/${encodeURIComponent(entry.callId)}#${anchor}`;
 }

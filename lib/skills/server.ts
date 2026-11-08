@@ -8,6 +8,7 @@ import { authenticatePlayer } from '../season/calls/server';
 import { withCallDatabase, type CallRecord } from '../season/calls/store';
 import { SCENARIO_TACTICS } from '../season/scenarios/tactics.ts';
 import { isSkillId } from './catalog.ts';
+import { withExamples } from './examples.ts';
 import { progressView, type SkillCall } from './log.ts';
 
 type ReplyMoment = { kind?: string; step?: number; move?: string; quote?: string };
@@ -55,10 +56,11 @@ export function createSkillCallReader(connectionString: string) {
       `SELECT state, ended_at FROM calls
         WHERE player_id = $1 AND verdict IS NOT NULL AND NOT synthetic
         ORDER BY ended_at NULLS LAST, started_at, id`, [playerId])).rows;
-    return rows.flatMap(row => {
+    // Every account starts from its example quizzes; real calls add on after them.
+    return withExamples(playerId, rows.flatMap(row => {
       const call = toSkillCall(row.state, row.ended_at);
       return call ? [call] : [];
-    });
+    }));
   });
 }
 
