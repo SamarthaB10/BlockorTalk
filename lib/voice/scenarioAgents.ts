@@ -13,7 +13,7 @@ const OPENING = "Hi, is this {{player_name}}? This is {{caller_name}} from {{org
 
 const DEFAULTS: Record<(typeof SCENARIO_VARIABLE_NAMES)[number], string> = {
   player_name: "Player Fern",
-  caller_name: "Jordan",
+  caller_name: "Haruto",
   org: "a practice organization",
   card_fact: "A practice notice is waiting.",
   practice_code: "0000",

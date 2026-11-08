@@ -7,6 +7,12 @@ import { scenarioCatalog } from "../season/scenarios/catalog";
 /** Every catalog scenario has a live voice session. */
 export const VOICE_SCENARIO_IDS: readonly string[] = scenarioCatalog.map(row => row.id);
 
+/** One Japanese caller per catalog scenario, the same for both Versions so a name never hints at the Call type. */
+export const SCENARIO_CALLERS: Record<string, string> = {
+  bank: "Haruto", delivery: "Sora", holiday: "Mei", business: "Takumi", phishing: "Hina", support: "Riku", government: "Daichi",
+  prize: "Yuna", investment: "Kenji", carrier: "Emi", refund: "Sota", insurance: "Nao", sales: "Rin", "wrong-number": "Mio",
+};
+
 export const SCENARIO_VARIABLE_NAMES = ["player_name", "caller_name", "org", "card_fact", "practice_code"] as const;
 
 export function isVoiceScenario(id: string): boolean {
@@ -18,7 +24,7 @@ export function scenarioVoiceVariables(id: string): Record<string, string> | nul
   if (!row) return null;
   return {
     player_name: row.card.name,
-    caller_name: "Jordan",
+    caller_name: SCENARIO_CALLERS[row.id] ?? "Haruto",
     org: row.org,
     card_fact: row.card.facts[0] ?? row.category,
     practice_code: row.secrets[0]?.value ?? "0000",

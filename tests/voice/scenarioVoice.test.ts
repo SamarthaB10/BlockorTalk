@@ -4,7 +4,7 @@ import { FakeVoiceAdapter } from "../../lib/voice/adapter";
 import { browserSessionHandler } from "../../lib/voice/browserSession";
 import { callVariables } from "../../lib/voice/callers";
 import { SCENARIO_AGENT_KEYS, buildScenarioAgentConfig } from "../../lib/voice/scenarioAgents";
-import { SCENARIO_VARIABLE_NAMES, VOICE_SCENARIO_IDS, scenarioVoiceVariables } from "../../lib/voice/scenarioVoice";
+import { SCENARIO_CALLERS, SCENARIO_VARIABLE_NAMES, VOICE_SCENARIO_IDS, scenarioVoiceVariables } from "../../lib/voice/scenarioVoice";
 import { scenarioCatalog } from "../../lib/season/scenarios/catalog";
 
 const DISCLOSURE = "It's recorded for your report. Say 'stop drill' anytime.";
@@ -12,6 +12,14 @@ const post = (handler: ReturnType<typeof browserSessionHandler>, callerId: strin
   handler(new Request("https://tell.test/api/voice/session", { method: "POST", body: JSON.stringify({ callerId }) }));
 
 describe("catalog voice", () => {
+  it("gives every catalog caller its own Japanese name, apart from the Challenge callers", () => {
+    const names = scenarioCatalog.map(row => SCENARIO_CALLERS[row.id]);
+    expect(names.every(Boolean)).toBe(true);
+    expect(new Set(names).size).toBe(scenarioCatalog.length);
+    for (const name of names) expect(["Yui", "Ren", "Kai", "Aki", "Jordan"]).not.toContain(name);
+    for (const row of scenarioCatalog) expect(scenarioVoiceVariables(row.id)!.caller_name).toBe(SCENARIO_CALLERS[row.id]);
+  });
+
   it("voices every catalog scenario with the same fictional variable names", () => {
     expect([...VOICE_SCENARIO_IDS].sort()).toEqual(scenarioCatalog.map(row => row.id).sort());
     for (const id of VOICE_SCENARIO_IDS) {
