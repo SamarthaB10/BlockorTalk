@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { BrowserCallHandle } from '../../lib/voice/browserCall';
+import VoiceCat from './VoiceCat';
 import './voice-orb.css';
 
 export default function VoiceOrb({ handle, active, connecting }: { handle: BrowserCallHandle | null; active: boolean; connecting: boolean }) {
@@ -27,9 +28,12 @@ export default function VoiceOrb({ handle, active, connecting }: { handle: Brows
     return () => { window.clearInterval(timer); orb.current?.style.setProperty('--voice-level', '0'); };
   }, [handle, active]);
   return <div className="voice-stage">
+    <div className="voice-pair">
     <div className="orb-instrument" aria-hidden="true">
       <svg className="orb-orbit" viewBox="0 0 240 240" fill="none"><circle cx="120" cy="120" r="113" stroke="currentColor" strokeDasharray="1 13"/><circle cx="120" cy="120" r="101" stroke="currentColor" strokeDasharray="72 28 12 90 35 400"/><ellipse cx="120" cy="120" rx="118" ry="40" stroke="currentColor" transform="rotate(-28 120 120)"/><path d="M120 0v12M120 228v12M0 120h12M228 120h12" stroke="currentColor"/></svg>
       <div ref={orb} className="voice-orb" data-live={active && Boolean(handle)}><span /></div>
+    </div>
+    <VoiceCat handle={handle} active={active} />
     </div>
     <p>{connecting ? 'Connecting your call' : active && handle ? 'Speak naturally. You’re on the call.' : active ? 'Your conversation starts here.' : 'Take a moment. Make your decision.'}</p>
     <span>Practice conversation · fictional details only</span>
