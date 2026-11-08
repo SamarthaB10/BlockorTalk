@@ -20,6 +20,8 @@ test('every scenario has a voice session: no text practice, no /play link, no /p
   }
   expect(html.match(/Play by voice/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
   expect(html).not.toContain('Voice coming soon');
+  expect(html).toContain('id="test-phone"');
+  expect(html.match(/>Call my phone<\/button>/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
   expect(html).not.toContain('/profile');
   expect(html).not.toMatch(/ask_line|next_step|versions/);
 });

@@ -172,3 +172,11 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .balance-badge-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #a9a3d9; }
 .balance-badge .blokbuks { font-size: clamp(24px, 3vw, 36px); color: #fff; }
 @media (max-width: 760px) { .hub-balance { margin-left: 0; align-self: flex-start; } .balance-badge { align-items: flex-start; } }
+
+/* Team phone test: one number field above the scenarios, one quiet button per card. */
+.hub-phone{width:100%;max-width:1400px;margin:0 auto 18px;display:grid;grid-template-columns:auto minmax(180px,280px) 1fr;align-items:center;gap:12px 20px;}
+.hub-phone label{font-weight:600;}
+.hub-phone input{min-height:48px;padding:12px;font:inherit;color:#1e1c1a;background:#fff;border:1px solid #aaa49b;border-radius:8px;}
+.hub-phone p{margin:0;font-size:13px;}
+.hub-phone-status{font-size:13px!important;margin:0;}
+@media(max-width:760px){.hub-phone{grid-template-columns:1fr;}}
