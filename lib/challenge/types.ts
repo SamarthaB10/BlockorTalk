@@ -16,6 +16,8 @@ export type CallResult = {
 };
 export type VoiceTurnInput = { role: 'assistant' | 'user'; text: string };
 export type Challenge = {
+  /** Server-only detection queue and presenter capability. Excluded from player responses. */
+  risk?: import('./risk.ts').RiskState;
   id: string;
   balance: number;
   interview: 'OPEN' | 'BOOKED';
@@ -35,6 +37,10 @@ export type Challenge = {
   events: VerifyRecord[];
   /** Set once this call's spoken transcript has been saved, so it can't be appended twice. */
   voiceSaved?: boolean;
+  /** Number of raw cumulative voice messages already ingested; retries cannot append them twice. */
+  voiceReceived?: number;
+  /** New browser connections get a fresh stream cursor; stale uploads cannot rejoin it. */
+  voiceSession?: string;
   /** The detective reveal, cached after the day completes. Not sent with day responses. */
   reveal?: import('./reveal.ts').RevealPayload;
   /** The day's one rewind, once started. It is scored on its own and never changes the official day. */
@@ -72,6 +78,7 @@ export type RewindAction =
   | { type: 'rewind_reply'; text: string }
   | { type: 'rewind_end' | 'rewind_portal' | 'rewind_bank' | 'rewind_callback_start' | 'rewind_callback_next' }
   | { type: 'rewind_verdict'; verdict: Verdict };
-export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; turns: VoiceTurnInput[] } | RewindAction;
+type VoiceSessionInput = { sessionId: string; callerId: CallerId; startedAt: string };
+export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; sessionId?: string; turns: VoiceTurnInput[] } | ({ type: 'voice_start' } & VoiceSessionInput) | ({ type: 'voice_live'; turns: VoiceTurnInput[] } & VoiceSessionInput) | RewindAction;
 export type ReplyRequest = { turns: Turn[]; options: readonly string[] };
 export type Reply = (request: ReplyRequest) => Promise<string>;
