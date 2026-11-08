@@ -241,5 +241,101 @@ export const scenarioCatalog: readonly PublicScenario[] = [
         "value": "8210"
       }
     ]
+  },
+  {
+    "id": "refund",
+    "category": "Refund or billing error",
+    "org": "Mothledger",
+    "card": {
+      "name": "Player Fern",
+      "facts": [
+        "A practice refund of 18 tokens is pending."
+      ],
+      "ownApp": {
+        "title": "Mothledger \u00b7 your own app",
+        "facts": [
+          "A practice refund of 18 tokens is pending.",
+          "Use the saved contact in this app to check a notice."
+        ]
+      }
+    },
+    "secrets": [
+      {
+        "label": "Practice protection code",
+        "value": "8211"
+      }
+    ]
+  },
+  {
+    "id": "insurance",
+    "category": "Insurance policy check",
+    "org": "Pebblewick Mutual",
+    "card": {
+      "name": "Player Fern",
+      "facts": [
+        "Practice policy WICK-6 is on file."
+      ],
+      "ownApp": {
+        "title": "Pebblewick Mutual \u00b7 your own app",
+        "facts": [
+          "Practice policy WICK-6 is on file.",
+          "Use the saved contact in this app to check a notice."
+        ]
+      }
+    },
+    "secrets": [
+      {
+        "label": "Practice protection code",
+        "value": "8212"
+      }
+    ]
+  },
+  {
+    "id": "sales",
+    "category": "Subscription or sales call",
+    "org": "Cinderpost",
+    "card": {
+      "name": "Player Fern",
+      "facts": [
+        "A practice subscription offer is saved."
+      ],
+      "ownApp": {
+        "title": "Cinderpost \u00b7 your own app",
+        "facts": [
+          "A practice subscription offer is saved.",
+          "Use the saved contact in this app to check a notice."
+        ]
+      }
+    },
+    "secrets": [
+      {
+        "label": "Practice protection code",
+        "value": "8213"
+      }
+    ]
+  },
+  {
+    "id": "wrong-number",
+    "category": "Wrong number",
+    "org": "Lanternloop",
+    "card": {
+      "name": "Player Fern",
+      "facts": [
+        "This practice line is not expecting a call."
+      ],
+      "ownApp": {
+        "title": "Lanternloop \u00b7 your own app",
+        "facts": [
+          "This practice line is not expecting a call.",
+          "Use the saved contact in this app to check a notice."
+        ]
+      }
+    },
+    "secrets": [
+      {
+        "label": "Practice protection code",
+        "value": "8214"
+      }
+    ]
   }
 ];

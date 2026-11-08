@@ -4,7 +4,7 @@ Decided in the grilling session on Nov 7, 2026, for the HackUTD deadline (Sun No
 
 ## Scope tonight
 
-Ships working: email signup, 10 Call scenarios, Blokbuks scoring, results screen, Player analysis, Leaderboard with Season countdown, Carrier insights. Shown but stubbed: prize claims. Untouched: `/challenge`, `/try-it`, `/presenter` (the stage demo). The Challenge does not earn Blokbuks.
+Ships working: email signup, 14 Call scenarios, Blokbuks scoring, results screen, Player analysis, Leaderboard with Season countdown, Carrier insights. Shown but stubbed: prize claims. Untouched: `/challenge`, `/try-it`, `/presenter` (the stage demo). The Challenge does not earn Blokbuks.
 
 The paragraph above is the target scope, not proof of a production release. See the source and production status below.
 
@@ -28,25 +28,29 @@ Known limits remain: sign-in by email is not verified, so anyone who knows a Pla
 
 ## Call scenarios
 
-Ten Categories, each with a real and a scam Version picked at random on every play. Brands are fictional.
+Fourteen Categories, each with a real and a scam Version picked at random on every play. Brands are fictional. The last four are the BothBosu training types that had no Category yet (refund, insurance, telemarketing, wrong number). The training file has 160 rows of each type. Card text is original. Held-out, real-call and hard-negative dialogues are not scenario material.
 
-| # | Category | Main Tactic |
-|---|---|---|
-| 1 | Bank fraud alert | Details as proof |
-| 2 | Delivery or customs fee | Urgency |
-| 3 | Holiday gift card or travel deal | Reward |
-| 4 | Business invoice or CEO wire | Authority |
-| 5 | Phishing link texted mid-call | Urgency |
-| 6 | Tech support | Fear |
-| 7 | Government (IRS or SSN) | Authority |
-| 8 | Prize or sweepstakes | Reward |
-| 9 | Crypto or investment | Reward |
-| 10 | Phone carrier port-out | Details as proof |
+| # | Category | Main Tactic | Training type used for examples |
+|---|---|---|---|
+| 1 | Bank fraud alert | Details as proof | |
+| 2 | Delivery or customs fee | Urgency | delivery, real Version only |
+| 3 | Holiday gift card or travel deal | Reward | reward, scam Version only |
+| 4 | Business invoice or CEO wire | Authority | |
+| 5 | Phishing link texted mid-call | Urgency | |
+| 6 | Tech support | Fear | support, scam Version only |
+| 7 | Government (IRS or SSN) | Authority | ssn, scam Version only |
+| 8 | Prize or sweepstakes | Reward | reward, scam Version only |
+| 9 | Crypto or investment | Reward | |
+| 10 | Phone carrier port-out | Details as proof | |
+| 11 | Refund or billing error | Reward | refund, scam Version only |
+| 12 | Insurance policy check | Fear | insurance, real Version only |
+| 13 | Subscription or sales call | Reward | telemarketing, real Version only |
+| 14 | Wrong number | Details as proof | wrong, real Version only |
 
 Tactics are a first pass; adjust per script.
 
 - Every Version has four caller steps: who and why, a credible detail, pressure (the Tactic), and the ask. A scam's ask is a fixed, approved request for a fictional secret; a real caller's ask is a safe next step.
-- Nemotron writes steps 1–3 on each play from 5 prompt-split examples retrieved from both corpora (Kaggle and BothBosu) by Category keywords and the Version's Call type. If a Category has fewer than 5 examples of that Call type, fill with the nearest examples of the same Call type from any Category.
+- Nemotron writes steps 1–3 on each play from 5 prompt-split examples retrieved from both corpora (Kaggle and BothBosu) by Category keywords and the Version's Call type. When the table names a training type, rows of that type lead the five, and only for the Version whose label matches the type. A scam type never leads the real Version. If a Category has fewer than 5 examples of that Call type, fill with the nearest prompt examples of the same Call type from any Category. Held-out rows are excluded by the query.
 - Stored in a TigerData `call_scenarios` table: Category, Tactic, fictional org, card facts, fake secrets and step outlines.
 - Play reuses the `/practice` path: ElevenLabs reads the caller's lines and the Player types or records replies. A call ends after 4 replies, 3 minutes, End call, or "stop drill".
 - The Call type never reaches the browser before the Verdict.

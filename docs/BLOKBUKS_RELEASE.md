@@ -19,7 +19,7 @@ npm run migrate
 node --env-file=.env.local --import tsx scripts/seed-call-scenarios.ts
 ```
 
-Check `schema_migrations` for 009, 010 and 011, plus any later required migrations. Read the seeded `call_scenarios`: ten distinct scenarios, with both Versions. Repeat the scenario seed and confirm there are still ten rows. Migration 011 seeds Season 1 once, starting at migration time with an end 55 hours later. Run it as part of the release, not hours before. Verify all three prizes. Never reset a running Season to make a check pass.
+Check `schema_migrations` for 009, 010 and 011, plus any later required migrations. Read the seeded `call_scenarios`: one row per catalog scenario, with both Versions. Repeat the scenario seed and confirm the row count is unchanged. Re-run `npm run practice:index` so BothBosu prompt rows carry their training type; the new pool must still contain no held-out dialogues. Migration 011 seeds Season 1 once, starting at migration time with an end 55 hours later. Run it as part of the release, not hours before. Verify all three prizes. Never reset a running Season to make a check pass.
 
 BS-12 owns the synthetic-data seed command. Use that ticket's reviewed command when available; do not invent production sample rows here. Check that synthetic rows are marked and that Carrier insights defaults to real data. Load the two practice corpora with the existing `npm run practice:index` command only if their checked prompt pools are absent. Keep held-out rows out of prompts.
 

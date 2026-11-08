@@ -10,7 +10,7 @@ import unittest
 import uuid
 
 from detection.corpus import Corpus, Item, LeakageError
-from detection.practice_index import import_bothbosu, prepare_bothbosu
+from detection.practice_index import copy_train_topics, import_bothbosu, prepare_bothbosu, train_items
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = 'BothBosu/scam-dialogue'
@@ -47,6 +47,28 @@ class PreparationTests(unittest.TestCase):
         data.synthetic_test.append(data.train[0])
         with self.assertRaises(LeakageError):
             import_bothbosu(None, data)  # Leakage must fail before any database operation.
+
+    def test_topics_come_from_training_rows_and_match_the_train_type_label(self):
+        items = train_items([
+            {'dialogue': 'please review the practice policy', 'type': 'insurance', 'label': '0'},
+            {'dialogue': 'a refund is ready', 'type': 'refund', 'label': '1'},
+            {'dialogue': 'no type column', 'label': '0'},
+        ])
+        self.assertEqual([item.scam_type for item in items], ['insurance', 'refund', None])
+        data = fixture()
+        data.train.append(Item('train refund dialogue', 1, 'train', SOURCE, scam_type='refund'))
+        data.synthetic_test.append(Item('unique held out refund pitch', 1, 'synthetic_test', SOURCE, scam_type='refund'))
+        _, rows, _ = prepare_bothbosu(data)
+        self.assertTrue(any(row[4] == 'refund' and row[1] == 'train refund dialogue' for row in rows))
+        self.assertFalse(any('unique held out' in row[1] for row in rows))
+        copied = copy_train_topics(fixture(), [Item('bank account dialogue 0-0', 0, 'train', SOURCE, scam_type='delivery')])
+        self.assertEqual(next(item.scam_type for item in copied.train if item.text == 'bank account dialogue 0-0'), 'delivery')
+        self.assertTrue(all(item.scam_type is None for item in copied.synthetic_test + copied.real_calls + copied.hard_negatives))
+        for item in [Item('fresh', 0, 'train', SOURCE, scam_type='refund'),
+                     Item('fresh', 1, 'train', SOURCE, scam_type='youtube'),
+                     Item('held out sentinel', 1, 'synthetic_test', SOURCE, scam_type='refund')]:
+            with self.subTest(item=item), self.assertRaises(ValueError):
+                prepare_bothbosu(Corpus([item], [], [], [])) if item.split == 'train' else copy_train_topics(fixture(), [item])
 
 
 @unittest.skipUnless(os.environ.get('TEST_DATABASE_URL'), 'TEST_DATABASE_URL required')

@@ -21,7 +21,7 @@ npm run practice:index
 
 The command downloads the archive to ignored `data/cache/`, applies the additive migrations with `DATABASE_URL_DIRECT`, imports the rows and publishes the manifest after checking every row. It chooses `.venv/bin/python`; set `PYTHON` for another interpreter. It does not require NVIDIA or change model weights.
 
-`practice_examples` stores dialogue, source label, split and content hash. `practice_datasets` records the source and counts. Native Postgres full-text retrieval ranks prompt examples by topic. This Kaggle path does not require additional embeddings or add evaluation rows to the existing Hugging Face pgvector index.
+`practice_examples` stores dialogue, source label, split and content hash. BothBosu rows also store the training file's `type` as `topic` (ssn, refund, support, reward, delivery, insurance, telemarketing, wrong). That type is read from the training file only. `practice_datasets` records the source and counts. Native Postgres full-text retrieval ranks prompt examples, with a matching training topic first when a Category asks for one. Held-out, real-call and hard-negative dialogues are never stored as topics or used as scenario material. This Kaggle path does not require additional embeddings or add evaluation rows to the existing Hugging Face pgvector index.
 
 ## Existing ElevenLabs agents
 

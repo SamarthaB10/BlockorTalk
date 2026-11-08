@@ -31,7 +31,7 @@ _Avoid_: question, checkpoint
 ## Calls
 
 **Call scenario**:
-One of about ten playable practice calls, each about one kind of call such as banking, holiday shopping, business or phishing.
+A playable practice call about one kind of call, such as a bank alert, a refund, an insurance check or a wrong number.
 _Avoid_: theme, drill
 
 **Version**:

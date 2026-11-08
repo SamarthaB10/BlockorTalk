@@ -2,12 +2,20 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
 import { PlayCatalog, signupLocation } from '../app/play/PlayCatalog';
+import { scenarioCatalog } from '../lib/season/scenarios/catalog';
 import { CallScreen } from '../app/play/[id]/CallScreen';
 import type { PublicCall } from '../lib/season/calls/types';
 export const call: PublicCall = { id:'c', label:'AI practice caller', scenario:{id:'bank',category:'Bank fraud alert',org:'Corvanta Bank',card:{name:'Alex Practice',facts:['Fictional account 2048'],ownApp:{title:'Your Corvanta app',facts:['Use your saved contact.']}},secrets:[{label:'Practice code',value:'8302'}]},turns:[{role:'caller',text:'An AI practice call.',step:1}],phase:'call',replies:0,startedAt:'2026-11-08T18:00:00Z',serverNow:'2026-11-08T18:00:00Z',scored:false,callsLeft:0 };
 test('Play presents ten Category and org cards and marks practice before starting', () => {
   const html = renderToStaticMarkup(createElement(PlayCatalog,{ model:{ scenarios:Array.from({length:10},(_,i)=>({id:String(i),category:'Bank fraud alert',org:'Corvanta Bank'})),blokbuks:250,scoredCallsLeft:0,nextCallScored:false,season:{id:"s",name:"Season 1",startsAt:"2026-11-01T00:00:00Z",endsAt:"2026-11-10T00:00:00Z",status:"live"},serverNow:call.startedAt } }));
   expect(html.match(/href="\/play\//g)).toHaveLength(10); expect(html).toContain('0 Scored calls left today'); expect(html).toContain('Practice · 0 B'); expect(html).toContain('B 250'); expect(html).not.toContain('8302');
+});
+test('Play lists every catalog Category, including the training-type additions, without secrets', () => {
+  const html = renderToStaticMarkup(createElement(PlayCatalog, { model: { scenarios: scenarioCatalog.map(({ id, category, org }) => ({ id, category, org })), blokbuks: 250, scoredCallsLeft: 5, nextCallScored: true, season: { id: 's', name: 'Season 1', startsAt: '2026-11-01T00:00:00Z', endsAt: '2026-11-10T00:00:00Z', status: 'live' }, serverNow: call.startedAt } }));
+  expect(html.match(/href="\/play\//g)).toHaveLength(scenarioCatalog.length);
+  for (const name of ['Refund or billing error', 'Insurance policy check', 'Subscription or sales call', 'Wrong number']) expect(html).toContain(name);
+  expect(html).not.toContain('8211');
+  expect(html).not.toContain('Practice protection code');
 });
 test('the call has a neutral identity, fictional card, secrets, editable reply and own app', () => {
  const html=renderToStaticMarkup(createElement(CallScreen,{scenarioId:'bank',initialCall:call}));
