@@ -27,6 +27,7 @@ function readTurns(value: unknown): PracticeTurn[] | undefined {
  *   { action: 'reply', scenarioId, turns }         → next scripted line (text calls)
  *   { action: 'verdict', scenarioId, turns, verdict } → the reveal
  *   { action: 'plan', history }                    → the Drill Planner's next drill and its steps
+ *   { action: 'plan', history, focus: <alert link> } → the catalog scenario matching that FTC alert
  */
 export async function POST(request: Request) {
   if (request.headers.get('origin') !== new URL(request.url).origin) return json({ error: 'Use the practice page to make this request.' }, 403);
@@ -36,11 +37,14 @@ export async function POST(request: Request) {
   try { body = JSON.parse(raw); } catch { return json({ error: 'Invalid request.' }, 400); }
   if (body?.action === 'plan') {
     // The Drill Planner agent: the browser sends its own practice history; nothing is stored.
-    const plan = await planDrill({
-      history: readHistory(body.history),
-      llm: createNemotronClient(process.env),
-      threats: async () => (await ftcAlerts()).items,
-    });
+    const threats = async () => (await ftcAlerts()).items;
+    let focus = null;
+    if (body.focus !== undefined) {
+      // The browser sends only the alert's link; its title and summary come from the server's own copy of the feed.
+      focus = typeof body.focus === 'string' ? (await threats().catch(() => [])).find(item => item.link === body.focus) ?? null : null;
+      if (!focus) return json({ error: 'Choose a current FTC alert.' }, 400);
+    }
+    const plan = await planDrill({ history: readHistory(body.history), llm: createNemotronClient(process.env), threats, focus });
     return json({ plan });
   }
   if (!isScenarioId(body?.scenarioId)) return json({ error: 'Choose a practice scenario.' }, 400);
