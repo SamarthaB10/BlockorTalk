@@ -1,4 +1,5 @@
 import type { VoiceAdapter } from "./adapter";
+import { beatHandler } from "./beats";
 import { browserSessionHandler } from "./browserSession";
 import type { PostCallTranscript } from "./transcript";
 import { postCallWebhookHandler } from "./webhook";
@@ -105,6 +106,11 @@ export function createVoiceRoutes(deps: VoiceRouteDeps) {
     deleteConversation: (id) => deps.voice.deleteConversation(id),
   });
 
+  const beat = beatHandler({
+    toolSecret: deps.toolSecret,
+    onBeat: ({ conversationId, beat }) => deps.store.addEvent({ conversationId, kind: beat }),
+  });
+
   /** GET ?conversation_id=…&after=<last event id>: the app polls this during a call. */
   async function events(req: Request): Promise<Response> {
     const url = new URL(req.url);
@@ -118,5 +124,5 @@ export function createVoiceRoutes(deps: VoiceRouteDeps) {
 
   const session = browserSessionHandler({ voice: deps.voice });
 
-  return { session, postCall, events };
+  return { session, postCall, beat, events };
 }

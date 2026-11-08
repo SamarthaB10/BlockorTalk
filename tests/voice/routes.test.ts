@@ -123,6 +123,28 @@ describe("voice routes: live events", () => {
       data: { conversation_id: conversationId, agent_id: "agent_f", failure_reason: reason },
     });
 
+  const beat = (h: ReturnType<typeof setup>, body: unknown, secret = TOOL_SECRET) =>
+    h.routes.beat(
+      new Request(`${BASE}/api/voice/beat`, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "X-Tell-Tool-Secret": secret },
+      }),
+    );
+
+  it("records an agent beat so the app can pick it up for the code pop-up", async () => {
+    const h = setup();
+    expect((await beat(h, { beat: "code_requested", conversation_id: "conv_r1" })).status).toBe(200);
+    const body = (await (await events(h, "conversation_id=conv_r1")).json()) as { events: VoiceEvent[] };
+    expect(body.events.map((e) => [e.id, e.kind])).toEqual([[1, "code_requested"]]);
+  });
+
+  it("rejects a beat with the wrong tool secret and records nothing", async () => {
+    const h = setup();
+    expect((await beat(h, { beat: "code_requested", conversation_id: "conv_r1" }, "wrong")).status).toBe(401);
+    expect(h.db.events).toHaveLength(0);
+  });
+
   it("turns a failed outbound call into a call_failed event with its reason", async () => {
     const h = setup();
     expect((await callFailed(h, "conv_r2", "no-answer")).status).toBe(200);
@@ -156,6 +178,18 @@ describe("voice routes: missing Worker secrets", () => {
     const routes = createVoiceRoutes({ voice, store: db.store, toolSecret: "", webhookSecret: "" });
     return { routes, db };
   }
+
+  it("refuses beats when TELL_TOOL_SECRET is unset, even with no header", async () => {
+    const { routes, db } = unconfigured();
+    const res = await routes.beat(
+      new Request(`${BASE}/api/voice/beat`, {
+        method: "POST",
+        body: JSON.stringify({ beat: "code_requested", conversation_id: "conv_x" }),
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(db.events).toHaveLength(0);
+  });
 
   it("refuses post-call webhooks when ELEVENLABS_WEBHOOK_SECRET is unset", async () => {
     const { routes, db } = unconfigured();
