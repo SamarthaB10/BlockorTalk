@@ -23,6 +23,13 @@ it('detects a legitimate caller asking for a PIN', () => {
   const safe = transcript.map(t => t.text.startsWith('Read the') ? { ...t, text: 'Tuesday at 10 AM works. Check your candidate portal.' } : t);
   expect(checkTranscript('recruiter', safe).secret_policy).toBe(true);
 });
+it('detects a legitimate caller asking for a texted one-time code', () => {
+  const otp = transcript.map(t => t.text.startsWith('Read the')
+    ? { ...t, text: 'I just texted you a verification code — please read me the code that was sent to your phone.' } : t);
+  expect(checkTranscript('recruiter', otp).inbound_otp).toBe(false);
+  const safe = transcript.map(t => t.text.startsWith('Read the') ? { ...t, text: 'Tuesday at 10 AM works. Check your candidate portal.' } : t);
+  expect(checkTranscript('recruiter', safe).inbound_otp).toBe(true);
+});
 it.each([
   ['disclosure', 0, 'Hello there.'],
   ['secret_policy', 1, 'Your interview is confirmed.'],

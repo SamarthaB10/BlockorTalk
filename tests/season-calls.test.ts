@@ -31,7 +31,10 @@ function fixture(plan?: Parameters<typeof createCallService>[0]['plan'], options
   let finished = 0;
   const completed: CallRecord[] = [];
   const service = createCallService({ store, scenario: async id => scenarios.find(row => row.id === id) ?? null,
-    plan: plan ?? (async scenario => [`Hello from ${scenario.org}. I am calling about your practice notice.`, scenario.card.facts[0]!, 'Please take a moment to review this notice.']),
+    plan: plan ?? (async scenario => ({
+      lines: [`Hello from ${scenario.org}. I am calling about your practice notice.`, scenario.card.facts[0]!, 'Please take a moment to review this notice.'],
+      path: 'fixed' as const,
+    })),
     now: () => new Date(time), random: () => (random++ % 2) / 2,
     finishCall: async (_tx, call) => { finished++; completed.push(structuredClone(call)); return { summary: 'finished', version: call.version }; },
     finished: options?.finished, onFinished: options?.onFinished,
@@ -182,7 +185,7 @@ test('the planner presses a tactic only after two misses, and a memory failure s
   }));
   const plan: Parameters<typeof createCallService>[0]['plan'] = async (scenario, _version, hint) => {
     hints.push(hint?.press === true);
-    return [`Hello from ${scenario.org}. I am calling about your practice notice.`, scenario.card.facts[0]!, 'Please take a moment to review this notice.'];
+    return { lines: [`Hello from ${scenario.org}. I am calling about your practice notice.`, scenario.card.facts[0]!, 'Please take a moment to review this notice.'], path: 'fixed' };
   };
   const remembered = fixture(plan, { finished: async () => missed });
   expect((await remembered.post({ type: 'start', scenarioId: 'delivery' })).status).toBe(201);
