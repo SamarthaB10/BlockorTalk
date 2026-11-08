@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakdown, overview, reportSections } from '../lib/insights/report';
+import { breakdown, callTime, minutes, overview, reportSections } from '../lib/insights/report';
 
 const groups = [
   { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', calls: 30 },
@@ -43,5 +43,30 @@ describe('analysis sections', () => {
 
   it('keeps an older one-paragraph summary as a single untitled section', () => {
     expect(reportSections('Bank fraud alerts lead, with 31 calls.')).toEqual([{ heading: null, paragraphs: ['Bank fraud alerts lead, with 31 calls.'] }]);
+  });
+});
+
+describe('time on call', () => {
+  const timed = [
+    { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', calls: 30, avgSeconds: 150 },
+    { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'caught', calls: 10, avgSeconds: 90 },
+    { category: 'Tech support', tactic: 'Fear', outcome: 'caught', calls: 15, avgSeconds: 70 },
+    { category: 'Delivery or customs fee', tactic: 'Urgency', outcome: 'false alarm', calls: 6, avgSeconds: null },
+  ];
+
+  it('weights averages by calls and skips groups with no known length', () => {
+    expect(callTime(timed)).toEqual({
+      overall: 117, // (30×150 + 10×90 + 15×70) ÷ 55
+      byOutcome: [{ key: 'fell for', avgSeconds: 150 }, { key: 'caught', avgSeconds: 78 }],
+      byCategory: [{ key: 'Bank fraud alert', avgSeconds: 135 }, { key: 'Tech support', avgSeconds: 70 }],
+    });
+  });
+
+  it('has no average when nothing has a length', () => {
+    expect(callTime([])).toEqual({ overall: null, byOutcome: [], byCategory: [] });
+  });
+
+  it('formats seconds as minutes:seconds', () => {
+    expect([minutes(95), minutes(180), minutes(7), minutes(null)]).toEqual(['1:35', '3:00', '0:07', '—']);
   });
 });

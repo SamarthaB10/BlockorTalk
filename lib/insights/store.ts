@@ -5,7 +5,7 @@ import type { Dataset, InsightsStore, StoredSummary } from './routes.ts';
 const KEEP_SUMMARIES = 20;
 const verdicts = new Set<string>(['Real', 'Scam', 'Unverified']);
 
-type Row = { player_id: string; scenario_id: string; version: 'real' | 'scam'; verdict: string; outcome: string | null; synthetic: boolean };
+type Row = { player_id: string; scenario_id: string; version: 'real' | 'scam'; verdict: string; outcome: string | null; synthetic: boolean; seconds: number | null };
 
 /**
  * A client per request, no ORM. Category and Tactic come from the in-code Call scenario list, so the
@@ -23,7 +23,9 @@ export function createInsightsStore(connectionString: string, scenarios: readonl
   return {
     loadCalls: (include: Dataset) => query(async client => {
       const rows = (await client.query<Row>(
-        'SELECT player_id, scenario_id, version, verdict, outcome, synthetic FROM calls WHERE verdict IS NOT NULL AND synthetic = $1',
+        `SELECT player_id, scenario_id, version, verdict, outcome, synthetic,
+                EXTRACT(EPOCH FROM (ended_at - started_at))::int AS seconds
+           FROM calls WHERE verdict IS NOT NULL AND synthetic = $1`,
         [include === 'synthetic'])).rows;
       return rows.flatMap((row): CallRow[] => {
         const scenario = byId.get(row.scenario_id);
@@ -33,6 +35,8 @@ export function createInsightsStore(connectionString: string, scenarios: readonl
           version: row.version, verdict: row.verdict as Verdict,
           // The stored outcome already folds in a leak, so a "fell for" on a scam is read back as one.
           leaked: row.outcome === 'fell for', synthetic: row.synthetic,
+          // A call with no end time, or one ended at its start, has no usable length.
+          seconds: row.seconds !== null && row.seconds > 0 ? row.seconds : null,
         }];
       });
     }),

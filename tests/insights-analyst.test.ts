@@ -12,7 +12,7 @@ describe('Insights analyst', () => {
     const analyst = createInsightsAnalyst(async ({ system, user }) => { seen = `${system}\n${user}`; return 'Bank fraud alerts are the most common fall.'; });
     await analyst(groups, true);
     const user = JSON.parse(seen.split('\n').slice(-1)[0]!);
-    expect(user.dataset).toBe('synthetic demo data');
+    expect(seen).not.toMatch(/synthetic|demo/i);
     expect(user.groups).toEqual(groups);
     expect(JSON.stringify(user)).not.toMatch(/email|nickname|transcript|playerId/i);
     expect(seen).toMatch(/totals/i);
@@ -61,7 +61,16 @@ describe('Insights analyst', () => {
   it('asks for the five report sections and carrier actions', async () => {
     let system = '';
     await createInsightsAnalyst(async request => { system = request.system; return 'Overview'; })(groups, false);
-    for (const heading of ['Overview', 'Scams people fall for most', 'Pressure tactics that work', 'Real calls people doubted', 'What carriers can do']) expect(system).toContain(heading);
+    for (const heading of ['Overview', 'Scams people fall for most', 'Pressure tactics that work', 'Real calls people doubted', 'Time on the call', 'What carriers can do']) expect(system).toContain(heading);
+  });
+
+  it('gives the model average call times and lets it quote them', async () => {
+    let user = '';
+    const timed: ShownGroup[] = [{ ...groups[0]!, avgSeconds: 152 }, { ...groups[1]!, avgSeconds: 64 }];
+    const text = 'Time on the call\nPeople who fell for bank fraud alerts stayed on for 152 seconds on average, against 64 for tech support calls they caught.';
+    const analyst = createInsightsAnalyst(async request => { user = request.user; return text; });
+    expect(await analyst(timed, true)).toBe(text);
+    expect(JSON.parse(user).callTimeSeconds).toMatchObject({ byOutcome: [{ key: 'fell for', avgSeconds: 152 }, { key: 'caught', avgSeconds: 64 }] });
   });
 
   it('rejects a percentage it was not given', async () => {
