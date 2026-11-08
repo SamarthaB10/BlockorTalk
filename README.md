@@ -24,6 +24,28 @@ Run `npm run migrate` to apply the migrations using `DATABASE_URL_DIRECT` from `
 
 Run `npm test` for the health checks and `npm run typecheck` for the type check. The detection baseline is separate: install Python 3.12, run `pip install -r requirements.txt`, then run `python -m detection.evaluate --detectors baseline`. That command downloads the dialogue files into `data/cache` on first use, trains the TF-IDF baseline, and prints synthetic-test metrics, the real-call detection rate, and the hard-negative false-alarm rate. The hard negatives shipped in `data/` are team-written fraud-alert and delivery calls plus ten talkmap support calls. `python -m unittest tests.test_detection` runs the metric and leakage checks without those downloads. For the zero-shot and production retrieval detectors, train-only embedding setup, and the full three-way comparison, see [the detection guide](docs/DETECTION.md). For Cloudflare, set the three runtime variables `DATABASE_URL`, `NVIDIA_API_KEY`, and `ELEVENLABS_API_KEY` as Worker secrets. Run migrations separately with the direct URL.
 
+## News
+
+Open `/dashboard?view=News` for searchable news with source and article-type filters,
+publication dates, summaries, and original article links. `GET /api/news` returns
+`items`, `sources` (including availability and last successful fetch), and `fetchedAt`.
+FTC consumer alerts and consumer-protection press releases work without an API key.
+Each source is cached for three hours; a failed refresh keeps its last successful
+articles, marks them as saved results, and retries after five minutes. This cache is
+per Worker instance, so it does not persist through restarts or coordinate quota
+across instances.
+
+For broader publisher coverage, set the server-only `NEWS_API_KEY` from
+[NewsAPI](https://newsapi.org) in `.dev.vars` for local Workers development, or as a
+Cloudflare Worker secret in production, then restart/redeploy. The integration
+uses `/v2/everything` to retrieve up to 40 English-language scam/fraud/phone/identity
+headlines per refresh. The key travels in the `X-Api-Key` header and never reaches
+the browser. NewsAPI's free Developer plan permits development only, has a
+24-hour delay, and allows 100 requests/day; published deployments require an
+appropriate paid plan. NewsAPI does not provide full article text. See its
+[documentation](https://newsapi.org/docs/endpoints/everything) and
+[plan terms](https://newsapi.org/pricing).
+
 ## Challenge day in text (issues #5 and #6)
 
 Open `/challenge`. Play Yui, Ren, then Kai. End each call and give a verdict,
