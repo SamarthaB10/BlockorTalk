@@ -1,3 +1,4 @@
+import PlayerSignup from './components/PlayerSignup';
 import SpritePlayer from './components/SpritePlayer';
 import './landing.css';
 
@@ -17,6 +18,7 @@ export default function Home() {
       <a className="landing-try ui-button ui-button--primary" href="/try-it">Try it <span aria-hidden="true">↗</span></a>
       <p className="landing-note">Text or browser voice. No account. No phone number.</p>
     </section>
+    <PlayerSignup />
     <section className="landing-systems" aria-labelledby="systems-heading">
       <div className="landing-system-intro"><p className="landing-label">BEHIND THE CALLS</p><h2 id="systems-heading">Three AI systems.<br />One clear lesson.</h2><p>Keep your fictional $1,000 and finish both tasks. Then see what each caller was hiding.</p></div>
       {systems.map(system => <article className="landing-system" key={system.name}>
