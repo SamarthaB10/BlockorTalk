@@ -1,0 +1,22 @@
+.season-page { max-width: 1040px; margin: auto; padding: var(--space-5); }
+.season-page nav { display: flex; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-4); border-bottom: 1px solid var(--line); }
+.season-page a { color: var(--ink); text-underline-offset: 4px; }
+.season-page header { padding-block: var(--space-7); }
+.season-eyebrow { color: var(--ink-muted); }
+.season-page h1 { font-size: clamp(36px, 6vw, 64px); line-height: 1.1; margin: var(--space-4) 0; max-width: 720px; }
+.season-page h2 { font-size: 24px; }
+.season-summary { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); padding-block: var(--space-5); border-block: 1px solid var(--line); }
+.season-countdown { font-size: clamp(32px, 5vw, 48px); font-variant-numeric: tabular-nums; margin-block: var(--space-4); }
+.season-summary ol { padding-left: var(--space-5); }
+.season-summary li { padding-block: var(--space-1); }
+.season-summary p:last-child { color: var(--ink-muted); }
+.season-notice { padding: var(--space-4); border: 1px solid var(--line); }
+.season-page table { width: 100%; border-collapse: collapse; margin-top: var(--space-5); }
+.season-page th, .season-page td { border-bottom: 1px solid var(--line); padding: var(--space-4) var(--space-2); text-align: left; }
+.season-page td:last-child, .season-page th:last-child { text-align: right; white-space: nowrap; }
+.season-page tbody th { overflow-wrap: anywhere; font-weight: 400; }
+.season-claim { max-width: 560px; display: grid; gap: var(--space-4); }
+.season-claim input[type=email] { box-sizing: border-box; width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); padding: var(--space-3); border-radius: var(--radius-sm); }
+.season-claim input[type=checkbox] { width: 24px; height: 24px; vertical-align: middle; margin-right: var(--space-2); }
+.season-claim label { min-height: 44px; }
+@media (max-width: 640px) { .season-summary { grid-template-columns: 1fr; } .season-page { padding: var(--space-4); } .season-page th, .season-page td { padding: var(--space-3) var(--space-1); font-size: 16px; } }
