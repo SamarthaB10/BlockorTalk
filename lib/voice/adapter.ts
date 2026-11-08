@@ -22,12 +22,14 @@ export interface VoiceAdapter {
 }
 
 export interface PlaceCallRequest {
-  callerId: ChallengeCallerId;
+  callerId: ChallengeCallerId | ScenarioAgentKey;
   toNumber: string;
   /** Tell never calls a number that hasn't passed SMS verification. */
   phoneVerified: boolean;
   /** Scenario-card values for this call; every variable the agent declares must be present. */
   variables: Record<string, string>;
+  /** Declared variable names for a shared catalog agent; Challenge callers use their own. */
+  variableNames?: readonly string[];
 }
 
 /** The two shared catalog agents. Which one answers is chosen on the server and never sent to the browser. */
@@ -74,6 +76,8 @@ export class ElevenLabsVoiceAdapter implements VoiceAdapter {
     /** ElevenLabs phone-number ID of the imported Photon SIP-trunk line. */
     private readonly phoneNumberId: string | undefined,
     private readonly tokenFetch?: TokenFetch,
+    /** How the ElevenLabs phone number is connected: a Twilio number or a SIP trunk (Photon). */
+    private readonly phoneProvider: "twilio" | "sip_trunk" = "sip_trunk",
   ) {}
 
   async placeCall(req: PlaceCallRequest): Promise<{ conversationId: string }> {
@@ -87,15 +91,14 @@ export class ElevenLabsVoiceAdapter implements VoiceAdapter {
     if (!this.phoneNumberId) {
       throw new VoiceRequestError("ELEVENLABS_PHONE_NUMBER_ID is not configured");
     }
-    const dynamicVariables = callVariables(req.callerId, req.variables);
+    const dynamicVariables = callVariables(req.callerId, req.variables, req.variableNames);
+    const agentId = String(this.agentIds[req.callerId] ?? "").trim();
+    if (!AGENT_ID.test(agentId)) throw new VoiceRequestError(`No valid ElevenLabs agent ID for ${req.callerId}`);
+    const call = { agentId, agentPhoneNumberId: this.phoneNumberId, toNumber: req.toNumber, conversationInitiationClientData: { dynamicVariables } };
 
-    const res = await this.client.conversationalAi.sipTrunk.outboundCall({
-      agentId: this.agentIds[req.callerId],
-      agentPhoneNumberId: this.phoneNumberId,
-      toNumber: req.toNumber,
-      conversationInitiationClientData: { dynamicVariables },
-      telephonyCallConfig: { ringingTimeoutSecs: 30 },
-    });
+    const res = this.phoneProvider === "twilio"
+      ? await this.client.conversationalAi.twilio.outboundCall(call)
+      : await this.client.conversationalAi.sipTrunk.outboundCall({ ...call, telephonyCallConfig: { ringingTimeoutSecs: 30 } });
     if (!res.success || !res.conversationId) {
       throw new VoiceRequestError(`Outbound call failed: ${res.message}`);
     }
@@ -154,7 +157,7 @@ export class FakeVoiceAdapter implements VoiceAdapter {
     if (req.phoneVerified !== true) {
       throw new VoiceRequestError("Refusing to call a number that is not verified");
     }
-    callVariables(req.callerId, req.variables);
+    callVariables(req.callerId, req.variables, req.variableNames);
     this.calls.push(req);
     return { conversationId: `conv_fake_${this.next++}` };
   }

@@ -6,7 +6,8 @@
  *   node --env-file=.env.local --import tsx scripts/spike-call.ts \
  *     --to +14155550123 --caller fraud_team --name Sam --yes
  *
- * Env: ELEVENLABS_API_KEY, ELEVENLABS_PHONE_NUMBER_ID (from import-sip-line.ts),
+ * Env: ELEVENLABS_API_KEY, ELEVENLABS_PHONE_NUMBER_ID (the Twilio number imported in ElevenLabs, or
+ *      the SIP line from import-sip-line.ts with ELEVENLABS_PHONE_PROVIDER=sip_trunk),
  *      TELL_TEAM_PHONES (comma-separated E.164 numbers of team members who agreed to test calls).
  */
 import { readFileSync } from "node:fs";
@@ -45,7 +46,8 @@ async function main() {
   }
 
   const agentIds = JSON.parse(readFileSync("config/voice-agents.json", "utf8")) as AgentIds;
-  const voice = new ElevenLabsVoiceAdapter(elevenLabs(), agentIds, process.env.ELEVENLABS_PHONE_NUMBER_ID);
+  const provider = process.env.ELEVENLABS_PHONE_PROVIDER === "sip_trunk" ? "sip_trunk" : "twilio";
+  const voice = new ElevenLabsVoiceAdapter(elevenLabs(), agentIds, process.env.ELEVENLABS_PHONE_NUMBER_ID, undefined, provider);
   const started = performance.now();
   // A listed team phone counts as verified for the spike; the app uses SMS verification (#11).
   const { conversationId } = await voice.placeCall({ callerId: caller, toNumber: to, phoneVerified: true, variables });

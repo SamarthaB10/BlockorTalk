@@ -3,6 +3,7 @@ export { redact } from "../policy/redact.ts";
 import type { VoiceAdapter } from "./adapter";
 import { beatHandler } from "./beats";
 import { browserSessionHandler } from "./browserSession";
+import { phoneCallHandler } from "./phoneCall";
 import type { PostCallTranscript } from "./transcript";
 import { postCallWebhookHandler } from "./webhook";
 
@@ -30,6 +31,8 @@ export interface VoiceRouteDeps {
   toolSecret: string;
   /** HMAC secret of the ElevenLabs post-call webhook (Worker secret ELEVENLABS_WEBHOOK_SECRET). */
   webhookSecret: string;
+  /** E.164 numbers of team members who agreed to test calls (TELL_TEAM_PHONES). Nothing else is dialled. */
+  teamPhones?: readonly string[];
 }
 
 export function createVoiceRoutes(deps: VoiceRouteDeps) {
@@ -62,6 +65,7 @@ export function createVoiceRoutes(deps: VoiceRouteDeps) {
   }
 
   const session = browserSessionHandler({ voice: deps.voice });
+  const call = phoneCallHandler({ voice: deps.voice, teamPhones: deps.teamPhones ?? [] });
 
-  return { session, postCall, beat, events };
+  return { session, call, postCall, beat, events };
 }
