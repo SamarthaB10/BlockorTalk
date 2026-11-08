@@ -47,10 +47,12 @@ const WAVE_B = [[7, 12], [8, 13], [9, 12], [10, 13], [11, 12], [12, 13]] as cons
 
 export default function PixelPhone({ label = 'Incoming call' }: { label?: string }) {
   return <svg className="pixel-phone" viewBox="0 0 20 32" width="60" height="96" shapeRendering="crispEdges" role="img" aria-label={label}>
+    <g className="pp-body">
     {RUNS.map(run => <rect key={`${run.x}-${run.y}`} className={`pp-${run.c}`} x={run.x} y={run.y} width={run.w} height={1} />)}
     {BARS.map(([x, y, h]) => <rect key={`b${x}`} className="pp-ink" x={x} y={y} width={1} height={h} />)}
     <rect className="pp-ink pp-pulse" x={11} y={8} width={1} height={1} />
     <g className="pp-wave pp-wave-a">{WAVE_A.map(([x, y]) => <rect key={x} className="pp-ink" x={x} y={y} width={1} height={1} />)}</g>
     <g className="pp-wave pp-wave-b">{WAVE_B.map(([x, y]) => <rect key={x} className="pp-ink" x={x} y={y} width={1} height={1} />)}</g>
+    </g>
   </svg>;
 }

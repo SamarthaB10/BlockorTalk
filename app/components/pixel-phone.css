@@ -1,20 +1,36 @@
-/* Pixel phone. Motion only on hover of its card, and never with reduced motion. */
-.pixel-phone { display:block; width:var(--pixel-phone-width, 60px); /* keep widths a multiple of 20px so every art pixel is a whole number */ height:auto; flex-shrink:0; transition:transform 240ms cubic-bezier(.2,.8,.2,1), filter 240ms ease-out; }
+/* Pixel phone. Hover rings it; pressing a card answers it. Never with reduced motion. */
+.pixel-phone { display:block; width:var(--pixel-phone-width, 60px); /* keep widths a multiple of 20px so every art pixel is a whole number */ height:auto; flex-shrink:0; overflow:visible; transition:transform 240ms cubic-bezier(.2,.8,.2,1), filter 240ms ease-out; }
 .pixel-phone .pp-k, .pixel-phone .pp-ink { fill:#0b0b10; }
 .pixel-phone .pp-w { fill:#f2f0ea; }
 .pixel-phone .pp-p { fill:#9c9bff; }
 .pixel-phone .pp-d { fill:#7473e0; }
 .pixel-phone .pp-s { fill:#6fd8e8; transition:fill 240ms ease-out; }
 .pixel-phone .pp-wave-b { opacity:0; }
-.pixel-phone-host:hover .pixel-phone, .pixel-phone-host:focus-within .pixel-phone { transform:translateY(-3px); filter:drop-shadow(0 6px 10px rgb(111 216 232 / .3)); }
+.pixel-phone .pp-body { transform-box:fill-box; transform-origin:50% 100%; transition:transform 260ms cubic-bezier(.2,.8,.2,1); }
+
+/* Hover or focus: an incoming call. The phone lifts, the screen lights, and it buzzes in short bursts. */
+.pixel-phone-host:hover .pixel-phone, .pixel-phone-host:focus-within .pixel-phone { transform:translateY(-3px); filter:drop-shadow(0 6px 10px rgb(156 155 255 / .35)); }
 .pixel-phone-host:hover .pp-s, .pixel-phone-host:focus-within .pp-s { fill:#a9f0fa; }
+.pixel-phone-host:hover .pp-body, .pixel-phone-host:focus-within .pp-body { animation:pp-ring 1.6s cubic-bezier(.36,.07,.19,.97) infinite; }
 .pixel-phone-host:hover .pp-wave-a { animation:pp-wave 640ms steps(1, end) infinite; }
 .pixel-phone-host:hover .pp-wave-b { animation:pp-wave 640ms steps(1, end) infinite reverse; }
 .pixel-phone-host:hover .pp-pulse { animation:pp-pulse 900ms steps(1, end) 1; }
+
+/* Press: the call is answered. The phone tilts up toward you and the screen lights fully. */
+.pixel-phone-host:active .pixel-phone { transform:translateY(-6px); transition-duration:140ms; }
+.pixel-phone-host:active .pp-body { animation:none; transform:rotate(-8deg) scale(1.04); transition-duration:140ms; }
+.pixel-phone-host:active .pp-s { fill:#d4f8fc; }
+
+@keyframes pp-ring {
+  0%, 36%, 100% { transform:translateX(0) rotate(0); }
+  4%, 12%, 20%, 28% { transform:translateX(-1px) rotate(-3deg); }
+  8%, 16%, 24%, 32% { transform:translateX(1px) rotate(3deg); }
+}
 @keyframes pp-wave { 0% { opacity:1; } 50% { opacity:0; } }
 @keyframes pp-pulse { 0%, 100% { opacity:1; } 33% { opacity:0; } 66% { opacity:1; } }
 @media (prefers-reduced-motion: reduce) {
-  .pixel-phone { transition:none; }
-  .pixel-phone-host:hover .pixel-phone, .pixel-phone-host:focus-within .pixel-phone { transform:none; }
+  .pixel-phone, .pixel-phone .pp-body { transition:none; }
+  .pixel-phone-host:hover .pixel-phone, .pixel-phone-host:focus-within .pixel-phone, .pixel-phone-host:active .pixel-phone { transform:none; }
+  .pixel-phone-host:hover .pp-body, .pixel-phone-host:focus-within .pp-body, .pixel-phone-host:active .pp-body { animation:none; transform:none; }
   .pixel-phone-host:hover .pp-wave-a, .pixel-phone-host:hover .pp-wave-b, .pixel-phone-host:hover .pp-pulse { animation:none; }
 }
