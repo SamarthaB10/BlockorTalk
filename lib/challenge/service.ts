@@ -102,7 +102,8 @@ export function createChallengeService({ connectionString, reply, now = Date.now
         } else if (action?.type === 'voice_turns') {
           // Yui's browser-voice call is spoken, so its transcript only exists in the browser. Accept it once,
           // after the call has ended and before the verdict, so the reveal has something to show.
-          if (day.phase !== 'verdict' || day.callerId !== 'recruiter' || day.voiceSaved) throw new ChallengeError('This call has no voice transcript to save.');
+          if (day.voiceSaved && day.callerId === 'recruiter') { await client.query('COMMIT'); return day; }
+          if (day.phase !== 'verdict' || day.callerId !== 'recruiter') throw new ChallengeError('This call has no voice transcript to save.');
           day.voiceSaved = true;
           if (!Array.isArray(action.turns) || action.turns.length > 40) throw new ChallengeError('That voice transcript is too long.', 400);
           // A call can start in text and switch to voice: spoken turns come after the typed ones.

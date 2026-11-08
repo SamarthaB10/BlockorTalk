@@ -1,5 +1,6 @@
 import { createChallengeService, ChallengeError } from '../../../../lib/challenge/service.ts';
 import { buildReveal, revealReady, revealSignature } from '../../../../lib/challenge/reveal.ts';
+import { createRetrievalDetector } from '../../../../lib/challenge/detector.ts';
 import { createNemotronClient } from '../../../../lib/debrief/index.mjs';
 
 export const dynamic = 'force-dynamic';
@@ -24,10 +25,26 @@ export async function GET(request: Request) {
     const service = createChallengeService({ connectionString: process.env.DATABASE_URL, reply: async ({ options }) => options[0] });
     const day = await service.get(id);
     if (!revealReady(day)) return json({ error: 'The reveal opens after your third verdict.' }, 409);
+    if (new URL(request.url).searchParams.get('mode') === 'basic') return json({ reveal: await buildReveal(day, { mode: 'fixed' }) });
     const fixed = new URL(request.url).searchParams.get('mode') === 'fixed';
     // Reuse the saved reveal unless the day changed since (for example the bank callback came after the last verdict).
     if (day.reveal && day.reveal.signature === revealSignature(day) && (!fixed || day.reveal.mode === 'fixed')) return json({ reveal: day.reveal });
-    const reveal = await buildReveal(day, { llm: fixed ? null : createNemotronClient(process.env), mode: fixed ? 'fixed' : 'auto' });
+    const options = { llm: fixed ? null : createNemotronClient(process.env), mode: fixed ? 'fixed' as const : 'auto' as const, detector: createRetrievalDetector(process.env) };
+    if (request.headers.get('accept') === 'application/x-ndjson') {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({ async start(controller) {
+        const send = (value: unknown) => { try { controller.enqueue(encoder.encode(JSON.stringify(value) + '\n')); } catch { /* reader disconnected */ } };
+        try {
+          send({ phase: 'thinking' });
+          const reveal = await buildReveal(day, { ...options, onStep: step => send({ phase: step.tool === 'submit_debrief' ? 'typing' : 'thinking' }) });
+          await service.saveReveal(id, reveal);
+          send({ reveal });
+        } catch { send({ error: 'The report could not be completed. Please try again.' }); }
+        finally { try { controller.close(); } catch { /* reader disconnected */ } }
+      } });
+      return new Response(stream, { headers: { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store' } });
+    }
+    const reveal = await buildReveal(day, options);
     await service.saveReveal(id, reveal);
     return json({ reveal });
   } catch (error) {

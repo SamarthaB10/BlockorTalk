@@ -5,9 +5,9 @@ import type { CallEvent, PersonaCard, Transcript, TranscriptTurn, Verdict as Deb
 import { mentionsSecret } from '../policy/normalize.mjs';
 import type { CallerId, CallResult, Challenge, Turn } from './types.ts';
 import { CODE_REQUEST_LINES, FAKE_SECRETS } from './scenarios.ts';
-import yui from '../../data/personas/yui.json';
-import ren from '../../data/personas/ren.json';
-import kai from '../../data/personas/kai.json';
+import yui from '../../data/personas/yui.json' with { type: 'json' };
+import ren from '../../data/personas/ren.json' with { type: 'json' };
+import kai from '../../data/personas/kai.json' with { type: 'json' };
 
 export const PERSONAS: Record<CallerId, PersonaCard> = {
   recruiter: yui as unknown as PersonaCard,
@@ -59,5 +59,6 @@ export function toTranscript(day: Challenge, index: number): Transcript {
       : record.surface !== 'portal';
     if (mine) events.push({ type: VERIFY_TYPE[record.surface], after_turn: Math.min(afterTurn(record.at), lastTurn), t: secs(record.at) });
   }
-  return { id: `${day.id}-${index + 1}-${call.callerId}`, persona_id: persona.id, mode: 'text', verdict: VERDICTS[call.verdict], turns, events };
+  return { id: `${day.id}-${index + 1}-${call.callerId}`, persona_id: persona.id, mode: 'text', verdict: VERDICTS[call.verdict], turns, events,
+    recorded_leaks: call.turns.flatMap((turn, i) => (turn.leaked ?? (turn.role === 'user' ? call.leaked.filter(key => key in FAKE_SECRETS && mentionsSecret(turn.text, key, FAKE_SECRETS[key as keyof typeof FAKE_SECRETS])) : [])).map(secret => ({ turn: i + 1, secret, text: turns[i].text }))) };
 }

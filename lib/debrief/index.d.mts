@@ -51,6 +51,12 @@ export interface Transcript {
   verdict: Verdict | null;
   turns: TranscriptTurn[];
   events: CallEvent[];
+  recorded_leaks?: Array<{ turn: number; secret: string; text: string }>;
+  detection?: Detection;
+}
+export interface Detection {
+  source: string; label: 'scam' | 'legit' | null; scam_type: string | null; confidence: number;
+  red_flags: RedFlag[];
 }
 
 export interface RuleResult { rule: RuleNumber; title: string; status: RuleStatus; turn: number | null; evidence: string }
@@ -97,7 +103,7 @@ export interface DebriefResult {
   rules: [RuleResult, RuleResult, RuleResult, RuleResult];
   moves: MoveResult[];
   red_flags: RedFlag[];
-  detector: { source: string; label: 'scam' | 'legit'; scam_type: string | null; confidence: number };
+  detector: { source: string; label: 'scam' | 'legit' | null; scam_type: string | null; confidence: number };
   decisions: Decision[];
   rewind: Rewind | null;
   steps: Step[];
