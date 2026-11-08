@@ -35,7 +35,7 @@ export function themeOf(item: { title: string; summary: string }): NewsTheme | u
   return best;
 }
 
-interface RawArticle { source?: { name?: unknown }; title?: unknown; description?: unknown; url?: unknown; publishedAt?: unknown }
+interface RawArticle { source?: { name?: unknown }; urlToImage?: unknown; title?: unknown; description?: unknown; url?: unknown; publishedAt?: unknown }
 
 /** Turns a NewsAPI `everything` response into news items. Unreadable entries are skipped. */
 export function parseNewsApi(body: unknown, theme?: NewsTheme): NewsItem[] {
@@ -55,6 +55,7 @@ export function parseNewsApi(body: unknown, theme?: NewsTheme): NewsItem[] {
       summary,
       source: typeof a.source?.name === "string" && a.source.name ? plain(a.source.name) : "News",
       ...(parsed && !Number.isNaN(parsed.getTime()) ? { date: parsed.toISOString() } : {}),
+      ...(typeof a.urlToImage === "string" && /^https:\/\//.test(a.urlToImage) ? { image: a.urlToImage } : {}),
       ...(matched ? { theme: matched } : {}),
     });
   }

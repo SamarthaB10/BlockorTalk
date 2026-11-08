@@ -16,6 +16,8 @@ export interface NewsItem {
   source?: string;
   /** Scenario theme the item matches, tagged by code. */
   theme?: "Jobs" | "Banking";
+  /** https thumbnail URL from the publisher, when the source provides one. */
+  image?: string;
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", mdash: "—", ndash: "–", hellip: "…" };
