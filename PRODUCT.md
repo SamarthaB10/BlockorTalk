@@ -29,7 +29,7 @@ Tell measures both sides of judgment: scams caught and real callers wrongly reje
 - A real phone rings with an AI caller; the laptop or tablet shows the game board: the caller card, the player's $1,000, two task cards, the four moves, and a fictional bank app and company portal.
 - A presenter screen, separate from the player's, shows the live risk meter for the audience. It never appears on the player's screen.
 - A no-signup try-it page runs the same day in text or browser voice on one device.
-- Every call opens with a fixed spoken disclosure: an AI practice call, recorded, say "stop drill" anytime.
+- Every call opens with a fixed spoken disclosure: it's recorded, say "stop drill" anytime.
 
 ## Capabilities and Constraints
 

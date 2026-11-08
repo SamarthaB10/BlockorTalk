@@ -4,7 +4,7 @@
  * reveals nothing about who is calling.
  */
 export const DISCLOSURE_LINE =
-  "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime.";
+  "It's recorded for your report. Say 'stop drill' anytime.";
 
 /** Drill caps from the spec: 12 player replies or 3 minutes, whichever comes first. */
 export const DRILL_MAX_SECONDS = 180;

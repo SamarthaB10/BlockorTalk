@@ -17,7 +17,7 @@ const payload = JSON.stringify({
     conversation_id: "conv_123",
     status: "done",
     transcript: [
-      { role: "agent", message: "This is a Tell practice call...", time_in_call_secs: 0 },
+      { role: "agent", message: "It's recorded for your report...", time_in_call_secs: 0 },
       { role: "user", message: "It's five five one two seven four", time_in_call_secs: 31 },
     ],
     metadata: { call_duration_secs: 44 },
@@ -70,7 +70,7 @@ describe("post-call webhook", () => {
         status: "done",
         durationSecs: 44,
         turns: [
-          { role: "agent", message: "This is a Tell practice call...", timeInCallSecs: 0 },
+          { role: "agent", message: "It's recorded for your report...", timeInCallSecs: 0 },
           { role: "user", message: "It's five five one two seven four", timeInCallSecs: 31 },
         ],
       },
