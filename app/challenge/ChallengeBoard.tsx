@@ -92,7 +92,7 @@ export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
   const requestQueue = useRef<Promise<void>>(Promise.resolve());
   const requestDay = useCallback((action: object): Promise<Response> => {
     const send = async () => {
-      const response = await fetch(tryIt ? '/api/try-it' : '/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000), body: JSON.stringify(tryIt ? { action, token: tokenRef.current } : action) });
+      const response = await fetch(tryIt ? '/api/try-it' : '/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout('type' in action && action.type === 'reveal' ? 30000 : 'type' in action && action.type === 'voice_live' ? 5000 : 15000), body: JSON.stringify(tryIt ? { action, token: tokenRef.current } : action) });
       if (tryIt && response.ok) {
         const result = await response.clone().json() as { token?: string };
         if (result.token) tokenRef.current = result.token;
