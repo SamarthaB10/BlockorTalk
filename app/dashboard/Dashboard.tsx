@@ -31,7 +31,6 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
   }, []);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [newsState, setNewsState] = useState('Loading consumer alerts…');
-  const [saved, setSaved] = useState(false);
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState('');
@@ -47,7 +46,6 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ explanation: string; safest: string } | null>(null);
   useEffect(() => {
-    fetch('/api/challenge').then(response => response.json()).then(value => setSaved(Boolean((value as { day?: unknown }).day))).catch(() => {});
     fetch('/api/news').then(async response => {
       if (!response.ok) throw new Error();
       const value = await response.json() as { items: Alert[] };
@@ -104,13 +102,11 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
   return <main className="hub">
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
-    <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button onClick={openBoard}>Leaderboard</button></nav><a className="hub-launch" href="/challenge">Enter Challenge ↗</a></header>
-    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>Your practice space</p><h1>{view === 'Home' ? 'A little practice. Better instincts.' : view === 'Leaderboard' ? 'Good judgment adds up.' : view === 'Scenarios' ? 'One call. Your judgment.' : 'Stay one step ahead.'}</h1><p>{view === 'Home' ? 'Choose a challenge, practice a single call, or catch up on the latest alerts. Your next move starts here.' : view === 'Leaderboard' ? 'Practice spotting scam calls. Earn Blokbuks with each Scored call.' : view === 'Scenarios' ? 'Practice individual calls in text. No money or tasks to manage.' : 'Consumer alerts from the Federal Trade Commission.'}</p></div></section>
+    <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button onClick={openBoard}>Leaderboard</button></nav></header>
+    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>Your practice space</p><h1>{view === 'Home' ? 'A little practice. Better instincts.' : view === 'Leaderboard' ? 'Good judgment adds up.' : view === 'Scenarios' ? 'One call. Your judgment.' : 'Stay one step ahead.'}</h1><p>{view === 'Home' ? 'Practice a single call or catch up on the latest alerts. Your next move starts here.' : view === 'Leaderboard' ? 'Practice spotting scam calls. Earn Blokbuks with each Scored call.' : view === 'Scenarios' ? 'Practice individual calls in text. No money or tasks to manage.' : 'Consumer alerts from the Federal Trade Commission.'}</p></div></section>
     {error && <p role="alert">{error}</p>}
     {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
-      <article className="hub-card hub-feature"><span className="hub-chip">The Challenge</span><div><h2>Three calls.<br />Keep your $1,000.</h2><p>Book your interview. Check your bank alert. Decide who gets your trust.</p></div><a className="hub-primary" href="/challenge">{saved ? 'Continue your day' : 'Start your day'} <span>↗</span></a><small>Voice or text · fictional money · no signup</small></article>
       <article className="hub-card"><span className="hub-chip">Scenario practice</span><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map(item => <span key={item.id}>{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>
-      <article className="hub-card hub-orb-card"><span className="hub-chip">Speak or type</span><div className="hub-orb" aria-hidden="true"/><h2>Your call. Your pace.</h2><p>Talk naturally in Challenge, or take your time with text. Voice carries across all three callers.</p><a className="hub-link" href="/challenge">Open call options ↗</a></article>
       <article className="hub-card hub-news"><span className="hub-chip">FTC consumer alerts</span><h2>What’s happening now.</h2>{alerts.slice(0, 2).map(item => <a key={item.link} href={item.link} target="_blank" rel="noreferrer">{item.title} ↗</a>)}{newsState && <p role="status">{newsState}</p>}<button className="hub-link" onClick={() => navigate('News')}>Read the latest ↗</button></article>
       <article className="hub-card hub-rule"><span className="hub-chip">Take it with you</span><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
     </section>}
