@@ -177,9 +177,14 @@ const SYSTEM = [
   "The reason is shown before the call: kind, specific, at most 30 words, and it must never reveal whether the caller is real, a scam or hijacked.",
 ].join("\n");
 
+// Model-supplied ids are echoed in errors and step summaries the player sees, so they are capped.
+const cap = (value: unknown, max = 40) => (typeof value === "string" ? value.slice(0, max) : value);
+
 function asObject(raw: unknown): Choice {
-  if (raw && typeof raw === "object") return raw as Choice;
-  try { return JSON.parse(String(raw ?? "{}")); } catch { return {}; }
+  let parsed: Choice = {};
+  if (raw && typeof raw === "object") parsed = raw as Choice;
+  else { try { parsed = JSON.parse(String(raw ?? "{}")) ?? {}; } catch { parsed = {}; } }
+  return { ...parsed, kind: cap(parsed.kind), id: cap(parsed.id), news_link: cap(parsed.news_link, 300) };
 }
 
 export async function planDrill({ history, llm = null, threats, timeoutMs = PLAN_TIMEOUT_MS, maxToolCalls = PLAN_MAX_TOOL_CALLS }: {
@@ -223,7 +228,6 @@ export async function planDrill({ history, llm = null, threats, timeoutMs = PLAN
 
   const fixed = async (reason: string, steps: PlanStep[] = [], rejected: Plan["rejected"] = []) => {
     for (const name of ["get_player_history", "get_current_threats", "list_drills"]) await runTool(name, steps, "fixed");
-    await loadNews();
     const choice = checkChoice(fixedChoice(summary, news), summary, news);
     steps.push({ n: steps.length + 1, tool: "choose_drill", input_summary: "fixed plan", result_summary: "error" in choice ? choice.error : `${choice.drill.kind}:${choice.drill.id} for rule ${choice.target_rule}`, ms: 0, by: "fixed" });
     return finish("fixed", null, reason, steps, choice, rejected);

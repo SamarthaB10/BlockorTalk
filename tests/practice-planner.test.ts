@@ -247,6 +247,16 @@ describe("review fixes", () => {
     expect(plan.news).toBeNull();
   });
 
+  it("caps model-supplied ids before they reach the player", async () => {
+    const long = "x".repeat(500);
+    const { llm } = scripted([
+      { content: null, tool_calls: [tool("a", "choose_drill", { kind: long, id: long, target_rule: 1, reason: "x" })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "card", id: "customs-fee", target_rule: 1, reason: "Practise." })] },
+    ]);
+    const plan = await planDrill({ history: [], llm, threats });
+    expect(JSON.stringify(plan)).not.toMatch(/x{41}/);
+  });
+
   it("falls back after three invalid choices", async () => {
     const { llm } = scripted([{ content: null, tool_calls: [tool("a", "choose_drill", { kind: "card", id: "nope", target_rule: 1, reason: "x" })] }]);
     const plan = await planDrill({ history: [], llm, threats });
