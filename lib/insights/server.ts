@@ -12,6 +12,7 @@ export function insightsHandlers(env = process.env) {
   return createInsightsHandlers({
     password: INSIGHTS_PASSWORD,
     store: createInsightsStore(env.DATABASE_URL ?? '', publicScenarios),
-    analyst: createInsightsAnalyst(createNemotronAnalystLlm(env)),
+    // A full five-section report needs more tokens and time than the Player analysis.
+    analyst: createInsightsAnalyst(createNemotronAnalystLlm(env, { maxTokens: 1400, timeoutMs: 25000 })),
   });
 }
