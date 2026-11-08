@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { createChallengeService, ChallengeError, type ChallengeStore } from '../challenge/service';
 import { createChallengeHandlers, COOKIE, json, playerView } from '../challenge/routes';
 import { buildReveal, revealReady } from '../challenge/reveal';
@@ -11,25 +11,24 @@ export interface TryItDeps {
   reserve(visitor: string): Promise<'visitor' | 'global' | null>;
   count(id: string, outcome: Outcome): Promise<void>;
   now?: () => number;
+  revealOptions?: Parameters<typeof buildReveal>[1];
   voiceToken?: (callerId: Challenge['callerId']) => Promise<Response>;
 }
 
 /** State is authenticated and encrypted. It stays in the browser, never in a database row. */
 export function createTryItHandlers(deps: TryItDeps) {
   const now = deps.now ?? Date.now;
-  const key = createHash('sha256').update(deps.secret).digest();
-  function seal(day: Challenge, visitor: string, expires: number) {
-    const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
-    const data = Buffer.concat([cipher.update(JSON.stringify({ day, visitor, expires })), cipher.final()]);
-    return Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64url');
+  const key = crypto.subtle.importKey('raw', new Uint8Array(createHash('sha256').update(deps.secret).digest()), 'AES-GCM', false, ['encrypt', 'decrypt']);
+  async function seal(day: Challenge, visitor: string, expires: number) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await key, new TextEncoder().encode(JSON.stringify({ day, visitor, expires })));
+    return Buffer.concat([iv, new Uint8Array(data)]).toString('base64url');
   }
-  function open(token: string) {
+  async function open(token: string) {
     try {
-      const bytes = Buffer.from(token, 'base64url');
-      const decipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 12));
-      decipher.setAuthTag(bytes.subarray(12, 28));
-      return JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString()) as { day: Challenge; visitor: string; expires: number };
+      const bytes = new Uint8Array(Buffer.from(token, 'base64url'));
+      const data = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, await key, bytes.slice(12));
+      return JSON.parse(new TextDecoder().decode(data)) as { day: Challenge; visitor: string; expires: number };
     } catch { throw new ChallengeError('This practice day has expired. Start a new day.', 401); }
   }
   return {
@@ -52,7 +51,7 @@ export function createTryItHandlers(deps: TryItDeps) {
           if (limit) return json({ error: limit === 'visitor' ? 'You have tried three days this hour. Please come back in an hour.' : 'Today’s practice places are full. Please come back tomorrow.' }, 429, { 'Retry-After': limit === 'visitor' ? '3600' : '86400' });
         } else {
           if (typeof body.token !== 'string') return json({ error: 'Start a practice day first.' }, 401);
-          const saved = open(body.token);
+          const saved = await open(body.token);
           if (saved.visitor !== visitorHash || saved.expires <= now()) return json({ error: 'This practice day has expired. Start a new day.' }, 401);
           day = saved.day; expires = saved.expires;
         }
@@ -71,7 +70,7 @@ export function createTryItHandlers(deps: TryItDeps) {
         if (body.action.type === 'reveal') {
           if (!day || !revealReady(day)) return json({ error: 'Finish all three calls to open the reveal.' }, 409);
           await deps.count(day.id, { balance: day.balance, interview: day.interview, bank: day.bank });
-          return json({ reveal: await buildReveal(day, { mode: 'fixed' }) }, 200, headers);
+          return json({ reveal: await buildReveal(day, { mode: 'fixed', detector: async () => ({ source: 'retrieval unavailable', label: null, scam_type: null, confidence: 0, red_flags: [] }), ...deps.revealOptions }) }, 200, headers);
         }
         // Reuse the Challenge action validation and scoring without its database storage.
         const response = await createChallengeHandlers(() => service).POST(new Request(request.url, {
@@ -79,9 +78,10 @@ export function createTryItHandlers(deps: TryItDeps) {
         }));
         if (!response.ok) return response;
         if (!day) throw new Error('Missing day');
-        return json({ day: playerView(day), token: seal(day, visitorHash, expires) }, response.status, headers);
+        return json({ day: playerView(day), token: await seal(day, visitorHash, expires) }, response.status, headers);
       } catch (error) {
         if (error instanceof ChallengeError) return json({ error: error.message }, error.status);
+        console.error('Try-it request failed', error instanceof Error ? error.name : 'unknown', (error as { code?: string })?.code ?? '');
         return json({ error: 'Practice is unavailable. Please try again shortly.' }, 503);
       }
     },

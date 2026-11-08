@@ -15,6 +15,7 @@ export default defineConfig({
       ASSETS: bindings.assets(),
       DATABASE_URL: bindings.secret(),
       NVIDIA_API_KEY: bindings.secret(),
+      TRY_IT_SECRET: bindings.secret(),
     },
   }),
 });

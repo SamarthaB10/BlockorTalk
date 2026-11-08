@@ -183,7 +183,7 @@ export function createChallengeService({ connectionString = '', store = postgres
   }
 
   async function update(id: string, action?: Action) {
-    return store.update(id, async day => {
+    const updated = await store.update(id, async day => {
         // Upgrade saved issue-5 days without losing their verdict or transcript.
         day.calls ??= day.verdict ? [{ callerId: 'recruiter', verdict: day.verdict, turns: day.turns, cost: 0, leaked: [] }] : [];
         day.leaked ??= [];
@@ -273,9 +273,10 @@ export function createChallengeService({ connectionString = '', store = postgres
           }
         }
         if (trackRisk) queueRisk(day);
-        scheduleRisk?.(id);
         return day;
     });
+    scheduleRisk?.(id);
+    return updated;
   }
   return {
     async start(): Promise<Challenge> {

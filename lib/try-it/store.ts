@@ -33,7 +33,7 @@ export function tryItStore(connectionString: string, dailyCap = 1000): Pick<TryI
     },
     async count(id: string, outcome: Outcome) {
       await transaction(async client => {
-        await client.query('INSERT INTO tell_try_it_outcomes (play_id, balance, interview, bank) VALUES ($1, $2, $3, $4) ON CONFLICT (play_id) DO NOTHING', [id, outcome.balance, outcome.interview, outcome.bank]);
+        await client.query('INSERT INTO tell_try_it_outcomes (play_id, balance, interview, bank) VALUES ($1, $2, $3, $4) ON CONFLICT (play_id) DO UPDATE SET balance = EXCLUDED.balance, interview = EXCLUDED.interview, bank = EXCLUDED.bank', [id, outcome.balance, outcome.interview, outcome.bank]);
       });
     },
   };

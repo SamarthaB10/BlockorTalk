@@ -89,13 +89,21 @@ function Waveform({ handle, caller }: { handle: BrowserCallHandle; caller: strin
 
 export default function ChallengeBoard({ tryIt = false }: { tryIt?: boolean }) {
   const tokenRef = useRef<string | undefined>(undefined);
-  const requestDay = useCallback(async (action: object) => {
-    const response = await fetch(tryIt ? '/api/try-it' : '/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tryIt ? { action, token: tokenRef.current } : action) });
-    if (tryIt && response.ok) {
-      const result = await response.clone().json() as { token?: string };
-      if (result.token) tokenRef.current = result.token;
-    }
-    return response;
+  const requestQueue = useRef<Promise<void>>(Promise.resolve());
+  const requestDay = useCallback((action: object): Promise<Response> => {
+    const send = async () => {
+      const response = await fetch(tryIt ? '/api/try-it' : '/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000), body: JSON.stringify(tryIt ? { action, token: tokenRef.current } : action) });
+      if (tryIt && response.ok) {
+        const result = await response.clone().json() as { token?: string };
+        if (result.token) tokenRef.current = result.token;
+      }
+      return response;
+    };
+    if (!tryIt) return send();
+    // Each action must use the state returned by the previous action, including voice uploads.
+    const result = requestQueue.current.then(send);
+    requestQueue.current = result.then(() => {}, () => {});
+    return result;
   }, [tryIt]);
   const [day, setDay] = useState<Challenge | null>(null);
   const dayRef = useRef<Challenge | null>(null);

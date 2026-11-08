@@ -19,9 +19,9 @@ Day state is encrypted and authenticated with AES-256-GCM. The browser holds the
 
 `tell_try_it_limits` holds expiring anonymous visitor hashes and a global day counter. No IP address is stored. Expired rows are removed on the next start. Clearing browser cookies creates a new visitor.
 
-`tell_try_it_outcomes` holds one row per completed play: a random play ID, final balance, interview state and bank state. The random ID prevents repeated reveal requests from adding counts. It is not joined to a visitor. No name, transcript or conversation ID is stored. Outcomes are counted when the reveal first opens; a later rewind does not change them.
+`tell_try_it_outcomes` holds one row per completed play: a random play ID, final balance, interview state and bank state. The random ID prevents repeated reveal requests from adding counts. It is not joined to a visitor. No name, transcript or conversation ID is stored. Outcomes are counted when the reveal first opens. A later bank callback updates that same outcome row. A rewind does not change it.
 
-The text caller can use Nemotron and falls back to approved script lines. The try-it reveal uses the existing fixed Debrief tools and reports detector unavailability. It makes no claim that a model ran.
+The text caller can use Nemotron and falls back to approved script lines. The try-it reveal uses the same Debrief agent and retrieval detector as Challenge mode. If a model or detector is unavailable, the reveal uses the fixed Debrief tools and reports detector unavailability. It makes no claim that a model ran when it did not.
 
 ## Manual checks
 
