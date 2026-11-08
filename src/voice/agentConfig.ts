@@ -110,7 +110,8 @@ export function buildAgentConfig(
         // The disclosure must be heard in full before the player can talk over it.
         disableFirstMessageInterruptions: true,
         maxConversationDurationMessage: "We're out of time for this practice call. Goodbye!",
-        dynamicVariables: { dynamicVariablePlaceholders: { ...p.variables } },
+        // Typed `unknown` in the SDK, so it is sent as-is: use the API's snake_case key.
+        dynamicVariables: { dynamic_variable_placeholders: { ...p.variables } },
         prompt: {
           prompt,
           llm: opts.llm ?? DEFAULT_VOICE_LLM,

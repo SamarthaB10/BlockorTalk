@@ -33,7 +33,7 @@ describe.each(CHALLENGE_CALLER_IDS)("Challenge agent %s", (id) => {
       [...`${prompt} ${agent.firstMessage}`.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]!),
     );
     const declared = Object.keys(
-      (agent.dynamicVariables as any).dynamicVariablePlaceholders as object,
+      (agent.dynamicVariables as any).dynamic_variable_placeholders as object,
     );
     expect([...used].sort()).toEqual(declared.sort());
   });
