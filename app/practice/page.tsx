@@ -1,2 +1,5 @@
-import PracticeBoard from './PracticeBoard';
-export default function PracticePage() { return <PracticeBoard />; }
+import { redirect } from 'next/navigation';
+
+export default function PracticePage() {
+  redirect('/play');
+}

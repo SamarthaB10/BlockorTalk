@@ -1,4 +1,6 @@
-/* Tell visual foundation. Tokens first, then base, then components (ui- prefix). */
+@font-face { font-family:'Sora'; src:url('/fonts/sora.woff2') format('woff2'); font-weight:100 800; font-display:swap; }
+@font-face { font-family:'DotGothic16'; src:url('/fonts/dot-gothic.woff2') format('woff2'); font-weight:400; font-display:swap; }
+/* Block or Talk visual foundation. Tokens first, then base, then components (ui- prefix). */
 :root {
   /* colour: neutral only. Purple/red/green appear with their cat, or for kept/broken rules after the reveal. */
   --bg: #000;

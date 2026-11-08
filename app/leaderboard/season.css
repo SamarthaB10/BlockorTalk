@@ -1,5 +1,4 @@
 .season-page { max-width: 1040px; margin: auto; padding: var(--space-5); }
-.season-page nav { display: flex; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-4); border-bottom: 1px solid var(--line); }
 .season-page a { color: var(--ink); text-underline-offset: 4px; }
 .season-page header { padding-block: var(--space-7); }
 .season-eyebrow { color: var(--ink-muted); }
