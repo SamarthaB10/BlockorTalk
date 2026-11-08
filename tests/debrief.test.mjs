@@ -21,7 +21,7 @@ const fixed = (id) => {
 // ---------- content (Lane D scripts) ----------
 
 test('Nina, Marcus and James have cards with beats, fake secrets, a quirk and the fixed disclosure line', () => {
-  const disclosure = "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime.";
+  const disclosure = "It's recorded for your report. Say 'stop drill' anytime.";
   for (const id of ['nina', 'marcus', 'james']) {
     const p = assertPersona(persona(id));
     assert.ok(p.quirk.length > 10, `${id} quirk`);

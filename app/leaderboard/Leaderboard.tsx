@@ -5,6 +5,7 @@ import type { Season } from '../../lib/season/routes';
 import { moveLabel, placeLabel, podiumOrder, seasonClock, seasonClockLabel, standingLine } from '../../lib/season/standing';
 import Blokbuks from '../components/Blokbuks';
 import { Button, DotFigure } from '../components/ui';
+import './season.css';
 
 type Rank = { rank: number; nickname: string; blokbuks: number };
 type Board = { season: Season & { status: string }; final: boolean; leaderboard: Rank[]; ownRank: Rank | null; claimEligible: boolean };
@@ -18,7 +19,7 @@ function changedRanks(previous: Map<string, number>, ranks: Rank[]) {
   return moves;
 }
 
-export default function Leaderboard({ claim = false }: { claim?: boolean }) {
+export default function Leaderboard({ claim = false, embedded = false }: { claim?: boolean; embedded?: boolean }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState('');
   const [remaining, setRemaining] = useState(0);
@@ -97,11 +98,12 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
     </tr>;
   };
 
-  return <main className="season-page">
+  const Root = embedded ? 'section' : 'main';
+  return <Root className="season-page" aria-label={embedded ? 'Season leaderboard' : undefined}>
     <header>
       <p className="season-eyebrow">National Leaderboard · {board?.season.name || 'Season 1'}{phase && <span className="ui-pill">{phase}</span>}</p>
-      <h1>{claim ? 'Claim your prize' : 'Good judgment adds up.'}</h1>
-      <p>Practice spotting scam calls. Earn Blokbuks with each Scored call.</p>
+      {!embedded && <h1>{claim ? 'Claim your prize' : 'Good judgment adds up.'}</h1>}
+      {!embedded && <p>Practice spotting scam calls. Earn Blokbuks with each Scored call.</p>}
     </header>
     {error && <p role="alert" className="season-notice">{error} <a href="/leaderboard">Try again</a></p>}
     {!board && !error && <p role="status">Loading the Leaderboard…</p>}
@@ -145,7 +147,7 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
         {board.leaderboard.length ? <table className="standings-table"><caption className="ui-sr-only">National Leaderboard</caption><thead><tr><th scope="col">Rank</th><th scope="col">Nickname</th><th scope="col">Blokbuks</th></tr></thead><tbody>{board.leaderboard.map(row)}</tbody></table> : <p>No Players yet. Be the first to join.</p>}
       </>}
     </>}
-  </main>;
+  </Root>;
 }
 
 function YourRank({ board, move }: { board: Board; move: string | null }) {

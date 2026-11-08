@@ -10,8 +10,9 @@ import Welcome from './Welcome';
 import PracticeCard from './PracticeCard';
 import TypedGreeting from './TypedGreeting';
 import HubBoard from './HubBoard';
+import Leaderboard from '../leaderboard/Leaderboard';
 
-type View = 'Home' | 'Scenarios' | 'Battlecards' | 'News';
+type View = 'Home' | 'Leaderboard' | 'Scenarios' | 'Battlecards' | 'News';
 type Turn = { role: 'caller' | 'you'; text: string };
 type Alert = { title: string; link: string; summary: string; date?: string };
 
@@ -21,7 +22,7 @@ export default function Dashboard() {
   useEffect(() => {
     const restore = () => {
       const selected = new URLSearchParams(location.search).get('view');
-      setView(selected === 'Scenarios' || selected === 'Battlecards' || selected === 'News' ? selected : 'Home');
+      setView(selected === 'Leaderboard' || selected === 'Scenarios' || selected === 'Battlecards' || selected === 'News' ? selected : 'Home');
       stopVoice(); setScenario(null); setShowCode(false);
     };
     restore(); window.addEventListener('popstate', restore);
@@ -103,7 +104,7 @@ export default function Dashboard() {
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
     <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'Battlecards', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button onClick={openBoard}>Leaderboard</button></nav><a className="hub-launch" href="/challenge">Enter Challenge ↗</a></header>
-    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>Your practice space</p><h1>{view === 'Home' ? 'A little practice. Better instincts.' : view === 'Scenarios' ? 'One call. Your judgment.' : view === 'Battlecards' ? 'Know the move. Have a response.' : 'Stay one step ahead.'}</h1><p>{view === 'Home' ? 'Choose a challenge, rehearse a tricky moment, or catch up on the latest alerts. Your next move starts here.' : view === 'Scenarios' ? 'Practice individual calls in text. No money or tasks to manage.' : view === 'Battlecards' ? 'Short drills for the pressure tactics you may hear on a real call.' : 'Consumer alerts from the Federal Trade Commission.'}</p></div></section>
+    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>Your practice space</p><h1>{view === 'Home' ? 'A little practice. Better instincts.' : view === 'Leaderboard' ? 'Good judgment adds up.' : view === 'Scenarios' ? 'One call. Your judgment.' : view === 'Battlecards' ? 'Know the move. Have a response.' : 'Stay one step ahead.'}</h1><p>{view === 'Home' ? 'Choose a challenge, rehearse a tricky moment, or catch up on the latest alerts. Your next move starts here.' : view === 'Leaderboard' ? 'Practice spotting scam calls. Earn Blokbuks with each Scored call.' : view === 'Scenarios' ? 'Practice individual calls in text. No money or tasks to manage.' : view === 'Battlecards' ? 'Short drills for the pressure tactics you may hear on a real call.' : 'Consumer alerts from the Federal Trade Commission.'}</p></div></section>
     {error && <p role="alert">{error}</p>}
     {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
       <article className="hub-card hub-feature"><span className="hub-chip">The Challenge</span><div><h2>Three calls.<br />Keep your $1,000.</h2><p>Book your interview. Check your bank alert. Decide who gets your trust.</p></div><a className="hub-primary" href="/challenge">{saved ? 'Continue your day' : 'Start your day'} <span>↗</span></a><small>Voice or text · fictional money · no signup</small></article>
@@ -118,6 +119,7 @@ export default function Dashboard() {
     {view === 'Scenarios' && scenario && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/>{(voiceHandle || connecting) && <><VoiceOrb handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} /><button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button></>}<div className="hub-transcript" role="log" aria-label="Practice transcript" aria-live="polite">{turns.map((turn, index) => <p key={index} data-role={turn.role}><strong>{turn.role === 'you' ? 'You' : 'Caller'}</strong>{turn.text}</p>)}</div>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{!ended && !voiceHandle && !connecting && <form onSubmit={event => { event.preventDefault(); void practice('reply', scenario); }}><label htmlFor="practice-reply">Your reply</label><div><input id="practice-reply" maxLength={1000} value={text} onChange={event => setText(event.target.value)} disabled={busy}/><button disabled={busy || !text.trim()}>Send</button></div></form>}<h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy || connecting || Boolean(voiceHandle)} onClick={() => void practice('verdict', scenario, verdict)}>{verdict}</button>)}</div></>}</section>}
     {view === 'Battlecards' && <section className="hub-library">{BATTLE_CARDS.map(card => <article className="hub-card" key={card.id}><span className="hub-chip">{card.theme} · {card.tactic}</span><h2>{card.caller} · {card.org}</h2><blockquote>“{card.line}”</blockquote><details><summary>Reveal a safe response</summary><p>“{card.safeSay}”</p><p>{card.safeDo}</p><small>{card.why}</small></details></article>)}</section>}
     {view === 'News' && <section className="hub-library">{newsState && <p role="status">{newsState} <a href="https://consumer.ftc.gov/consumer-alerts">Read FTC alerts ↗</a></p>}{alerts.map(item => <article className="hub-card" key={item.link}><span className="hub-chip">FTC · Consumer alert</span><h2>{item.title}</h2><p>{item.summary}</p><a className="hub-link" href={item.link} target="_blank" rel="noreferrer">Read the source ↗</a><button className="hub-link" onClick={() => navigate('Battlecards')}>Practice a response ↗</button></article>)}</section>}
-    <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<a href="#standings" onClick={event => { event.preventDefault(); openBoard(); }}>Leaderboard</a><a href="/me">Your analysis</a><a href="/about">About the project ↗</a></footer>
+    {view === 'Leaderboard' && <Leaderboard embedded />}
+    <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<a href="#standings" onClick={event => { event.preventDefault(); openBoard(); }}>Leaderboard</a><a href="/profile">Player profile</a><a href="/me">Your analysis</a><a href="/about">About the project ↗</a></footer>
   </main>;
 }
