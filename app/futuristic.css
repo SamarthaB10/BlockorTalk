@@ -1,0 +1,107 @@
+/* Futuristic night-city theme. Colours and background only: loaded after globals.css, so it
+   re-points the design tokens and paints a fixed scene behind every dark page.
+   The landing page (.nova) stays light and hides the scene.
+   Nothing here depends on or hints at call type. The scene is static, per PRODUCT.md principle 5. */
+
+:root {
+  --bg: rgb(8 6 30 / .82);
+  --surface: #110c33;
+  --ink: #f4f1ff;
+  --ink-muted: #b9b3e6;
+  --line: #4a3f9a;
+  --line-strong: #c4b5fd;
+  --paper: #b79cff;
+  --purple: #8b5cf6;
+  --cyan: #5eead4;
+  --magenta: #ff4fd8;
+  --focus-ring: 3px solid #67e8f9;
+  --glow: 0 0 18px rgb(139 92 246 / .45);
+}
+
+html { background: #04020f; }
+
+/* Scene: sky, aurora, moon and stars on ::before; two skyline layers on ::after. */
+html body:not(:has(.nova)) { background: transparent; }
+html body:not(:has(.nova))::before,
+html body:not(:has(.nova))::after { content: ''; position: fixed; left: 0; right: 0; pointer-events: none; z-index: -1; }
+html body:not(:has(.nova))::before {
+  top: 0; bottom: 0;
+  background:
+    /* stars */
+    radial-gradient(1.5px 1.5px at 20px 30px, #fff, transparent 60%),
+    radial-gradient(1px 1px at 90px 120px, #d9d2ff, transparent 60%),
+    radial-gradient(1.5px 1.5px at 160px 60px, #aef, transparent 60%),
+    radial-gradient(1px 1px at 230px 170px, #fff, transparent 60%),
+    radial-gradient(1px 1px at 310px 90px, #f9d6ff, transparent 60%),
+    /* moon, with a soft halo */
+    radial-gradient(circle at 74% 20%, #e7c9ee 0 3.2vmin, #c79ad0 3.4vmin, rgb(120 90 200 / .35) 4.5vmin, transparent 15vmin),
+    /* aurora ribbons */
+    radial-gradient(ellipse 60% 14% at 72% 30%, rgb(45 212 191 / .30), transparent 70%),
+    radial-gradient(ellipse 50% 12% at 25% 16%, rgb(45 212 191 / .22), transparent 70%),
+    radial-gradient(ellipse 45% 18% at 88% 46%, rgb(255 79 216 / .16), transparent 70%),
+    /* sky */
+    linear-gradient(180deg, #02010a 0%, #0a0630 45%, #1b0f5c 78%, #3b1383 100%);
+  background-size: 340px 220px, 340px 220px, 340px 220px, 340px 220px, 340px 220px, auto, auto, auto, auto, auto;
+}
+html body:not(:has(.nova))::after {
+  bottom: 0; height: 42vh; min-height: 220px;
+  background:
+    linear-gradient(0deg, #7c2bd9 0, #7c2bd9 5px, transparent 5px),
+    url('/theme/skyline-near.svg') repeat-x left bottom / auto 62%,
+    url('/theme/skyline-far.svg') repeat-x -240px bottom / auto 100%;
+  opacity: .92;
+}
+
+/* Page roots that painted their own black */
+body .challenge { background: transparent; --line: #4a3f9a; --muted: #b9b3e6; --paper: #b79cff; }
+body .challenge button, body .challenge input { background: rgb(8 6 30 / .85); border-color: var(--line); }
+body .ins {
+  --page: transparent; --surface-1: rgb(14 10 44 / .82); --surface-2: rgb(34 24 90 / .85);
+  --text-primary: #f4f1ff; --text-secondary: #d0cbf5; --text-muted: #a9a3d9; --line: #8b7cf838;
+}
+body .ins .ins-lock input { background: rgb(8 6 30 / .9); border-color: #8b7cf866; }
+body .ins .ins-primary { background: var(--paper); }
+body .ins .ins-stat.is-accent { background: var(--paper); }
+
+/* Components */
+.ui-card, .ui-card--strong, .ui-sheet, .ui-toast { backdrop-filter: blur(6px); }
+.ui-card--strong, .ui-sheet, .ui-toast { box-shadow: var(--glow); }
+.ui-button:hover:not(:disabled) { box-shadow: var(--glow); }
+.ui-button--primary { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; border-color: #c4b5fd; }
+.ui-button--primary:disabled { color: #d7ccff; opacity: .6; }
+.ui-button--primary .ui-button__sub { color: #ece6ff; }
+.ui-sheet::backdrop { background: rgb(4 2 15 / .85); }
+.ui-sprite-tile { background: #000; }
+
+/* Dashboard (.hub): the same tokens on the formerly light page. .hub.hub outranks dashboard.css selectors. */
+.hub.hub { color: #f4f1ff; background: transparent; color-scheme: dark; --hub-card: rgb(14 10 44 / .82); --hub-card-2: rgb(34 24 90 / .85); --hub-line: #8b7cf838; --hub-muted: #b9b3e6; --hub-btn: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.hub.hub :focus-visible { outline-color: #67e8f9; }
+.hub.hub .hub-nav, .hub.hub .hub-news>a, .hub.hub .hub-skill-history li, .hub.hub .hub-analysis, .hub.hub .hub-rank-row, .hub.hub .hub-fictional-card, .hub.hub .hub-fictional-card [role=status] { border-color: var(--hub-line); }
+.hub.hub .hub-nav>a span, .hub.hub .hub-card small, .hub.hub .hub-footer, .hub.hub .player-help, .hub.hub .hub-progress-eyebrow, .hub.hub .hub-fictional-card dt, .hub.hub .hub-card>.hub-soon { color: #a9a3d9; }
+.hub.hub .hub-nav button { color: var(--hub-muted); }
+.hub.hub .hub-nav button[aria-current], .hub.hub .hub-primary, .hub.hub .hub-practice button:not(.hub-link), .hub.hub .player-signup .ui-button--primary { background: var(--hub-btn); border-color: #c4b5fd; color: #fff !important; box-shadow: var(--glow); }
+.hub.hub .hub-intro p, .hub.hub .hub-card p, .hub.hub .hub-greeting, .hub.hub .hub-standings-head p, .hub.hub .hub-standings-order, .hub.hub .hub-progress-summary p, .hub.hub .hub-analysis ul, .hub.hub .player-signup p { color: var(--hub-muted); }
+.hub.hub .hub-mascot, .hub.hub .hub-people span { background: var(--hub-card-2); }
+.hub.hub .hub-card, .hub.hub .hub-practice, .hub.hub .hub-standings-list { background: var(--hub-card); border-color: var(--hub-line); backdrop-filter: blur(6px); }
+.hub.hub .hub-feature, .hub.hub .hub-recommend, .hub.hub .hub-rank-row.is-you { background: var(--hub-card-2); }
+.hub.hub .hub-chip, .hub.hub .hub-transcript p { background: rgb(60 45 140 / .55); color: #e3dcff; }
+.hub.hub .hub-transcript [data-role=you] { background: rgb(20 48 57 / .85); color: #e0faff; }
+.hub.hub .hub-podium .is-first { background: linear-gradient(160deg, #4c1d95, #1e1b6b); box-shadow: var(--glow); }
+.hub.hub .hub-place, .hub.hub .hub-score, .hub.hub .hub-standings-clock, .hub.hub .hub-progress-summary ul, .hub.hub .hub-skill-label, .hub.hub .hub-skill-count, .hub.hub .hub-skill-when, .hub.hub .player-signup, .hub.hub .player-fields label { color: #f4f1ff !important; }
+.hub.hub .hub-meter { background: #ffffff1c; }
+.hub.hub .hub-meter>span { background: linear-gradient(90deg, #8b5cf6, #5eead4); }
+.hub.hub .hub-rule-number, .hub.hub .skill-flag, .hub.hub .player-error { color: #ff8ad8; }
+.hub.hub .greeting-caret { color: #5eead4; }
+.hub.hub .hub-recommend blockquote, .hub.hub .hub-skill.is-open { border-color: #8b5cf6; }
+.hub.hub .hub-move, .hub.hub .player-signup .ui-button { border-color: #8b7cf866; }
+.hub.hub .player-signup .ui-button { color: #f4f1ff; }
+.hub.hub .skill-dot { border-color: #8b7cf8; }
+.hub.hub .skill-dot[data-state="Demonstrated"] { background: #8b7cf8; }
+.hub.hub .skill-dot[data-state="Independent"] { background: #5eead4; border-color: #5eead4; }
+.hub.hub .hub-practice input, .hub.hub .player-fields input, .welcome-dialog.welcome-dialog input { background: #0b0828; color: #f4f1ff; border-color: #8b7cf866; }
+.hub.hub .hub-link:hover { color: #67e8f9; }
+.welcome-dialog.welcome-dialog { color-scheme: dark; color: #f4f1ff; background: #110c33; border-color: #4a3f9a; box-shadow: var(--glow); }
+.welcome-dialog.welcome-dialog p { color: #b9b3e6; }
+.welcome-dialog.welcome-dialog .welcome-friend { background: rgb(60 45 140 / .55); }
+.welcome-dialog.welcome-dialog .welcome-go { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.welcome-dialog.welcome-dialog :focus-visible { outline-color: #67e8f9; }
