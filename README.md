@@ -62,3 +62,27 @@ Manual checks: play each verdict path, check the portal, type `stop drill`, send
 12 replies, wait three minutes, and reload during the call and after the verdict.
 The board must keep its balance, tasks and verdict. The portal must show Tuesday
 at 10 AM and say Bluebonnet never charges for equipment.
+
+## Detective reveal (issue #9)
+
+After the third verdict, `/challenge` shows Yui, Ren and Kai's identities and
+saved money and task effects first. The agent report then adds decision turns,
+code-leak marks, tactic-tagged detector quotes, daily rule statuses and ordered
+agent steps. The green cat follows the server's tool and report-writing events.
+The panel states whether Nemotron or the fixed sequence completed each report.
+An older saved call can lack a leak's turn; the report says so and keeps its saved
+money and task effects.
+
+The Worker uses the train-only pgvector index from issue #7 for retrieval. Load it
+as described in [docs/DETECTION.md](docs/DETECTION.md). If several index versions
+exist, set `DETECTION_POOL_ID` on the server to the selected pool ID. With one
+pool, selection is automatic. `NEMOTRON_DETECTOR_MODEL` and `NVIDIA_BASE_URL` are
+optional server overrides. Missing keys, an unavailable index, rate limits or a
+seven-second detector deadline produce an explicit unavailable result, with no
+invented retrieval flags. The code-based rules and money still appear.
+
+The basic report is available at `/api/challenge/reveal?mode=basic`; it makes no
+vendor calls. The detailed route streams actual agent phase changes when the
+client requests `application/x-ndjson`. Both routes require the saved-day cookie
+and reject access before the third verdict. Results are cached by day outcome;
+a later portal check or bank callback causes a new report.

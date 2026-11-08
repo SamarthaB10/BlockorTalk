@@ -111,6 +111,8 @@ export default function ChallengeBoard() {
   // A voice call is spoken in the browser, so its transcript is sent to the day once, when the call ends.
   const voiceLog = useRef<VoiceTurn[]>([]);
   const voiceSaved = useRef(false);
+  const [savingVoice, setSavingVoice] = useState(false);
+  const [voiceSaveError, setVoiceSaveError] = useState(false);
   const setVoice = (next: VoiceState) => { voiceRef.current = next; setVoiceState(next); };
   // Replies already typed in this call still count when it switches to voice.
   const [replyBase, setReplyBase] = useState(0);
@@ -148,15 +150,18 @@ export default function ChallengeBoard() {
   async function saveVoiceTurns() {
     if (voiceSaved.current || !voiceLog.current.length) return;
     voiceSaved.current = true;
+    setSavingVoice(true); setVoiceSaveError(false);
     try {
       const turns = voiceLog.current.slice(0, 40).map(turn => ({ role: turn.role === 'user' ? 'user' : 'assistant', text: turn.message }));
       const response = await fetch('/api/challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'voice_turns', turns }) });
       const result = await response.json() as { day: Challenge | null };
-      if (response.ok && result.day) setDay(result.day);
-    } catch { /* the reveal still works from the opening lines */ }
+      if (!response.ok || !result.day) throw new Error('Voice transcript not saved.');
+      setDay(result.day);
+    } catch { voiceSaved.current = false; setVoiceSaveError(true); }
+    finally { setSavingVoice(false); }
   }
   /** Ends the call on the server, then saves the spoken transcript (it needs the call to be over first). */
-  async function endCall() { if (await act({ type: 'end' })) await saveVoiceTurns(); }
+  async function endCall() { setSavingVoice(true); try { if (await act({ type: 'end' })) await saveVoiceTurns(); } finally { setSavingVoice(false); } }
   /** Hang-up by the player (Disconnect, "stop drill", the reply cap): end the session, then the call. */
   function endVoiceCall() {
     if (voiceRef.current === 'live') { setVoice('ended'); void endCall(); }
@@ -170,7 +175,7 @@ export default function ChallengeBoard() {
     void hangUp();
     const attempt = attemptRef.current;
     const current = () => attempt === attemptRef.current;
-    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setVoiceCode(false); setError(''); voiceLog.current = []; voiceSaved.current = false;
+    setVoiceSaveError(false); setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setVoiceCode(false); setError(''); voiceLog.current = []; voiceSaved.current = false;
     // Typed replies count toward the cap when this call switches to voice; a new caller starts at 0.
     const base = fresh || callerId !== day?.callerId ? 0 : day?.replies ?? 0;
     repliesRef.current = base; setReplyBase(base);
@@ -289,7 +294,7 @@ export default function ChallengeBoard() {
             <label htmlFor="reply">Your reply · use no real personal details</label><div className="reply-row"><input ref={replyInput} id="reply" maxLength={1000} value={text} onChange={event => setText(event.target.value)} disabled={busy} autoComplete="off" /><button disabled={busy || !text.trim()}>{busy ? 'Saving…' : 'Send'}</button></div>
             <p className="hint">Type “stop drill” to end at any time.</p>
           </form>}
-          {day.phase === 'verdict' && <section className="verdict"><h3 ref={verdictHeading} tabIndex={-1}>Could you tell?</h3><p>Choose one verdict.</p>{([['Real', 'I trust this caller.'], ['Scam', 'I do not trust this caller.'], ['Unverified', 'I will check another way.']] as const).map(([verdict, description]) => <button key={verdict} disabled={busy} onClick={() => void act({ type: 'verdict', verdict })}><strong>{verdict}</strong><span>{description}</span></button>)}</section>}
+          {day.phase === 'verdict' && <section className="verdict"><h3 ref={verdictHeading} tabIndex={-1}>Could you tell?</h3><p>Choose one verdict.</p>{savingVoice && <p role="status">Saving your spoken turns…</p>}{voiceSaveError && <p role="alert">Your spoken turns were not saved. <button onClick={() => void saveVoiceTurns()}>Save again</button></p>}{([['Real', 'I trust this caller.'], ['Scam', 'I do not trust this caller.'], ['Unverified', 'I will check another way.']] as const).map(([verdict, description]) => <button key={verdict} disabled={busy || savingVoice || voiceSaveError} onClick={() => void act({ type: 'verdict', verdict })}><strong>{verdict}</strong><span>{description}</span></button>)}</section>}
           {day.phase === 'between' && <section role="status" className="between"><h3>Verdict saved: {day.verdict}</h3><p>Balance and tasks saved.</p><button className="primary" disabled={busy} onClick={() => void nextCall()}>{voiceMode ? 'Next call by voice' : 'Next call'}</button></section>}
           {day.phase === 'complete' && <section className="day-result" aria-label="Day result"><h3>Your day result</h3><p className="balance">${day.balance.toLocaleString('en-US')}</p><p>{day.balance === 1000 && day.interview === 'BOOKED' && day.bank === 'RESOLVED' ? 'Both tasks done. You kept your $1,000.' : 'Your money and tasks show the outcome of your choices.'}</p><p>Interview: {day.interview === 'BOOKED' ? 'Done · Tuesday at 10 AM' : 'Not completed'}</p><p>Bank alert: {day.bank === 'RESOLVED' ? 'Done' : day.bank === 'FAILED' ? 'Failed · Code shared' : 'Not completed · Call Corvanta to check'}</p><ul>{day.calls.map(call => <li key={call.callerId}>{CALLERS[call.callerId].name}: {call.verdict} · ${call.cost} lost</li>)}</ul><div className="start-row"><button className="primary" disabled={busy} onClick={() => void startVoice(true)}>Play again by voice<span>Talk to Yui with your microphone</span></button><button className="start-text" disabled={busy} onClick={() => { setMode('text'); void act({ type: 'start' }); }}>Play again in text<span>Type your replies</span></button></div></section>}
         </section>

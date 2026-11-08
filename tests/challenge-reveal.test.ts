@@ -146,3 +146,44 @@ describe("revealReady", () => {
     expect(revealSignature(after)).not.toBe(revealSignature(before));
   });
 });
+
+describe('recorded outcomes and retrieval evidence', () => {
+  it('does not charge for a code typed before the service displayed it', async () => {
+    const d = goodDay();
+    d.calls[2].turns.splice(2, 0, { role: 'user', text: '551274', at: at(201) });
+    const reveal = await buildReveal(d, { mode: 'fixed' });
+    expect(reveal.calls[2].result.outcome.money_lost).toBe(0);
+    expect(reveal.calls[2].result.outcome.task?.status).toBe('done');
+    expect(reveal.calls[2].result.decisions.some(d => d.kind === 'leak')).toBe(false);
+  });
+
+  it('uses detector quotes and labels without changing the recorded money', async () => {
+    const reveal = await buildReveal(badDay(), { mode: 'fixed', detector: async transcript => {
+      const turn = transcript.turns.find(t => t.text.includes('gift card'));
+      return { source: 'fake-retrieval', label: 'scam', scam_type: 'impersonation', confidence: .9,
+        red_flags: turn ? [{ turn: turn.turn, tactic: 'reward', span: { start: 0, end: turn.text.length, text: turn.text } }] : [] };
+    } });
+    expect(reveal.calls[1].result.detector.source).toBe('fake-retrieval');
+    expect(reveal.calls[1].result.red_flags[0].tactic).toBe('reward');
+    expect(reveal.calls.map(c => c.result.outcome.money_lost)).toEqual([0, 350, 650]);
+    expect(reveal.calls[2].result.decisions.find(d => d.kind === 'leak')).toMatchObject({ turn: 4, result: 'cost_you' });
+  });
+
+  it('keeps the report usable when retrieval fails and does not claim keyword flags are retrieval', async () => {
+    const reveal = await buildReveal(badDay(), { mode: 'fixed', detector: async () => { throw new Error('offline'); } });
+    expect(reveal.calls[2].result.detector.source).toBe('retrieval unavailable');
+    expect(reveal.calls[2].result.red_flags).toEqual([]);
+    expect(reveal.calls[2].result.outcome.money_lost).toBe(650);
+  });
+});
+
+it('keeps saved money for an old redacted call whose leak turn is unknown', async () => {
+  const d = badDay();
+  d.calls[2].turns[3].text = '[personal details removed]';
+  delete d.calls[2].turns[3].leaked;
+  const reveal = await buildReveal(d, { mode: 'fixed' });
+  expect(reveal.calls[2].result.outcome.money_lost).toBe(650);
+  expect(reveal.calls[2].result.outcome.task?.status).toBe('failed');
+  expect(reveal.calls[2].result.rules[0]).toMatchObject({ status: 'broken', turn: null });
+  expect(reveal.calls[2].warning).toContain('not its turn');
+});
