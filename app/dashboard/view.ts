@@ -17,7 +17,7 @@ export function profileLocation(returnTo?: unknown): string {
 }
 
 const INTRO: Record<DashboardView, { kicker: string; title: string; summary: string }> = {
-  Home: { kicker: 'Your practice space', title: 'A little practice. Better instincts.', summary: 'Practice a single call or catch up on the latest alerts. Your next move starts here.' },
+  Home: { kicker: '', title: "Don't lose your future, Practice now", summary: '' },
   Leaderboard: { kicker: 'Your practice space', title: 'Good judgment adds up.', summary: 'Practice spotting scam calls. Earn Blokbuks with each Scored call.' },
   Scenarios: { kicker: 'Your practice space', title: 'One call. Your judgment.', summary: 'Practice individual calls by voice. No money or tasks to manage.' },
   News: { kicker: 'Your practice space', title: 'Stay one step ahead.', summary: 'Consumer alerts from the Federal Trade Commission.' },

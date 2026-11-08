@@ -136,12 +136,23 @@ export default function Dashboard({ initialView = 'Home', returnTo = null, skill
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
     <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button aria-current={view === 'Leaderboard' ? 'page' : undefined} onClick={() => navigate('Leaderboard')}>Leaderboard</button>{(['Progress', 'Profile'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}</nav></header>
-    {view !== 'Leaderboard' && view !== 'Progress' && <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>{dashboardIntro(view).kicker}</p><h1>{dashboardIntro(view).title}</h1><p>{dashboardIntro(view).summary}</p></div><BalanceBadge className="hub-balance" /></section>}
+    {view !== 'Leaderboard' && view !== 'Progress' && <section className={`hub-intro${view === 'Home' ? ' hub-home-intro' : ''}`}><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div>{dashboardIntro(view).kicker && <p>{dashboardIntro(view).kicker}</p>}<h1>{dashboardIntro(view).title}</h1>{dashboardIntro(view).summary && <p>{dashboardIntro(view).summary}</p>}</div><BalanceBadge className="hub-balance" /></section>}
     {error && <p role="alert">{error}</p>}
-    {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
-      <article className="hub-card"><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map((item, index) => <span key={item.id}><ScenarioMascot index={index} />{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>
-      <article className="hub-card hub-news"><h2>What’s happening now.</h2>{alerts.slice(0, 2).map(item => <a key={item.link} href={item.link} target="_blank" rel="noreferrer">{item.title} ↗</a>)}{newsState && <p role="status">{newsState}</p>}<button className="hub-link" onClick={() => navigate('News')}>Read the latest ↗</button></article>
-      <article className="hub-card hub-rule"><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
+    {view === 'Home' && <section className="hub-training" aria-labelledby="training-title">
+      <div className="hub-training-meta"><p>Your training ground</p><span>{SCENARIOS.length} AI practice callers</span></div>
+      <h2 id="training-title">Can you spot the scam?</h2>
+      <p className="hub-training-summary">Four callers. Four stories. Not everyone is who they seem.</p>
+      <ul className="hub-callers">
+        {SCENARIOS.map((item, index) => <li className="hub-caller" key={item.id}>
+          <ScenarioMascot index={index} />
+          <h3>{item.caller}</h3>
+          <p>{({ recruiter: 'Recruiter', onboarding: 'Onboarding', fraud_team: 'Fraud team', bank_callback: 'Bank caller' })[item.id]}</p>
+        </li>)}
+      </ul>
+      <button className="hub-primary hub-choose-caller" onClick={() => navigate('Scenarios')}>
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a1 1 0 0 1 1 .9l.5 3a1 1 0 0 1-.3 1l-1.5 1.5a16 16 0 0 0 6.8 6.8l1.5-1.5a1 1 0 0 1 1-.3l3 .5a1 1 0 0 1 .9 1Z" /></svg>
+        Choose your caller <span aria-hidden="true">→</span>
+      </button>
     </section>}
     {view === 'Scenarios' && !scenario && <form className="hub-card hub-phone" onSubmit={event => event.preventDefault()}><label htmlFor="test-phone">Test on a real phone</label><input id="test-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="(512) 555-0123" value={testPhone} onChange={event => setTestPhone(event.target.value)} /><p>Team test numbers only. Choose “Call my phone” on a scenario and an AI practice caller rings this number, opening with the practice disclosure.</p></form>}
     {view === 'Scenarios' && !scenario && <ContactsPhone disabled={busy || connecting} onCall={id => void practiceVoice(id)} actions={phoneButton} contacts={[

@@ -8,7 +8,7 @@ describe('dashboard leaderboard tab', () => {
   it('puts the Leaderboard on the dashboard as a tab, and leaves it closed on Home', () => {
     const markup = renderToStaticMarkup(createElement(Dashboard));
     expect(markup).toContain('>Leaderboard<');
-    expect(markup).toContain('A little practice. Better instincts.');
+    expect(markup).toContain("Don&#x27;t lose your future, Practice now");
     expect(markup).not.toContain('class="season-page"');
   });
 
