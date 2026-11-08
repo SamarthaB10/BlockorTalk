@@ -43,3 +43,29 @@ test('neutral real-world facts do not disclose the assigned caller identity', as
   const lines = ['This practice notice uses a real-world example.', ...safe.slice(1)];
   expect(await createCallPlanner({ examples: async () => examples, model: model(lines) })(scenario, 'real')).toEqual(lines);
 });
+
+test('carrier drills use Magenta-pattern playbooks: transfer notice, OTP ask, own-app real path', async () => {
+  const carrier = scenarios.find(row => row.id === 'carrier')!;
+  expect(carrier.card.facts[0]).toMatch(/pending number transfer/i);
+  expect(carrier.versions.scam.ask_line).toMatch(/verification code that was just texted/i);
+  expect(carrier.versions.scam.steps[2]).toMatch(/transfer will finish soon|pending transfer/i);
+  expect(carrier.versions.real.steps[2]).toMatch(/own carrier app|saved contact/i);
+  expect(fixedLines(carrier, 'scam')[0]).toMatch(/account security|number transfer/i);
+  expect(fixedLines(carrier, 'real')[2]).toMatch(/own carrier app|saved contact/i);
+  let system = '';
+  const scamExamples = examples.map(e => ({ ...e, label: 1 as const }));
+  const safeCarrier = fixedLines(carrier, 'scam');
+  await createCallPlanner({
+    examples: async () => scamExamples,
+    model: { chat: async request => { system = request.messages[0]!.content; return model(safeCarrier).chat(); } },
+  })(carrier, 'scam');
+  expect(system).toContain('Category playbook:');
+  expect(system).toMatch(/pending number transfer|verification code|caller ID/i);
+  expect(system).not.toMatch(/T-Mobile|Magenta/i);
+});
+
+test('FTC alert keywords map SIM swap and account-PIN language to the carrier drill', async () => {
+  const { scenarioIdForAlert } = await import('../lib/practice/planner.ts');
+  expect(scenarioIdForAlert({ title: 'SIM swap and eSIM port-out', summary: 'verification code and account pin' })).toBe('carrier');
+  expect(scenarioIdForAlert({ title: 'Wireless account takeover', summary: 'Scam Shield tip' })).toBe('carrier');
+});

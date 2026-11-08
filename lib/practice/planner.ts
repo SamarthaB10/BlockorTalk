@@ -91,11 +91,14 @@ const ALERT_KEYWORDS: Array<[RegExp, string]> = [
   [/\b(gift cards?|travel|holiday)\b/i, "holiday"],
   [/\b(invoice|wire|ceo|business)\b/i, "business"],
   [/\b(link|text|phishing)\b/i, "phishing"],
-  [/\b(carrier|sim|port(?:ing|ed|s)?)\b/i, "carrier"],
+  [/\b(carrier|sim|e-?sim|port(?:-?out|ing|ed|s)?|wireless|mobile (?:account|number)|account pin|verification code|one[ -]?time (?:code|passcode)|scam shield)\b/i, "carrier"],
   [/\bsubscriptions?\b/i, "sales"],
   [/\b(bank|card|fraud)\b/i, "bank"],
 ];
-const alertScenario = (alert: NewsItem) => ALERT_KEYWORDS.find(([re]) => re.test(`${alert.title} ${alert.summary}`))?.[1] ?? "bank";
+/** Maps an FTC alert's title/summary to a season scenario id (defaults to bank). */
+export const scenarioIdForAlert = (alert: Pick<NewsItem, "title" | "summary">) =>
+  ALERT_KEYWORDS.find(([re]) => re.test(`${alert.title} ${alert.summary}`))?.[1] ?? "bank";
+const alertScenario = scenarioIdForAlert;
 
 const FALSE_ALARM_REASON = "Last time you turned a caller away before checking. Practise checking through a source you already have, then deciding.";
 const CALL_TYPE_WORDS = /\b(scam\w*|real|legit\w*|genuine|hijack\w*|fake|fraudster|imposter|impostor|trust(ed|worthy)?)\b/i;
