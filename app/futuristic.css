@@ -15,7 +15,7 @@
   --cyan: #5eead4;
   --magenta: #ff4fd8;
   --focus-ring: 3px solid #67e8f9;
-  --glow: 0 0 18px rgb(139 92 246 / .45);
+  --glow: none;
 }
 
 html { background: #04020f; }

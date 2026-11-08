@@ -78,7 +78,7 @@ describe('debrief skill update', () => {
     const html = renderToStaticMarkup(createElement(CallResults, { view: results }));
     expect(html).toContain('Skill updated');
     expect(html).toContain('Verify independently · Demonstrated');
-    expect(html).toContain('Start 60-second drill');
+    expect(html).not.toContain('Start 60-second drill');
     expect(html).toContain('id="step-3"');
     expect(html).toContain('id="verdict"');
     expect(html).toContain('href="/dashboard?view=Progress"');
