@@ -21,12 +21,13 @@ export async function seedSynthetic(client: pg.Client, scenarios: readonly Scena
     const idByEmail = new Map(inserted.rows.map(row => [row.email, row.id]));
     const ids = calls.map(call => idByEmail.get(players[call.playerIndex]!.email)!);
     const started = calls.map(call => new Date(now.getTime() - call.minutesAgo * 60_000));
+    const ended = calls.map((call, i) => new Date(started[i]!.getTime() + call.durationSeconds * 1000));
     await client.query(
       `INSERT INTO calls (player_id, scenario_id, version, scored, verdict, "right", wrong, blokbuks_delta, outcome, synthetic, started_at, ended_at)
-       SELECT player_id, scenario_id, version, false, verdict, 0, 0, 0, outcome, true, started_at, started_at
-         FROM unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::text[], $6::timestamptz[])
-              AS c(player_id, scenario_id, version, verdict, outcome, started_at)`,
-      [ids, calls.map(c => c.scenarioId), calls.map(c => c.version), calls.map(c => c.verdict), calls.map(c => c.outcome), started]);
+       SELECT player_id, scenario_id, version, false, verdict, 0, 0, 0, outcome, true, started_at, ended_at
+         FROM unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::text[], $6::timestamptz[], $7::timestamptz[])
+              AS c(player_id, scenario_id, version, verdict, outcome, started_at, ended_at)`,
+      [ids, calls.map(c => c.scenarioId), calls.map(c => c.version), calls.map(c => c.verdict), calls.map(c => c.outcome), started, ended]);
     await client.query('COMMIT');
     return { players: players.length, calls: calls.length };
   } catch (error) {

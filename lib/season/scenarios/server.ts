@@ -1,12 +1,7 @@
 import pg from 'pg';
 import { scenarioCatalog } from './catalog.ts';
 import type { Scenario } from './types.ts';
-
-const tactics: Record<string, Scenario['tactic']> = {
-  bank: 'Details as proof', delivery: 'Urgency', holiday: 'Reward', business: 'Authority', phishing: 'Urgency',
-  support: 'Fear', government: 'Authority', prize: 'Reward', investment: 'Reward', carrier: 'Details as proof',
-  refund: 'Reward', insurance: 'Fear', sales: 'Reward', 'wrong-number': 'Details as proof',
-};
+import { SCENARIO_TACTICS as tactics } from './tactics.ts';
 export const scenarios: Scenario[] = scenarioCatalog.map((publicRow) => {
   const tactic = tactics[publicRow.id];
   if (!tactic) throw new Error(`Missing tactic for ${publicRow.id}`);

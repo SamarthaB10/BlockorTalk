@@ -19,6 +19,7 @@ import type { AgentIds } from "../lib/voice/adapter";
 import { createPracticeCorpus } from "../lib/practice/corpus.ts";
 import { elevenLabs } from "../lib/voice/client";
 import { CHALLENGE_CALLER_IDS, PERSONAS } from "../lib/voice/personas";
+import { SCENARIO_AGENT_KEYS, buildScenarioAgentConfig, scenarioAgentName } from "../lib/voice/scenarioAgents";
 
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), "../config/voice-agents.json");
 
@@ -66,6 +67,22 @@ async function main() {
     ids[id] = agentId;
     // Written after every agent so a failure part-way never orphans a created agent.
     mkdirSync(dirname(OUT), { recursive: true });
+    writeFileSync(OUT, `${JSON.stringify(ids, null, 2)}\n`);
+  }
+  // The two shared catalog agents that voice the catalog scenarios in VOICE_SCENARIO_IDS.
+  for (const id of SCENARIO_AGENT_KEYS) {
+    const name = scenarioAgentName(id);
+    let agentId = ids[id];
+    if (!agentId) {
+      const found = await client.conversationalAi.agents.list({ search: name });
+      agentId = found.agents.find((a) => a.name === name)?.agentId;
+    }
+    const body = buildScenarioAgentConfig(id, opts);
+    const existed = Boolean(agentId);
+    if (agentId) await client.conversationalAi.agents.update(agentId, body);
+    else agentId = (await client.conversationalAi.agents.create(body)).agentId;
+    console.log(`${existed ? "updated" : "created"} ${id.padEnd(14)} ${agentId}  ${name}`);
+    ids[id] = agentId;
     writeFileSync(OUT, `${JSON.stringify(ids, null, 2)}\n`);
   }
   console.log(`agent IDs → ${OUT}`);

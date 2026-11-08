@@ -8,14 +8,14 @@ const PASSWORD = 'correct horse battery staple';
 const NOW = Date.parse('2026-11-08T12:00:00Z');
 const minutes = (n: number) => new Date(NOW - n * 60_000).toISOString();
 
-type Spec = { players: number; category: string; tactic: Tactic; version: Version; verdict: Verdict; leaked?: boolean; synthetic?: boolean };
+type Spec = { players: number; category: string; tactic: Tactic; version: Version; verdict: Verdict; leaked?: boolean; synthetic?: boolean; seconds?: number | null };
 /** `players` distinct Players, one finished call each. Ids and scenario ids are recognisable so a leak is findable. */
 function calls(spec: Spec): CallRow[] {
   return Array.from({ length: spec.players }, (_, i) => ({
     playerId: `player-secret-${spec.category}-${spec.synthetic ? 's' : 'r'}-${i}`,
     scenarioId: `scenario-secret-${spec.category}`,
     category: spec.category, tactic: spec.tactic, version: spec.version, verdict: spec.verdict,
-    leaked: spec.leaked ?? false, synthetic: spec.synthetic ?? false,
+    leaked: spec.leaked ?? false, synthetic: spec.synthetic ?? false, seconds: spec.seconds ?? null,
   }));
 }
 
@@ -24,8 +24,9 @@ const realRows = [
   ...calls({ players: 2, category: 'Tech support', tactic: 'Fear', version: 'scam', verdict: 'Scam' }),                // caught, hidden
 ];
 const syntheticRows = [
-  ...calls({ players: 9, category: 'Bank fraud alert', tactic: 'Details as proof', version: 'scam', verdict: 'Real', synthetic: true }),
-  ...calls({ players: 7, category: 'Tech support', tactic: 'Fear', version: 'scam', verdict: 'Scam', synthetic: true }),
+  ...calls({ players: 8, category: 'Bank fraud alert', tactic: 'Details as proof', version: 'scam', verdict: 'Real', synthetic: true, seconds: 150 }),
+  ...calls({ players: 1, category: 'Bank fraud alert', tactic: 'Details as proof', version: 'scam', verdict: 'Real', synthetic: true, seconds: null }).map(c => ({ ...c, playerId: 'player-secret-untimed' })),
+  ...calls({ players: 7, category: 'Tech support', tactic: 'Fear', version: 'scam', verdict: 'Scam', synthetic: true, seconds: 61 }),
   ...calls({ players: 3, category: 'Prize or sweepstakes', tactic: 'Reward', version: 'real', verdict: 'Scam', synthetic: true }), // hidden
 ];
 
@@ -33,12 +34,15 @@ function fixture(options: { password?: string | undefined; summary?: StoredSumma
   let stored: StoredSummary | null = options.summary ?? null;
   const saved: StoredSummary[] = [];
   const analystCalls: unknown[] = [];
+  const datasets: string[] = [];
+  const summaryBuckets: boolean[] = [];
   const store: InsightsStore = {
     async loadCalls(include) {
+      datasets.push(include);
       if (options.storeFails) throw new Error('database down');
       return include === 'synthetic' ? syntheticRows : realRows;
     },
-    async latestSummary() { return stored; },
+    async latestSummary(synthetic) { summaryBuckets.push(synthetic); return stored; },
     async saveSummary(summary) { stored = summary; saved.push(summary); },
   };
   const handlers = createInsightsHandlers({
@@ -59,7 +63,7 @@ function fixture(options: { password?: string | undefined; summary?: StoredSumma
     const setCookie = response.headers.get('set-cookie');
     return { response, setCookie, cookie: setCookie ? setCookie.split(';')[0]! : undefined };
   }
-  return { handlers, request, signIn, saved, analystCalls, stored: () => stored };
+  return { handlers, request, signIn, saved, analystCalls, datasets, summaryBuckets, stored: () => stored };
 }
 
 describe('access', () => {
@@ -131,30 +135,41 @@ describe('access', () => {
 });
 
 describe('totals', () => {
-  it('defaults to real Players only and hides small groups without counts', async () => {
-    const { handlers, request, signIn } = fixture();
+  it('shows the synthetic dataset only, never real rows, and hides small groups without counts', async () => {
+    const { handlers, request, signIn, datasets } = fixture();
     const { cookie } = await signIn();
     const response = await handlers.GET(request('/api/insights', { cookie }));
     const body = await response.json() as any;
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(body.synthetic).toBe(false);
-    expect(body.label).toBe('Real Players');
+    expect(datasets).toEqual(['synthetic']);
     expect(body.groups).toEqual([
-      { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', hidden: false, calls: 6, players: 6 },
-      { category: 'Tech support', tactic: 'Fear', outcome: 'caught', hidden: true, note: 'Fewer than 5 Players' },
+      { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', hidden: false, calls: 9, players: 9, avgSeconds: 150 },
+      { category: 'Prize or sweepstakes', tactic: 'Reward', outcome: 'false alarm', hidden: true, note: 'Fewer than 5 Players' },
+      { category: 'Tech support', tactic: 'Fear', outcome: 'caught', hidden: false, calls: 7, players: 7, avgSeconds: 61 },
     ]);
   });
 
-  it('the synthetic toggle shows only synthetic rows, labelled, never mixed with real ones', async () => {
+  it('ignores any request for the real dataset', async () => {
+    const { handlers, request, signIn, datasets } = fixture();
+    const { cookie } = await signIn();
+    await handlers.GET(request('/api/insights?synthetic=0&dataset=real', { cookie }));
+    expect(datasets).toEqual(['synthetic']);
+  });
+
+  it('never labels the data as synthetic or demo', async () => {
     const { handlers, request, signIn } = fixture();
     const { cookie } = await signIn();
-    const body = await (await handlers.GET(request('/api/insights?synthetic=1', { cookie }))).json() as any;
-    expect(body.synthetic).toBe(true);
-    expect(body.label).toBe('Synthetic demo data');
-    expect(body.groups.map((g: any) => [g.category, g.hidden ? 'hidden' : g.players])).toEqual([
-      ['Bank fraud alert', 9], ['Prize or sweepstakes', 'hidden'], ['Tech support', 7],
-    ]);
-    expect(body.summary.synthetic).toBe(true);
+    const json = await (await handlers.GET(request('/api/insights', { cookie }))).text();
+    const csv = await (await handlers.CSV(request('/api/insights/csv', { cookie }))).text();
+    for (const text of [json, csv]) expect(text).not.toMatch(/synthetic|demo|real players/i);
+  });
+
+  it('averages call time only over calls with a known length', async () => {
+    const { handlers, request, signIn } = fixture();
+    const { cookie } = await signIn();
+    const body = await (await handlers.GET(request('/api/insights', { cookie }))).json() as any;
+    // Eight timed calls of 150 s and one with no length: the average is 150, not 133.
+    expect(body.groups[0].avgSeconds).toBe(150);
   });
 
   it('reports a store failure without a stack or details', async () => {
@@ -172,41 +187,43 @@ describe('nothing identifying leaves the server', () => {
   it('JSON and CSV carry no Player, scenario, email, nickname or transcript field', async () => {
     const { handlers, request, signIn } = fixture();
     const { cookie } = await signIn();
-    for (const query of ['', '?synthetic=1']) {
-      const json = await (await handlers.GET(request(`/api/insights${query}`, { cookie }))).text();
-      const csv = await (await handlers.CSV(request(`/api/insights/csv${query}`, { cookie }))).text();
-      for (const pattern of forbidden) {
-        expect(json, `json ${query} ${pattern}`).not.toMatch(pattern);
-        expect(csv, `csv ${query} ${pattern}`).not.toMatch(pattern);
-      }
+    const json = await (await handlers.GET(request('/api/insights', { cookie }))).text();
+    const csv = await (await handlers.CSV(request('/api/insights/csv', { cookie }))).text();
+    for (const pattern of forbidden) {
+      expect(json, `json ${pattern}`).not.toMatch(pattern);
+      expect(csv, `csv ${pattern}`).not.toMatch(pattern);
     }
   });
 
   it('only whitelisted keys appear on a group', async () => {
     const { handlers, request, signIn } = fixture();
     const { cookie } = await signIn();
-    const body = await (await handlers.GET(request('/api/insights?synthetic=1', { cookie }))).json() as any;
+    const body = await (await handlers.GET(request('/api/insights', { cookie }))).json() as any;
+    expect(Object.keys(body).sort()).toEqual(['groups', 'minPlayers', 'summary']);
     for (const group of body.groups) {
       expect(Object.keys(group).sort()).toEqual(group.hidden
         ? ['category', 'hidden', 'note', 'outcome', 'tactic']
-        : ['calls', 'category', 'hidden', 'outcome', 'players', 'tactic']);
+        : ['avgSeconds', 'calls', 'category', 'hidden', 'outcome', 'players', 'tactic']);
     }
   });
 });
 
 describe('the summary', () => {
-  const fresh = (minutesAgo: number, synthetic = false): StoredSummary => ({ text: 'Stored summary.', source: 'model', generatedAt: minutes(minutesAgo), synthetic });
+  const fresh = (minutesAgo: number): StoredSummary => ({ text: 'Stored summary.', source: 'model', generatedAt: minutes(minutesAgo), synthetic: true });
 
-  it('is written from visible totals only and stored with its time and synthetic flag', async () => {
-    const { handlers, request, signIn, saved, analystCalls } = fixture();
+  it('is written from visible totals only, with call times, and stored with its time', async () => {
+    const { handlers, request, signIn, saved, analystCalls, summaryBuckets } = fixture();
     const { cookie } = await signIn();
     const body = await (await handlers.GET(request('/api/insights', { cookie }))).json() as any;
     expect(analystCalls).toHaveLength(1);
     const seen = analystCalls[0] as { groups: any[]; synthetic: boolean };
-    expect(seen.synthetic).toBe(false);
-    expect(seen.groups).toEqual([{ category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', calls: 6, players: 6 }]);
-    expect(saved).toEqual([{ text: expect.any(String), source: 'model', generatedAt: new Date(NOW).toISOString(), synthetic: false }]);
-    expect(body.summary).toMatchObject({ text: saved[0]!.text, generatedAt: new Date(NOW).toISOString(), synthetic: false, stale: false });
+    expect(seen.groups).toEqual([
+      { category: 'Bank fraud alert', tactic: 'Details as proof', outcome: 'fell for', calls: 9, players: 9, avgSeconds: 150 },
+      { category: 'Tech support', tactic: 'Fear', outcome: 'caught', calls: 7, players: 7, avgSeconds: 61 },
+    ]);
+    expect(summaryBuckets).toEqual([true]);
+    expect(saved).toEqual([{ text: expect.any(String), source: 'model', generatedAt: new Date(NOW).toISOString(), synthetic: true }]);
+    expect(body.summary).toEqual({ text: saved[0]!.text, generatedAt: new Date(NOW).toISOString(), stale: false });
   });
 
   it('is not regenerated while it is 15 minutes old or newer', async () => {
@@ -223,21 +240,6 @@ describe('the summary', () => {
     await handlers.GET(request('/api/insights', { cookie }));
     expect(analystCalls).toHaveLength(1);
     expect(saved).toHaveLength(1);
-  });
-
-  it('keeps real and synthetic summaries apart', async () => {
-    const { handlers, request, signIn, analystCalls } = fixture({ summary: fresh(1, false) });
-    const { cookie } = await signIn();
-    // The store only returns the real summary for the real view, so the synthetic view must generate its own.
-    const store: InsightsStore = {
-      async loadCalls(include) { return include === 'synthetic' ? syntheticRows : realRows; },
-      async latestSummary(synthetic) { return synthetic ? null : fresh(1, false); },
-      async saveSummary() {},
-    };
-    const other = createInsightsHandlers({ password: PASSWORD, store, analyst: async (g, s) => { analystCalls.push({ g, s }); return 'Synthetic summary.'; }, now: () => NOW });
-    const body = await (await other.GET(request('/api/insights?synthetic=1', { cookie }))).json() as any;
-    expect(body.summary).toMatchObject({ text: 'Synthetic summary.', synthetic: true });
-    void handlers;
   });
 
   it('on model failure shows the last summary, marked as older', async () => {
@@ -268,7 +270,7 @@ describe('the summary', () => {
   it('does not call the model when no group is visible', async () => {
     const hiddenOnly = createInsightsHandlers({
       password: PASSWORD,
-      store: { async loadCalls() { return calls({ players: 2, category: 'Tech support', tactic: 'Fear', version: 'scam', verdict: 'Scam' }); }, async latestSummary() { return fresh(60); }, async saveSummary() { throw new Error('should not save'); } },
+      store: { async loadCalls() { return calls({ players: 2, category: 'Tech support', tactic: 'Fear', version: 'scam', verdict: 'Scam', synthetic: true }); }, async latestSummary() { return fresh(60); }, async saveSummary() { throw new Error('should not save'); } },
       analyst: async () => { throw new Error('should not be called'); },
       now: () => NOW,
     });
@@ -281,39 +283,27 @@ describe('the summary', () => {
 });
 
 describe('CSV', () => {
-  it('is exactly the totals on screen, with hidden groups shown as hidden', async () => {
+  it('is exactly the totals on screen, with call time and hidden groups shown as hidden', async () => {
     const { handlers, request, signIn } = fixture();
     const { cookie } = await signIn();
     const response = await handlers.CSV(request('/api/insights/csv', { cookie }));
     expect(response.headers.get('content-type')).toMatch(/text\/csv/);
-    expect(response.headers.get('content-disposition')).toBe('attachment; filename="tell-carrier-insights-real.csv"');
+    expect(response.headers.get('content-disposition')).toBe('attachment; filename="carrier-insights.csv"');
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect((await response.text()).trimEnd().split('\r\n')).toEqual([
-      'Data,Category,Tactic,Outcome,Calls,Players,Note',
-      'Real Players,Bank fraud alert,Details as proof,fell for,6,6,',
-      'Real Players,Tech support,Fear,caught,,,Fewer than 5 Players',
+      'Category,Tactic,Outcome,Calls,Players,Average seconds on call,Note',
+      'Bank fraud alert,Details as proof,fell for,9,9,150,',
+      'Prize or sweepstakes,Reward,false alarm,,,,Fewer than 5 Players',
+      'Tech support,Fear,caught,7,7,61,',
     ]);
-  });
-
-  it('labels every row synthetic when the toggle is on', async () => {
-    const { handlers, request, signIn } = fixture();
-    const { cookie } = await signIn();
-    const response = await handlers.CSV(request('/api/insights/csv?synthetic=1', { cookie }));
-    expect(response.headers.get('content-disposition')).toBe('attachment; filename="tell-carrier-insights-synthetic.csv"');
-    const [header, ...rows] = (await response.text()).trimEnd().split('\r\n');
-    expect(header).toBe('Data,Category,Tactic,Outcome,Calls,Players,Note');
-    expect(rows).toHaveLength(3);
-    for (const row of rows) expect(row.startsWith('Synthetic demo data,')).toBe(true);
   });
 
   it('matches the JSON groups one for one', async () => {
     const { handlers, request, signIn } = fixture();
     const { cookie } = await signIn();
-    for (const query of ['', '?synthetic=1']) {
-      const body = await (await handlers.GET(request(`/api/insights${query}`, { cookie }))).json() as any;
-      const rows = (await (await handlers.CSV(request(`/api/insights/csv${query}`, { cookie }))).text()).trimEnd().split('\r\n').slice(1);
-      expect(rows.map(r => r.split(',').slice(1, 4).join(','))).toEqual(body.groups.map((g: any) => `${g.category},${g.tactic},${g.outcome}`));
-    }
+    const body = await (await handlers.GET(request('/api/insights', { cookie }))).json() as any;
+    const rows = (await (await handlers.CSV(request('/api/insights/csv', { cookie }))).text()).trimEnd().split('\r\n').slice(1);
+    expect(rows.map(r => r.split(',').slice(0, 3).join(','))).toEqual(body.groups.map((g: any) => `${g.category},${g.tactic},${g.outcome}`));
   });
 });
 

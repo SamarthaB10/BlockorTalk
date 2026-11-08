@@ -1,7 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import type { PlayModel } from '../../lib/season/play/types';
-export function signupLocation(returnTo: string) { return '/profile?returnTo=' + encodeURIComponent(returnTo); }
+import { profileLocation } from '../dashboard/view';
+/** Signed-out Players sign in on the dashboard, never on /profile. */
+export function signupLocation(returnTo: string) { return profileLocation(returnTo); }
 export function PlayCatalog({ model }: { model: PlayModel }) {
  const [elapsed,setElapsed]=useState(0);
  useEffect(()=>{const start=Date.now();const timer=setInterval(()=>setElapsed(Date.now()-start),1000);return()=>clearInterval(timer);},[]);

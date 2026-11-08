@@ -20,6 +20,19 @@ export type SyntheticCall = {
   outcome: Outcome;
   /** Minutes before the seed time that the call started. */
   minutesAgo: number;
+  /** How long the call lasted, within the 3-minute cap. */
+  durationSeconds: number;
+};
+
+/**
+ * Call length by outcome, in seconds (min, max). Scams that work keep people talking; a doubted real
+ * caller is usually cut short. Calls are capped at 3 minutes.
+ */
+const DURATION: Record<Outcome, [number, number]> = {
+  'fell for': [110, 180],
+  caught: [45, 130],
+  'false alarm': [20, 75],
+  'trusted real': [70, 160],
 };
 
 /** Small seeded generator (mulberry32), so no run depends on Math.random. */
@@ -50,6 +63,8 @@ function verdictFor(version: Version, tactic: Tactic, next: () => number): { ver
 
 export function buildSyntheticDataset(scenarios: readonly Scenario[], seed = 20261108): { players: SyntheticPlayer[]; calls: SyntheticCall[] } {
   const next = random(seed);
+  // Lengths use their own stream, so adding them left every other synthetic value unchanged.
+  const nextLength = random(seed ^ 0x9e3779b9);
   const players = Array.from({ length: SYNTHETIC_PLAYERS }, (_, i): SyntheticPlayer => {
     const n = String(i + 1).padStart(3, '0');
     return { email: `demo-player-${n}@${SYNTHETIC_EMAIL_DOMAIN}`, nickname: `Demo${n}` };
@@ -66,7 +81,11 @@ export function buildSyntheticDataset(scenarios: readonly Scenario[], seed = 202
         playerIndex, scenarioId: scenario.id, version, verdict, leaked,
         outcome: outcomeOf(version, verdict, leaked),
         minutesAgo: Math.floor(next() * 60 * 24 * 3),
+        durationSeconds: 0,
       });
+      const call = calls[calls.length - 1]!;
+      const [min, max] = DURATION[call.outcome];
+      call.durationSeconds = min + Math.floor(nextLength() * (max - min + 1));
     }
   });
   return { players, calls };

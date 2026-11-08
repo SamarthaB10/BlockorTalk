@@ -4,7 +4,7 @@
  * page shows the same figures. Only visible groups (five or more Players, docs/adr/0002) go in.
  */
 
-export type ReportGroup = { category: string; tactic: string; outcome: string; calls: number };
+export type ReportGroup = { category: string; tactic: string; outcome: string; calls: number; avgSeconds?: number | null };
 
 export type Overview = {
   /** Calls in visible groups. */
@@ -61,12 +61,44 @@ export function breakdown(groups: readonly ReportGroup[], by: 'category' | 'tact
     .sort((a, b) => (b.fellForRate ?? -1) - (a.fellForRate ?? -1) || b.fellFor - a.fellFor || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 
+export type CallTime = {
+  /** Average seconds on a call, weighted by calls; null when no call has a known length. */
+  overall: number | null;
+  byOutcome: { key: string; avgSeconds: number }[];
+  byCategory: { key: string; avgSeconds: number }[];
+};
+
+const OUTCOME_ORDER = ['fell for', 'caught', 'false alarm', 'trusted real'];
+
+/** Weighted average call length overall, by outcome (fixed order) and by Category (longest first). */
+export function callTime(groups: readonly ReportGroup[]): CallTime {
+  const timed = groups.filter(group => typeof group.avgSeconds === 'number' && group.avgSeconds > 0);
+  const average = (rows: readonly ReportGroup[]) => {
+    const calls = rows.reduce((sum, row) => sum + row.calls, 0);
+    return calls ? Math.round(rows.reduce((sum, row) => sum + row.calls * (row.avgSeconds as number), 0) / calls) : null;
+  };
+  const by = (keyOf: (group: ReportGroup) => string) =>
+    [...new Set(timed.map(keyOf))].map(key => ({ key, avgSeconds: average(timed.filter(group => keyOf(group) === key))! }));
+  return {
+    overall: average(timed),
+    byOutcome: by(group => group.outcome).sort((a, b) => OUTCOME_ORDER.indexOf(a.key) - OUTCOME_ORDER.indexOf(b.key)),
+    byCategory: by(group => group.category).sort((a, b) => b.avgSeconds - a.avgSeconds || (a.key < b.key ? -1 : 1)),
+  };
+}
+
+/** 95 → "1:35". */
+export function minutes(seconds: number | null): string {
+  if (seconds === null) return '—';
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
 /** The analysis sections, in order. The analyst writes them as plain heading lines. */
 export const REPORT_HEADINGS = [
   'Overview',
   'Scams people fall for most',
   'Pressure tactics that work',
   'Real calls people doubted',
+  'Time on the call',
   'What carriers can do',
 ] as const;
 

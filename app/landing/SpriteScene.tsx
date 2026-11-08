@@ -48,7 +48,7 @@ export default function SpriteScene({ paused }: { paused: boolean }) {
       if(ringContext){const g=ringContext.createLinearGradient(0,0,512,0);g.addColorStop(0,'#ffb347');g.addColorStop(.4,'#ff8a3d');g.addColorStop(1,'#ff3d8b');ringContext.fillStyle=g;ringContext.fillRect(0,0,512,16);}
       const ringTexture=new THREE.CanvasTexture(ringCanvas);ringTexture.colorSpace=THREE.SRGBColorSpace;
       const trim=new THREE.Mesh(new THREE.BoxGeometry(3.48,.035,.08),new THREE.MeshBasicMaterial({map:ringTexture,toneMapped:false}));trim.position.set(0,1.49,.05);object.add(trim);
-      const poses: {personality:Personality;folder:Folder}[] = [{personality:'planner',folder:'idle'},{personality:'planner',folder:'talk_standard'}];
+      const poses: {personality:Personality;folder:Folder}[] = [{personality:'planner',folder:'idle'},{personality:'detector',folder:'talk_thinking'},{personality:'debrief',folder:'talk_standard'}];
       const images=poses.map(p=>spriteFrames(p.personality,p.folder).map(src=>{const image=new Image();image.src=src;return image;}));
       const reduced=matchMedia('(prefers-reduced-motion: reduce)');
       const still = () => paused || reduced.matches;
@@ -75,7 +75,7 @@ export default function SpriteScene({ paused }: { paused: boolean }) {
           camera.aspect=width/Math.max(height,1);camera.updateProjectionMatrix();
           renderer.setSize(width,height);
         }
-        return home.index/Math.max(1,slots.length-1);
+        return home.index;
       };
       const resize=()=>{lastWidth=0;place();};
       const pointer=(event:PointerEvent)=>{mouseX=event.clientX/innerWidth*2-1;mouseY=event.clientY/innerHeight*2-1;};
@@ -84,9 +84,11 @@ export default function SpriteScene({ paused }: { paused: boolean }) {
         frame=requestAnimationFrame(draw);
         if(document.hidden || time-lastTime<32)return;
         lastTime=time;
-        const target=place();if(target===undefined)return;progress=still()?target:progress+(target-progress)*.1;
+        const target=place();if(target===undefined)return;
+        const blendTarget=target/Math.max(1,slots.length-1);
+        progress=still()?blendTarget:progress+(blendTarget-progress)*.1;
         pointerX+=(mouseX-pointerX)*.06;pointerY+=(mouseY-pointerY)*.06;
-        const phase=progress>.45?1:0;
+        const phase=Math.min(target,images.length-1);
         const index=still()?0:Math.floor(time/125)%images[phase].length;
         const image=images[phase][index],drawKey=`${phase}/${index}`;
         if(image.complete&&image.naturalWidth&&lastDraw!==drawKey){context.drawImage(image,0,0,340,290);texture.needsUpdate=true;lastDraw=drawKey;if(!signaled){signaled=true;setReady(true);}}

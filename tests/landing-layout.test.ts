@@ -1,18 +1,27 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import Landing from '../app/landing/Landing';
 
 describe('landing sprite containment', () => {
-  it('keeps one robot seated in the section column, plus a dashboard entry', () => {
+  it('seats planner, detector, and debrief in the three landing sections', () => {
     const html = renderToStaticMarkup(createElement(Landing));
     expect(html.match(/class="nova-scene"/g)).toHaveLength(1);
-    expect(html.match(/data-scene-slot=/g)).toHaveLength(1);
+    expect(html.match(/data-scene-slot=/g)).toHaveLength(3);
     expect(html).toContain('data-scene-slot="0"');
-    expect(html).not.toContain('data-scene-slot="1"');
-    expect(html).not.toContain('data-scene-slot="2"');
-    expect(html).not.toContain('nova-actor');
+    expect(html).toContain('data-scene-slot="1"');
+    expect(html).toContain('data-scene-slot="2"');
     expect(html).toContain('src="/sprites/purple/idle/idle_01.png"');
+    expect(html).toContain('src="/sprites/red/idle/idle_01.png"');
+    expect(html).toContain('src="/sprites/green/idle/idle_01.png"');
+    expect(html).toContain('data-scene-slot="1" aria-hidden="true"><img class="nova-slot-fallback" src="/sprites/red/idle/idle_01.png"');
+    expect(html).toContain('data-scene-slot="2" aria-hidden="true"><img class="nova-slot-fallback" src="/sprites/green/idle/idle_01.png"');
+    const scene = readFileSync(new URL('../app/landing/SpriteScene.tsx', import.meta.url), 'utf8');
+    expect(scene).toContain("personality:'planner'");
+    expect(scene).toContain("personality:'detector'");
+    expect(scene).toContain("personality:'debrief'");
+    expect(html).not.toContain('nova-actor');
     expect(html).toContain('href="/dashboard"');
     expect(html).not.toContain('OPEN DASHBOARD');
     expect(html).not.toContain('>Dashboard<');

@@ -4,8 +4,9 @@ import { expect, test } from 'vitest';
 import Dashboard from '../app/dashboard/Dashboard';
 import Welcome from '../app/dashboard/Welcome';
 import { scenarioCatalog } from '../lib/season/scenarios/catalog';
+import { SCENARIOS } from '../lib/practice/catalog';
 
-test('every scenario is a voice call: no text practice and no link to the old /play call', () => {
+test('every scenario has a voice session: no text practice, no /play link, no /profile', () => {
   const html = renderToStaticMarkup(createElement(Dashboard, { initialView: 'Scenarios' }));
   expect(html).toContain('Yui');
   expect(html).toContain('Play by voice');
@@ -15,7 +16,9 @@ test('every scenario is a voice call: no text practice and no link to the old /p
     expect(html).toContain(row.category);
     for (const secret of row.secrets) expect(html).not.toContain(secret.value);
   }
-  expect(html.match(/Voice coming soon/g)).toHaveLength(scenarioCatalog.length);
+  expect(html.match(/Play by voice/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
+  expect(html).not.toContain('Voice coming soon');
+  expect(html).not.toContain('/profile');
   expect(html).not.toMatch(/ask_line|next_step|versions/);
 });
 

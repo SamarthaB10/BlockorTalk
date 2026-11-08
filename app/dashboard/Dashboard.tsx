@@ -5,6 +5,7 @@ import { startBrowserCall, type BrowserCallHandle } from '../../lib/voice/browse
 import Conversation from '../challenge/Conversation';
 import { SCENARIOS, type ScenarioId } from '../../lib/practice/catalog';
 import { scenarioCatalog } from '../../lib/season/scenarios/catalog';
+import { SCENARIO_VARIABLE_NAMES, scenarioVoiceVariables } from '../../lib/voice/scenarioVoice';
 import SpritePlayer from '../components/SpritePlayer';
 import './dashboard.css';
 import Welcome from './Welcome';
@@ -12,18 +13,25 @@ import PracticeCard from './PracticeCard';
 import TypedGreeting from './TypedGreeting';
 import HubBoard from './HubBoard';
 import Leaderboard from '../leaderboard/Leaderboard';
-import { dashboardView, type DashboardView } from './view';
+import { dashboardIntro, dashboardView, type DashboardView } from './view';
+import ProgressPanel from './ProgressPanel';
+import ProfilePanel from './ProfilePanel';
+import { isSkillId, type SkillId } from '../../lib/skills/catalog';
 
 type View = DashboardView;
 type Turn = { role: 'caller' | 'you'; text: string };
 type Alert = { title: string; link: string; summary: string; date?: string; source?: string; theme?: 'Jobs' | 'Banking'; image?: string };
 
-export default function Dashboard({ initialView = 'Home' }: { initialView?: View }) {
+export default function Dashboard({ initialView = 'Home', returnTo = null, skill = null }: { initialView?: View; returnTo?: string | null; skill?: SkillId | null }) {
+  const [skillParam, setSkillParam] = useState<SkillId | null>(skill);
   const [playerName, setPlayerName] = useState('');
   const [view, setView] = useState<View>(initialView);
   useEffect(() => {
     const restore = () => {
-      setView(dashboardView(new URLSearchParams(location.search).get('view') ?? undefined));
+      const params = new URLSearchParams(location.search);
+      setView(dashboardView(params.get('view') ?? undefined));
+      const selected = params.get('skill');
+      setSkillParam(isSkillId(selected) ? selected : null);
       stopVoice(); setScenario(null); setShowCode(false);
     };
     restore(); window.addEventListener('popstate', restore);
@@ -32,7 +40,7 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [newsState, setNewsState] = useState('Loading scam news…');
   const [newsTheme, setNewsTheme] = useState<'All' | 'Jobs' | 'Banking'>('All');
-  const [scenario, setScenario] = useState<ScenarioId | null>(null);
+  const [scenario, setScenario] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
   const [voiceHandle, setVoiceHandle] = useState<BrowserCallHandle | null>(null);
@@ -63,7 +71,10 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Please try again.'); }
     finally { setBusy(false); }
   }
-  async function practiceVoice(scenarioId: ScenarioId) {
+  async function practiceVoice(scenarioId: string) {
+    const challengeCaller = SCENARIOS.find(item => item.id === scenarioId);
+    const variables = challengeCaller?.voiceVariables ?? scenarioVoiceVariables(scenarioId);
+    if (!variables) return;
     stopVoice();
     const attempt = connection.current;
     setShowCode(false); setScenario(scenarioId); setTurns([]); setResult(null); setEnded(false); setError(''); setConnecting(true);
@@ -72,8 +83,7 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
       const session = await response.json() as { conversationToken?: string };
       if (!response.ok || !session.conversationToken) throw new Error('Voice is unavailable right now. Try again in a moment.');
       if (attempt !== connection.current) return;
-      const selected = SCENARIOS.find(item => item.id === scenarioId)!;
-      const handle = await startBrowserCall({ callerId: scenarioId, conversationToken: session.conversationToken, variables: selected.voiceVariables,
+      const handle = await startBrowserCall({ callerId: scenarioId, conversationToken: session.conversationToken, variables, variableNames: challengeCaller ? undefined : SCENARIO_VARIABLE_NAMES,
         onTurn: turn => { if (attempt === connection.current) setTurns(current => [...current, { role: turn.role === 'user' ? 'you' : 'caller', text: turn.message }]); },
         onEnded: () => { if (attempt === connection.current) { setEnded(true); setVoiceHandle(null); voiceRef.current = null; setConnecting(false); } },
         onMicDenied: () => { if (attempt === connection.current) setError('Microphone access was denied. Allow your microphone, then start the call again.'); },
@@ -99,8 +109,8 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
   return <main className="hub">
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
-    <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button onClick={openBoard}>Leaderboard</button></nav></header>
-    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>Your practice space</p><h1>{view === 'Home' ? 'A little practice. Better instincts.' : view === 'Leaderboard' ? 'Good judgment adds up.' : view === 'Scenarios' ? 'One call. Your judgment.' : 'Stay one step ahead.'}</h1><p>{view === 'Home' ? 'Practice a single call or catch up on the latest alerts. Your next move starts here.' : view === 'Leaderboard' ? 'Practice spotting scam calls. Earn Blokbuks with each Scored call.' : view === 'Scenarios' ? 'Practice individual calls by voice. No money or tasks to manage.' : 'Consumer alerts from the Federal Trade Commission.'}</p></div></section>
+    <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button onClick={openBoard}>Leaderboard</button>{(['Progress', 'Profile'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}</nav></header>
+    <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>{dashboardIntro(view).kicker}</p><h1>{dashboardIntro(view).title}</h1><p>{dashboardIntro(view).summary}</p></div></section>
     {error && <p role="alert">{error}</p>}
     {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
       <article className="hub-card"><span className="hub-chip">Scenario practice</span><h2>A single call.<br />A fresh perspective.</h2><p>Meet Yui, Ren, Kai, or Aki. Make a decision and see the evidence.</p><div className="hub-people">{SCENARIOS.map(item => <span key={item.id}>{item.caller}</span>)}</div><button className="hub-link" onClick={() => navigate('Scenarios')}>Choose a scenario ↗</button></article>
@@ -108,10 +118,13 @@ export default function Dashboard({ initialView = 'Home' }: { initialView?: View
       <article className="hub-card hub-rule"><span className="hub-chip">Take it with you</span><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
     </section>}
     {view === 'Home' && <HubBoard />}
-    {view === 'Scenarios' && !scenario && <section className="hub-library">{SCENARIOS.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.theme} · {item.direction}</span><h2>{item.caller}</h2><p>{item.org}</p><p>{item.card}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button></article>)}{scenarioCatalog.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.category}</span><h2>{item.org}</h2><p>{item.card.facts[0]}</p><p className="hub-soon">Voice coming soon</p></article>)}</section>}
-    {view === 'Scenarios' && scenario && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'Caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{ended && turns.length > 0 && <><h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy} onClick={() => void giveVerdict(scenario, verdict)}>{verdict}</button>)}</div></>}</>}</section>}
+    {view === 'Scenarios' && !scenario && <section className="hub-library">{SCENARIOS.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.theme} · {item.direction}</span><h2>{item.caller}</h2><p>{item.org}</p><p>{item.card}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button></article>)}{scenarioCatalog.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.category}</span><h2>{item.org}</h2><p>{item.card.facts[0]}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button></article>)}</section>}
+    {view === 'Scenarios' && scenario && !SCENARIOS.some(item => item.id === scenario) && (() => { const row = scenarioCatalog.find(item => item.id === scenario)!; return <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); }}>← All scenarios</button><h2>{row.org} · Practice call</h2><p>{row.card.facts[0]} Use fictional details only. Your practice code is {row.secrets[0]?.value}; keep it to yourself.</p><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'AI practice caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation></section>; })()}
+    {view === 'Scenarios' && scenario && SCENARIOS.some(item => item.id === scenario) && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/><Conversation handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} turns={turns.map((turn, index) => ({ key: index, who: turn.role === 'you' ? 'you' as const : 'caller' as const, label: turn.role === 'you' ? 'You' : 'Caller', text: turn.text }))}>{(voiceHandle || connecting) && <button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button>}</Conversation>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{ended && turns.length > 0 && <><h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy} onClick={() => void giveVerdict(scenario as ScenarioId, verdict)}>{verdict}</button>)}</div></>}</>}</section>}
     {view === 'News' && <section className="hub-library"><div role="group" aria-label="Filter by scenario theme" style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>{(['All', 'Jobs', 'Banking'] as const).map(t => <button key={t} className="hub-link" aria-pressed={newsTheme === t} style={newsTheme === t ? { fontWeight: 700, textDecoration: 'underline' } : undefined} onClick={() => setNewsTheme(t)}>{t}</button>)}</div>{newsState && <p role="status">{newsState} <a href="https://consumer.ftc.gov/consumer-alerts">Read FTC alerts ↗</a></p>}{!newsState && !alerts.some(item => newsTheme === 'All' || item.theme === newsTheme) && <p role="status">No {newsTheme} stories right now.</p>}{alerts.filter(item => newsTheme === 'All' || item.theme === newsTheme).map(item => <article className="hub-card" key={item.link}>{item.image && <img src={item.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 10 }} />}<span className="hub-chip">{item.source ?? 'News'}{item.theme ? ` · ${item.theme}` : ''}{item.date ? ` · ${new Date(item.date).toLocaleDateString()}` : ''}</span><h2>{item.title}</h2><p>{item.summary}</p><a className="hub-link" href={item.link} target="_blank" rel="noreferrer">Read the source ↗</a></article>)}</section>}
     {view === 'Leaderboard' && <Leaderboard embedded />}
+    {view === 'Progress' && <ProgressPanel initialSkill={skillParam} onSignIn={() => navigate('Profile')} />}
+    {view === 'Profile' && <ProfilePanel returnTo={returnTo} />}
     <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<a href="/insights">Carrier insights</a></footer>
   </main>;
 }

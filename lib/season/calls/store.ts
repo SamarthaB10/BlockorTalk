@@ -3,6 +3,7 @@ import { isNextCallScored, scoredCallsLeftToday } from '../../blokbuks/rules';
 import { CallError } from './service';
 import type { Scenario, Version, Sheet } from '../scenarios/types';
 import type { PublicCall, Verdict } from './types';
+import type { SkillId } from '../../skills/catalog';
 
 export type Transaction = Pick<pg.Client, 'query'>;
 export type CallRecord = {
@@ -12,10 +13,18 @@ export type CallRecord = {
   replies: { step: number; text: string; leaks: string[] }[];
   verifyEvents: { at: string; step: number }[]; leaks: string[];
   sheet?: Sheet; verdict?: Verdict; result?: Record<string, unknown>; endedAt?: string;
+  /** Skill Log evidence. Older calls may not have these. */
+  hintEvents?: { at: string; step: number }[];
+  linkEvents?: { at: string; step: number }[];
+  endedBy?: 'player' | 'time' | 'replies';
+  hint?: string;
+  limitSeconds?: number;
+  drill?: SkillId;
 };
 export type CallDraft = Omit<CallRecord, 'playerId' | 'seasonId' | 'startedAt' | 'scored' | 'callsLeft'>;
 export type CallStore = {
-  start(playerId: string, draft: CallDraft, now: Date): Promise<CallRecord>;
+  /** A practice start never uses one of the day's Scored calls. */
+  start(playerId: string, draft: CallDraft, now: Date, options?: { practice?: boolean }): Promise<CallRecord>;
   update(playerId: string, id: string, work: (call: CallRecord, tx: Transaction) => Promise<void>): Promise<CallRecord | null>;
 };
 
@@ -39,7 +48,7 @@ export function createCallStore(connectionString: string, clock?: () => Date): C
     });
   }
   return {
-    async start(playerId, draft, now) {
+    async start(playerId, draft, now, options) {
       return transaction(async client => {
         // Stable Player row serializes reservations across all sessions/processes.
         const player = await client.query('SELECT id FROM players WHERE id=$1 FOR UPDATE', [playerId]);
@@ -50,7 +59,7 @@ export function createCallStore(connectionString: string, clock?: () => Date): C
         if (!season) throw new CallError(503, 'Calls are unavailable. Please try again.');
         const starts = (await client.query('SELECT started_at FROM calls WHERE player_id=$1 AND scored=true AND started_at >= $2', [playerId, new Date(now.getTime() - 48 * 3600000)])).rows.map(row => new Date(row.started_at));
         const live = now.getTime() < Date.parse(season.endsAt);
-        const scored = live && isNextCallScored(starts, now);
+        const scored = !options?.practice && live && isNextCallScored(starts, now);
         const call: CallRecord = { ...draft, playerId, seasonId: season.id, startedAt: now.toISOString(), scored,
           callsLeft: live ? scoredCallsLeftToday([...starts, ...(scored ? [now] : [])], now) : 0 };
         await client.query('INSERT INTO calls(id,player_id,season_id,scenario_id,version,scored,state,started_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',

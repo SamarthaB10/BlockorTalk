@@ -5,6 +5,7 @@ import type { CallStore, CallRecord, Transaction } from './store';
 import type { PublicCall, CallAction } from './types';
 import { leakedSecrets } from '../../practice/leaks';
 import { redact } from '../../policy/redact';
+import { CALL_SECONDS, DRILL_SECONDS, SKILLS, hintFor, type SkillId } from '../../skills/catalog';
 
 export class CallError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -17,6 +18,9 @@ export function publicCall(call: CallRecord): PublicCall {
     replies: call.replies.length, serverNow: new Date().toISOString(), startedAt: call.startedAt, scored: call.scored, callsLeft: call.callsLeft,
     ...(deliveredLink(call) ? { callerLink: { href: deliveredLink(call)!.href } } : {}),
     ...(call.sheet ? { sheet: call.sheet } : {}),
+    limitSeconds: call.limitSeconds ?? CALL_SECONDS,
+    ...(call.hint && call.phase === 'call' ? { hint: call.hint } : {}),
+    ...(call.drill ? { drill: { skill: call.drill, name: SKILLS[call.drill].name } } : {}),
     ...(call.phase === 'complete' ? { result: call.result } : {}),
   };
 }
@@ -38,8 +42,8 @@ export function createCallService(deps: {
     let finishedNow = false;
     const call = await deps.store.update(playerId, id, async (call, tx) => {
       const at = now();
-      if (call.phase === 'call' && at.getTime() - Date.parse(call.startedAt) >= 180000) {
-        call.phase = 'verdict'; call.endedAt = at.toISOString();
+      if (call.phase === 'call' && at.getTime() - Date.parse(call.startedAt) >= (call.limitSeconds ?? CALL_SECONDS) * 1000) {
+        call.phase = 'verdict'; call.endedAt = at.toISOString(); call.endedBy = 'time';
       }
       if (!action) return;
       if (action.type === 'reply') {
@@ -54,9 +58,15 @@ export function createCallService(deps: {
         call.leaks = [...new Set([...call.leaks, ...leaks])];
         if (call.replies.length === 4 || /\bstop\s+drill\b/i.test(text)) {
           call.phase = 'verdict'; call.endedAt = at.toISOString();
+          call.endedBy = call.replies.length === 4 ? 'replies' : 'player';
         } else call.turns.push({ role: 'caller', text: call.lines[call.replies.length]!, step: step + 1 });
       } else if (action.type === 'end') {
-        if (call.phase === 'call') { call.phase = 'verdict'; call.endedAt = at.toISOString(); }
+        if (call.phase === 'call') { call.phase = 'verdict'; call.endedAt = at.toISOString(); call.endedBy = 'player'; }
+      } else if (action.type === 'hint') {
+        if (call.phase !== 'call') { expiredReply = true; return; }
+        const step = call.replies.length + 1;
+        (call.hintEvents ??= []).push({ at: at.toISOString(), step });
+        call.hint = hintFor(step);
       } else if (action.type === 'own-app') {
         if (call.phase === 'complete') throw new CallError(409, 'This call is complete.');
         if (!call.verifyEvents.length) call.verifyEvents.push({ at: at.toISOString(), step: call.replies.length + 1 });
@@ -64,6 +74,7 @@ export function createCallService(deps: {
       } else if (action.type === 'caller-link') {
         const link = deliveredLink(call);
         if (!link || call.phase === 'complete') throw new CallError(409, 'No caller link is available.');
+        if (!call.linkEvents?.length) call.linkEvents = [{ at: at.toISOString(), step: call.replies.length + 1 }];
         call.sheet = link.sheet;
       } else if (action.type === 'verdict') {
         if (call.phase === 'complete') return;
@@ -87,7 +98,8 @@ export function createCallService(deps: {
       }
       return call;
     },
-    async start(playerId: string, scenarioId: string) {
+    /** A drill is a 60-second practice call for one skill, in whatever story the caller picked. */
+    async start(playerId: string, scenarioId: string, options: { drill?: SkillId } = {}) {
       const scenario = await deps.scenario(scenarioId);
       if (!scenario) throw new CallError(404, 'Call scenario not found.');
       const version = (deps.random ?? Math.random)() < 0.5 ? 'real' : 'scam';
@@ -97,7 +109,8 @@ export function createCallService(deps: {
         catch (error) { console.error('finished calls unavailable', error); }
       }
       const lines = [...await deps.plan(scenario, version, { press }), version === 'real' ? scenario.versions.real.next_step : scenario.versions.scam.ask_line] as CallRecord['lines'];
-      return deps.store.start(playerId, { id: crypto.randomUUID(), scenario, version, lines, phase: 'call', turns: [{ role: 'caller', text: lines[0], step: 1 }], replies: [], verifyEvents: [], leaks: [] }, now());
+      const drill = options.drill ? { drill: options.drill, limitSeconds: DRILL_SECONDS } : { limitSeconds: CALL_SECONDS };
+      return deps.store.start(playerId, { id: crypto.randomUUID(), scenario, version, lines, phase: 'call', turns: [{ role: 'caller', text: lines[0], step: 1 }], replies: [], verifyEvents: [], leaks: [], ...drill }, now(), { practice: Boolean(options.drill) });
     },
   };
 }
