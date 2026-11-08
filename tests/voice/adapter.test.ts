@@ -97,6 +97,44 @@ describe("ElevenLabs voice adapter", () => {
     });
   });
 
+  describe("browser-voice token by plain fetch", () => {
+    function tokenFetch(response: Response, key: string | undefined = " sk_test\n") {
+      const requests: { url: string; init: RequestInit }[] = [];
+      return {
+        requests,
+        fetcher: { fetch: async (url: string, init: RequestInit) => { requests.push({ url, init }); return response; }, apiKey: () => key },
+      };
+    }
+
+    it("sends exactly the documented GET with the trimmed key", async () => {
+      const t = tokenFetch(Response.json({ token: "tok_live" }));
+      const voice = new ElevenLabsVoiceAdapter(fakeClient().client, AGENTS, undefined, t.fetcher);
+      expect(await voice.createBrowserSession({ callerId: "recruiter" })).toEqual({ agentId: "agent_r", conversationToken: "tok_live" });
+      expect(t.requests).toHaveLength(1);
+      expect(t.requests[0]!.url).toBe("https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=agent_r");
+      expect(t.requests[0]!.init).toEqual({ method: "GET", headers: { "xi-api-key": "sk_test" } });
+    });
+
+    it("throws with the vendor status and body on a refusal", async () => {
+      const body = { detail: { code: "invalid_agent_id", param: "agent_id", message: "The provided agent ID is invalid." } };
+      const t = tokenFetch(Response.json(body, { status: 400 }));
+      const voice = new ElevenLabsVoiceAdapter(fakeClient().client, AGENTS, undefined, t.fetcher);
+      await expect(voice.createBrowserSession({ callerId: "recruiter" })).rejects.toMatchObject({ statusCode: 400, body });
+    });
+
+    it("refuses a blank or malformed agent ID, or a missing key, before any request", async () => {
+      for (const bad of ["", "  ", "agent_r\nx", "[object Object]"]) {
+        const t = tokenFetch(Response.json({ token: "x" }));
+        const voice = new ElevenLabsVoiceAdapter(fakeClient().client, { ...AGENTS, recruiter: bad }, undefined, t.fetcher);
+        await expect(voice.createBrowserSession({ callerId: "recruiter" }), JSON.stringify(bad)).rejects.toBeInstanceOf(VoiceRequestError);
+        expect(t.requests).toHaveLength(0);
+      }
+      const t = tokenFetch(Response.json({ token: "x" }), "  ");
+      await expect(new ElevenLabsVoiceAdapter(fakeClient().client, AGENTS, undefined, t.fetcher).createBrowserSession({ callerId: "recruiter" })).rejects.toBeInstanceOf(VoiceRequestError);
+      expect(t.requests).toHaveLength(0);
+    });
+  });
+
   it("polling returns null until the conversation is finished", async () => {
     for (const status of ["initiated", "in-progress", "processing"]) {
       const { client } = fakeClient({ status, agentId: "agent_f", transcript: [], metadata: {} });

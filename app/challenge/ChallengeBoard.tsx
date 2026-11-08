@@ -107,7 +107,9 @@ export default function ChallengeBoard() {
   const voiceStatus = useRef<HTMLParagraphElement>(null);
   const repliesRef = useRef(0);
   const setVoice = (next: VoiceState) => { voiceRef.current = next; setVoiceState(next); };
-  const spokenReplies = voiceTurns.filter(turn => turn.role === 'user').length;
+  // Replies already typed in this call still count when it switches to voice.
+  const [replyBase, setReplyBase] = useState(0);
+  const spokenReplies = replyBase + voiceTurns.filter(turn => turn.role === 'user').length;
 
   useEffect(() => {
     fetch('/api/challenge').then(async response => {
@@ -149,7 +151,9 @@ export default function ChallengeBoard() {
     void hangUp();
     const attempt = attemptRef.current;
     const current = () => attempt === attemptRef.current;
-    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError(''); repliesRef.current = 0;
+    setMode('voice'); setVoice('connecting'); setVoiceTurns([]); setError('');
+    const base = fresh ? 0 : day?.replies ?? 0;
+    repliesRef.current = base; setReplyBase(base);
     if (fresh && !(await act({ type: 'start' }))) { if (current()) setVoice('failed'); return; }
     if (!current()) return;
     let token: string | undefined;
