@@ -10,3 +10,10 @@ node_modules/
 out/
 *.tsbuildinfo
 next-env.d.ts
+
+# vinext
+/dist/
+.vinext/
+.cloudflare/
+
+.dev.vars*
