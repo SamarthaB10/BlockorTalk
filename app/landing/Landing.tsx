@@ -70,9 +70,10 @@ export default function Landing(){
     <a className="nova-skip" href="#intro">Skip to content</a>
     <div className="nova-guides" aria-hidden="true"><i/><i/><i/></div>
     <SpriteScene paused={!motion}/>
-    <div className="nova-announcement"><a href="/challenge"><strong>New:</strong> Meet Block or Talk — Three calls. Two stories. Who gets your trust? <span>↗</span></a><button aria-label="Dismiss announcement" onClick={()=>setDismissed(true)}>×</button></div>
+    <div className="nova-announcement"><span><strong>New:</strong> Meet Block or Talk — Three calls. Two stories. Who gets your trust?</span><button aria-label="Dismiss announcement" onClick={()=>setDismissed(true)}>×</button></div>
     <header className="nova-nav">
       <a className="nova-logo" href="#intro" aria-label="Block or Talk home"><Mark/><span>BLOCK OR TALK</span></a>
+      <div className="nova-launch-cell"><a className="nova-launch" href="/dashboard">Dashboard <Arrow/></a></div>
     </header>
     <aside className="nova-rail" aria-label="Page sections"><div className="nova-rail-track"><div className="nova-dots" aria-hidden="true">{Array.from({length:14},(_,i)=><i key={i}/>)}</div><a className="nova-rail-label" href={`#${sections[section]}`} style={{top:`${section*31}%`}}><span className="nova-dial"/>{['INTRO','PRACTICE','RULES'][section]}</a>{sections.map((s,i)=><a className="nova-rail-hit" key={s} href={`#${s}`} aria-label={`Go to ${s}`} aria-current={section===i?'location':undefined} style={{top:`${i*31}%`}}/>)}</div><button className="nova-menu-toggle" aria-expanded={menu} aria-controls="nova-drawer" onClick={()=>setMenu(v=>!v)}><span aria-hidden="true">≡</span> MENU</button></aside>
     {menu&&<nav id="nova-drawer" className="nova-drawer" aria-label="Section menu"><button onClick={()=>setMenu(false)} aria-label="Close menu">×</button>{sections.map(s=><a key={s} href={`#${s}`} onClick={()=>setMenu(false)}>{s==='practice'?'The Challenge':s==='rules'?'The four rules':'Introduction'}<Arrow/></a>)}</nav>}
@@ -88,13 +89,13 @@ export default function Landing(){
     <section id="practice" className="nova-section nova-product" aria-labelledby="nova-product-title">
       <div className="nova-scene-slot" data-scene-slot="1" aria-hidden="true"><img className="nova-slot-fallback" src="/sprites/red/idle/idle_01.png" width="340" height="290" alt=""/></div>
       <div className="nova-tab-window" ref={tabWindow}><div className="nova-tabs">{tabs.map((label,i)=><button key={label} className={i===tab?'current':''} onClick={()=>setTab(i)} aria-pressed={i===tab}><span>{String(i+1).padStart(2,'0')}</span>{label}</button>)}</div></div>
-      <div className="nova-product-copy rv"><span className="nova-small-dots" aria-hidden="true">··</span><h2 id="nova-product-title"><span>Your judgment.</span><br/>Under pressure.</h2><p>Start with $1,000 and two tasks.<br/>Three callers want your trust.<br/>What will you do?</p><a className="nova-text-link" href="/challenge">Play the Challenge <Arrow/></a></div>
+      <div className="nova-product-copy rv"><span className="nova-small-dots" aria-hidden="true">··</span><h2 id="nova-product-title"><span>Your judgment.</span><br/>Under pressure.</h2><p>Start with $1,000 and two tasks.<br/>Three callers want your trust.<br/>What will you do?</p></div>
       <div id="companions" className="nova-companion-note rv"><span>THREE SYSTEMS. ONE PRACTICE DAY.</span><p>Purple plans. Red detects.<br/>Green explains the calls.</p><small>AI practice callers. Fictional details only.</small></div>
     </section>
     <section id="rules" className="nova-section nova-reviews" aria-labelledby="nova-rules-title">
       <div className="nova-scene-slot" data-scene-slot="2" aria-hidden="true"><img className="nova-slot-fallback" src="/sprites/green/idle/idle_01.png" width="340" height="290" alt=""/></div>
       <header className="nova-review-strip"><h2 id="nova-rules-title">THE RULES</h2><span className="nova-bracket">{String(rule+1).padStart(2,'0')}</span><span className="nova-review-dot"/><span>{rules[rule].title}</span><span className="nova-review-role">TAKE IT INTO YOUR NEXT CALL</span></header>
-      <div className="nova-quote-content rv" key={rule}><blockquote>{rules[rule].quote}</blockquote><p>{rules[rule].detail}</p><a className="nova-text-link" href="/challenge">Try for yourself <Arrow/></a></div>
+      <div className="nova-quote-content rv" key={rule}><blockquote>{rules[rule].quote}</blockquote><p>{rules[rule].detail}</p></div>
       <p className="nova-ghost" aria-hidden="true">{rules[(rule+1)%rules.length].quote}</p>
       <div className="nova-review-arrows"><button aria-label="Previous rule" onClick={()=>setRule(i=>(i+rules.length-1)%rules.length)}><Arrow direction="left"/></button><button aria-label="Next rule" onClick={()=>setRule(i=>(i+1)%rules.length)}><Arrow/></button><span>{String(rule+1).padStart(2,'0')} / 04</span></div>
     </section>
@@ -105,8 +106,7 @@ export default function Landing(){
         <article><img src="/sprites/red/idle/idle_01.png" width="160" height="140" alt=""/><h3>Detector</h3><p>Checks the call for scam signals.</p></article>
         <article><img src="/sprites/green/idle/idle_01.png" width="160" height="140" alt=""/><h3>Debrief</h3><p>Explains the result and the next move.</p></article>
       </div>
-      <a className="nova-text-link" href="/dashboard">Open your practice dashboard <Arrow/></a>
     </section>
-    <footer className="nova-footer"><a href="/dashboard">BLOCK OR TALK · EVERY SCAM HAS A TELL <Arrow/></a><a href="/dashboard?view=Profile">Player profile</a><a href="/credits">Credits</a><span>2026</span><button aria-pressed={paused} onClick={()=>setPaused(v=>!v)}>{paused?'Resume motion':'Pause motion'}</button></footer>
+    <footer className="nova-footer"><span>BLOCK OR TALK · EVERY SCAM HAS A TELL</span><span>2026</span><button aria-pressed={paused} onClick={()=>setPaused(v=>!v)}>{paused?'Resume motion':'Pause motion'}</button></footer>
   </main>;
 }
