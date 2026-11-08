@@ -1,22 +1,17 @@
 # Dataset-based practice
 
-This path connects the labelled Hugging Face corpus to the app: Tiger DB stores the examples, Nemotron generates a caller script from five retrieved examples, and ElevenLabs speaks the caller lines and transcribes recorded replies. Open `/practice`. The API is `/api/practice/generated`. The existing scripted `/api/practice` route remains separate.
+The source is the [Kaggle Scam and Non-Scam Call Conversation Dataset](https://www.kaggle.com/datasets/teeconnie/scam-and-non-scam-call-conversation-dataset) requested for this work. `English_Scam.txt` supplies label 1; `English_NonScam.txt` supplies label 0. Source labels are kept, not inferred by Nemotron. The source lists CC BY-NC-ND 4.0 and academic, research and educational use terms; retain its attribution and check those terms before distributing the data or using it beyond that scope. No dataset text is committed to Git.
 
-## Source and split
+## Split and import
 
-The source is [BothBosu/scam-dialogue](https://huggingface.co/datasets/BothBosu/scam-dialogue), already used by the detector. It contains synthetic conversations labelled scam (`1`) or non-scam (`0`) and uses Apache-2.0. This feature does not use the linked [teeconnie Kaggle dataset](https://www.kaggle.com/datasets/teeconnie/scam-and-non-scam-call-conversation-dataset): that source lists CC BY-NC-ND 4.0 and says it is not intended for testing against real users.
+The archive contains 400 scam and 400 non-scam entries. Six duplicate scam entries are removed. Each class is sorted by a seeded content hash; approximately 20% is held out. The seed is `tell-kaggle-80-20-v1`.
 
-The import preserves the published 80/20 split. It never moves evaluation examples into the prompt pool. The existing loader removes two known duplicate training rows, leaving 1,278 prompt examples and 320 held-out examples (approximately 80% and 20%). Both groups are balanced by label: 639/639 and 160/160. Duplicate checks run before writing; a unique content hash also prevents the same normalized conversation from appearing in both groups in the database.
+| Group | Non-scam | Scam | Total |
+| --- | ---: | ---: | ---: |
+| Prompt examples | 320 | 315 | 635 |
+| Held-out evaluation | 80 | 79 | 159 |
 
-`practice_examples` records the source, label, type, split and content hash. `practice_datasets` publishes a complete import only after all stored rows match the checked corpus. Embeddings are reused from `detection_examples`, with the same corpus fingerprint and `nvidia/nemotron-3.5-embed-1b` at 1,024 dimensions. Repeating the import verifies and reuses the data. It does not request embeddings again when the index is complete.
-
-Runtime retrieval requires BOTH `practice_examples.split = 'prompt'` and `detection_examples.split = 'train'`, with matching IDs, text and labels. Held-out examples cannot enter this query. The 80% is the eligible example pool; each prompt uses five examples, not the entire pool.
-
-The labels are ground truth for the original dataset conversations. A new scenario is generated content, with a planned label and script checks. Matching that planned label is a practice result, not evidence of held-out detector accuracy. The existing `python -m detection.evaluate` command measures detector predictions against the untouched evaluation labels. No Nemotron weights are trained by this feature.
-
-## Import
-
-Use Python with the existing `requirements.txt` dependencies. The script chooses `.venv/bin/python` if present; set `PYTHON` for another interpreter.
+Content hashes are unique across both groups. A conversation with conflicting labels fails the import. The pool ID fingerprints the source, seed and split membership. Repeated imports verify the same rows. The older Hugging Face detector data remains separate; generated practice explicitly selects the Kaggle source and cannot silently choose the older dataset.
 
 ```sh
 python3 -m venv .venv
@@ -24,26 +19,43 @@ python3 -m venv .venv
 npm run practice:index
 ```
 
-The command loads `.env.local` through Node, uses `DATABASE_URL_DIRECT`, and applies the additive practice migration. It downloads the corpus through the existing loader. If Python cannot find a trusted certificate store, set `SSL_CERT_FILE` to a trusted CA bundle; do not disable TLS verification. Database errors are reported without connection strings.
+The command downloads the archive to ignored `data/cache/`, applies the additive migrations with `DATABASE_URL_DIRECT`, imports the rows and publishes the manifest after checking every row. It chooses `.venv/bin/python`; set `PYTHON` for another interpreter. It does not require NVIDIA or change model weights.
 
-The same migration can be applied through `npm run migrate`. That alone does not populate the dataset; run the import before starting practice.
+`practice_examples` stores dialogue, source label, split and content hash. `practice_datasets` records the source and counts. Native Postgres full-text retrieval ranks prompt examples by topic. This Kaggle path does not require additional embeddings or add evaluation rows to the existing Hugging Face pgvector index.
 
-## App and speech
+## Existing ElevenLabs agents
 
-- Finance and seasonal packages use the same neutral interface and can each produce either caller label.
-- The server selects the planned label, retrieves five examples with that label and asks Nemotron to write the questions and a separate explanation.
-- The browser receives only the current transcript and source counts before the verdict. It receives the planned label, explanation and source IDs only after the verdict.
-- The planner receives the same fictional card facts as the player. For a scam plan, code supplies an explicit final request for the one-time code, so a safe warning about codes cannot be graded as a scam.
-- The four-turn script is generated once. Replies advance the script; this is not an adaptive live ElevenLabs Agents conversation. Nemotron's generated questions are spoken through ElevenLabs TTS.
-- A call ends after four replies, three minutes, End call, or `stop drill`. Recorded replies stop at 20 seconds and must be checked and sent by the player.
-- Fake-secret matches are scored before text redaction. Likely personal details are removed before storage using the shared `safeText` function.
-- The scenario and transcript are stored in `practice_sessions` and restored with a private cookie. Tell does not store audio. ElevenLabs receives audio for transcription and text for speech; its own retention settings still apply.
-- Speech failure leaves text mode available. Model errors, malformed scripts and rate limits return an explicit error; they do not silently invent a scenario or report success.
+Every registered agent can be provisioned with a `get_training_examples` server tool: Yui (`recruiter`), Ren (`onboarding`), Kai (`fraud_team`), Aki (`bank_callback`) and the battle-card caller (`card_coach`).
 
-Models: `nvidia/nemotron-3.5-super-vl-120b-a12b` for planning (`NEMOTRON_PRACTICE_MODEL` can override it), `eleven_flash_v2_5` for speech, `scribe_v2` for transcription, and Matilda's voice ID already used by Yui. There is no new agent provisioning and no real-phone call.
+The tool calls `/api/voice/examples/<callerId>` on the Cloudflare Worker. It requires the same `X-Tell-Tool-Secret` authentication as the existing beat tool. The browser cannot read source labels through this route. Caller-to-label mapping stays on the server. Every query selects only five Kaggle prompt examples. Held-out rows are excluded by SQL.
 
-## Cloudflare
+The agent calls the tool silently before its first script question. Examples are untrusted references for conversational patterns. The caller keeps its assigned identity, fictional facts, script beats and safety rules; it must not announce labels or repeat source examples. Thus the fixed Challenge day stays comparable while its agents have access to the source patterns.
 
-The page and API run in the existing vinext Worker. Runtime needs `DATABASE_URL`, `NVIDIA_API_KEY` and `ELEVENLABS_API_KEY`. They remain server-only. The import uses the direct database connection locally, before deployment. Credentials and dataset downloads stay out of Git. No new package dependency is required.
+To activate the connection after deploying the Worker route:
 
-The current Worker is `tell-health`. Check its secret names and the Git-connected build before rollout. Building or opening the PR does not prove that this route has been deployed. A merge can trigger Workers Builds; use the PR checks and deployment result to establish the actual state.
+1. Configure `TELL_TOOL_SECRET` as a Worker secret.
+2. Put the same value in an ElevenLabs workspace secret and set its ID as `TELL_TOOL_SECRET_ID` locally.
+3. Set `TELL_PUBLIC_URL` to the production HTTPS origin and supply a usable `ELEVENLABS_API_KEY`.
+4. Run `npm run voice:connect-data`.
+
+The command checks the pool for all callers before updating any agent. It attaches the tool to every registered caller. These are hosted-agent configuration changes: a Git merge alone does not apply them. Missing configuration stops the command. Existing `voice:provision` without the dataset flag retains its prior behavior.
+
+## Generated scenarios
+
+Open `/practice`. `/api/practice/generated` selects five eligible examples for finance or seasonal packages and asks Nemotron to create a four-turn script. A scam plan ends with an explicit approved request for the fictional code. The planner sees the same fictional card as the player. Only the current transcript and source counts reach the browser before the verdict.
+
+ElevenLabs TTS speaks the lines; STT transcribes recorded replies. This separate path uses recorded turns, not a live ElevenLabs Agents conversation. Replies advance a generated script. After the verdict, the planned label, explanation and source IDs appear. Original source labels are ground truth for those original examples; the new scenario has a planned label, not a measured held-out prediction.
+
+A call ends after four replies, three minutes, End call or `stop drill`. Audio replies stop after 20 seconds. Tell stores redacted text and session state, not audio; ElevenLabs retention still applies. Speech errors leave text mode available. No real phone call is placed.
+
+## Held-out evaluation
+
+`npm run practice:evaluate` reads only the 159 held-out rows as targets. For each target it retrieves five prompt examples, without filtering them by the target's answer, and compares Nemotron's prediction with the original label. The target label is never sent to the classifier. `npm run practice:evaluate -- --limit 5` is a partial smoke sample; the report marks it incomplete. The older `detection.evaluate` remains the separate Hugging Face comparison.
+
+No full Kaggle accuracy is claimed until that live command completes. Vendor errors stop evaluation rather than fabricate a complete result. Importing examples into a prompt pool does not train Nemotron weights.
+
+## Cloudflare and verification limits
+
+The routes run in the existing `tell-health` Worker. Generated calls require `DATABASE_URL`, `NVIDIA_API_KEY` and `ELEVENLABS_API_KEY`; the agent retrieval tool also requires `TELL_TOOL_SECRET`. Cloudflare previews have no secrets under the repository policy. A passing preview confirms the build, not live database or voice behavior.
+
+During this work, the local ElevenLabs value was rejected as an API key ID. Hosted agents cannot be updated or verified with that value. A usable API secret and the tool settings above remain necessary for activation. Do not claim hosted-agent access is live until provisioning and an authenticated tool call have been observed.

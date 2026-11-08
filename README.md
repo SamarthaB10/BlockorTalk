@@ -65,7 +65,7 @@ at 10 AM and say Bluebonnet never charges for equipment.
 
 ## Dataset-based practice
 
-Open `/practice` for Nemotron-generated finance and seasonal-package calls, with text replies or ElevenLabs speech. Run `npm run practice:index` first to register the existing prompt pool and separate held-out examples in Tiger DB. See [the setup, split and data-use notes](docs/GROUNDED_PRACTICE.md).
+Open `/practice` for Nemotron-generated finance and seasonal-package calls, with text replies or ElevenLabs speech. Run `npm run practice:index` to import the linked Kaggle corpus into Tiger DB: 635 prompt examples and 159 held-out examples after duplicate removal. `npm run voice:connect-data` adds its protected retrieval tool to the existing agents after the Worker route and tool secrets are configured. See [the setup, split and data-use notes](docs/GROUNDED_PRACTICE.md).
 
 ## Detective reveal (issue #9)
 

@@ -4,7 +4,8 @@ import { mentionsSecret } from '../policy/normalize.mjs';
 import { safeText } from '../challenge/service.ts';
 import { PRACTICE_SECRETS } from './card.ts';
 import { createPracticeNvidia, PracticeError } from './nvidia.ts';
-import type { Action, Dataset, Example, Practice, PracticeView, Theme } from './types.ts';
+import { createPracticeCorpus } from './corpus.ts';
+import type { Action, Practice, PracticeView, Theme } from './types.ts';
 
 export function practiceView(day: Practice): PracticeView {
   const { id, theme, turns, phase, replies, startedAt } = day;
@@ -62,21 +63,10 @@ export function createPracticeService({ connectionString, nvidia = createPractic
     async start(theme: Theme): Promise<Practice> {
       if (!['finance', 'seasonal_packages'].includes(theme)) throw new PracticeError('Choose a practice theme.', 400);
       const label = randomInt(2) === 1 ? 'scam' : 'legit';
-      const dataset = await withClient(async client => {
-        const result = await client.query('SELECT * FROM practice_datasets ORDER BY created_at DESC,pool_id LIMIT 1');
-        if (!result.rowCount) throw new PracticeError('Import the practice dataset before starting a call.');
-        return result.rows[0] as Dataset;
-      });
-      const query = theme === 'finance' ? 'Banking finance account transaction refund call' : 'Seasonal holiday package delivery parcel shopping call';
-      const vector = await nvidia.embed(query, dataset);
-      const examples = await withClient(async client => {
-        const result = await client.query(`SELECT p.id,p.dialogue,p.label,p.source FROM practice_examples p
-          JOIN detection_examples d ON d.pool_id=p.pool_id AND d.id=p.id AND d.dialogue=p.dialogue AND d.label=p.label
-          WHERE p.pool_id=$1 AND p.split='prompt' AND d.split='train' AND p.label=$2
-          ORDER BY d.embedding <=> $3::vector,p.id LIMIT 5`, [dataset.pool_id, label === 'scam' ? 1 : 0, `[${vector.join(',')}]`]);
-        if (result.rows.length !== 5) throw new PracticeError('The checked prompt pool is incomplete. Run the practice import.');
-        return result.rows as Example[];
-      });
+      const corpus = createPracticeCorpus(connectionString);
+      const dataset = await corpus.dataset();
+      const query = theme === 'finance' ? 'bank finance account transaction refund' : 'seasonal holiday package delivery parcel shopping';
+      const examples = await corpus.nearest(dataset, query, label === 'scam' ? 1 : 0);
       const plan = await nvidia.plan(theme, label, examples);
       const day: Practice = { id: crypto.randomUUID(), theme, label, dataset,
         examples: examples.map(({ dialogue: _text, ...source }) => source), questions: plan.questions, explanation: plan.explanation,
