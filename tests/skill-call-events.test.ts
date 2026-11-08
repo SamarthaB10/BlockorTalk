@@ -24,7 +24,7 @@ function fixture() {
     },
   };
   const service = createCallService({ store, scenario: async id => scenarios.find(row => row.id === id) ?? null,
-    plan: async scenario => [`Hello from ${scenario.org}.`, scenario.card.facts[0]!, 'Please review this now.'],
+    plan: async scenario => ({ lines: [`Hello from ${scenario.org}.`, scenario.card.facts[0]!, 'Please review this now.'] as [string, string, string], path: 'fixed' as const }),
     now: () => new Date(time), random: () => (draw++ % 2) / 2, finishCall: async () => ({ done: true }) });
   const handlers = createCallHandlers({ service, authenticate: async () => 'p1',
     speech: { speak: async () => new Response(''), transcribe: async () => '' } });

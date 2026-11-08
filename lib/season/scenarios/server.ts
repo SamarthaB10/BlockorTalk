@@ -1,16 +1,22 @@
 import pg from 'pg';
+import { playbookFor } from './beats.ts';
 import { scenarioCatalog } from './catalog.ts';
 import type { Scenario } from './types.ts';
 import { SCENARIO_TACTICS as tactics } from './tactics.ts';
 export const scenarios: Scenario[] = scenarioCatalog.map((publicRow) => {
   const tactic = tactics[publicRow.id];
   if (!tactic) throw new Error(`Missing tactic for ${publicRow.id}`);
+  const book = playbookFor(publicRow.category);
   const next_step = `End this call and check the notice through your own ${publicRow.org} app using its saved contact.`;
-  const ask_line = 'Please read me your fictional Practice protection code to complete this request.';
+  const ask_line = book?.askLine ?? 'Please read me your fictional Practice protection code to complete this request.';
   const detail = publicRow.card.facts[0]!;
+  const scamPressure = publicRow.id === 'phishing'
+    ? 'Send the caller link to the look-alike sheet and urge immediate renewal.'
+    : (book?.scamPressureOutline ?? `Apply ${tactic} to push for immediate cooperation.`);
+  const realGuidance = book?.realGuidanceOutline ?? 'Explain why the notice matters without asking for a secret.';
   return { ...publicRow, tactic, versions: {
-    real: { steps: [`Introduce ${publicRow.org} and explain the practice notice.`, detail, 'Explain why the notice matters without asking for a secret.', next_step], next_step },
-    scam: { steps: [`Claim to represent ${publicRow.org} about the practice notice.`, detail, publicRow.id === 'phishing' ? 'Send the caller link to the look-alike sheet and urge immediate renewal.' : `Apply ${tactic} to push for immediate cooperation.`, ask_line], ask_line,
+    real: { steps: [`Introduce ${publicRow.org} and explain the practice notice.`, detail, realGuidance, next_step], next_step },
+    scam: { steps: [`Claim to represent ${publicRow.org} about the practice notice.`, detail, scamPressure, ask_line], ask_line,
       ...(publicRow.id === 'phishing' ? { link: { href: 'https://cloudpetal-check.invalid/renew', sheet: { title: 'Cloudpetal renewal check', facts: ['Caller-sent page requesting your practice protection code.'] } } } : {}),
     },
   } };

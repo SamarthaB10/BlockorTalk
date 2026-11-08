@@ -3,6 +3,7 @@ import type { CallRow } from '../analysis';
 import { weakestTactic } from '../finishedCalls';
 import type { CallStore, CallRecord, Transaction } from './store';
 import type { PublicCall, CallAction } from './types';
+import type { SpokenPlan } from './planner';
 import { leakedSecrets } from '../../practice/leaks';
 import { redact } from '../../policy/redact';
 import { CALL_SECONDS, DRILL_SECONDS, SKILLS, hintFor, type SkillId } from '../../skills/catalog';
@@ -29,7 +30,7 @@ function deliveredLink(call: CallRecord) {
 }
 export function createCallService(deps: {
   store: CallStore; scenario(id: string): Promise<Scenario | null>;
-  plan(scenario: Scenario, version: 'real' | 'scam', hint?: { press: boolean }): Promise<[string, string, string]>;
+  plan(scenario: Scenario, version: 'real' | 'scam', hint?: { press: boolean }): Promise<SpokenPlan>;
   finishCall: FinishCall; now?: () => Date; random?: () => number;
   /** Finished calls for this player. A failure must not stop the call from starting. */
   finished?: (playerId: string) => Promise<CallRow[]>;
@@ -108,7 +109,8 @@ export function createCallService(deps: {
         try { press = weakestTactic(await deps.finished(playerId)) === scenario.tactic; }
         catch (error) { console.error('finished calls unavailable', error); }
       }
-      const lines = [...await deps.plan(scenario, version, { press }), version === 'real' ? scenario.versions.real.next_step : scenario.versions.scam.ask_line] as CallRecord['lines'];
+      const planned = await deps.plan(scenario, version, { press });
+      const lines = [...planned.lines, version === 'real' ? scenario.versions.real.next_step : scenario.versions.scam.ask_line] as CallRecord['lines'];
       const drill = options.drill ? { drill: options.drill, limitSeconds: DRILL_SECONDS } : { limitSeconds: CALL_SECONDS };
       return deps.store.start(playerId, { id: crypto.randomUUID(), scenario, version, lines, phase: 'call', turns: [{ role: 'caller', text: lines[0], step: 1 }], replies: [], verifyEvents: [], leaks: [], ...drill }, now(), { practice: Boolean(options.drill) });
     },

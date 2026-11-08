@@ -225,12 +225,13 @@ export const scenarioCatalog: readonly PublicScenario[] = [
     "card": {
       "name": "Player Fern",
       "facts": [
-        "Line BRAMBLE-5 has a transfer notice."
+        "Line BRAMBLE-5 shows a pending number transfer to another carrier."
       ],
       "ownApp": {
         "title": "Bramblebell Mobile \u00b7 your own app",
         "facts": [
-          "Line BRAMBLE-5 has a transfer notice.",
+          "Line BRAMBLE-5 shows a pending number transfer to another carrier.",
+          "No transfer is approved until you confirm it with the saved Bramblebell contact.",
           "Use the saved contact in this app to check a notice."
         ]
       }

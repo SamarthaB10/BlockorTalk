@@ -33,7 +33,7 @@ test.skipIf(!database)('concurrent starts reserve only five and concurrent Verdi
     expect((await currentSeason(url.toString(), at))?.id).toBe('one');
     let finishes = 0;
     let fail = false;
-    const service = createCallService({ store: createCallStore(url.toString()), scenario: async () => scenarios[0], plan: async (s,v) => fixedLines(s,v), now: () => at,
+    const service = createCallService({ store: createCallStore(url.toString()), scenario: async () => scenarios[0], plan: async (s,v) => ({ lines: fixedLines(s,v), path: 'fixed' as const }), now: () => at,
       finishCall: async (tx, call) => {
         finishes++;
         await tx.query('INSERT INTO finalized VALUES($1)', [call.id]);

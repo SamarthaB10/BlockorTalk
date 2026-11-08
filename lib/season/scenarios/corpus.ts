@@ -21,7 +21,7 @@ export const scenarioSources: Record<string, ScenarioSource> = {
   'Government (IRS or SSN)': { keywords: 'government tax social security notice', topic: { scam: 'ssn' } },
   'Prize or sweepstakes': { keywords: 'prize sweepstakes lottery winner reward', topic: { scam: 'reward' } },
   'Crypto or investment': { keywords: 'crypto investment trading profit', topic: {} },
-  'Phone carrier port-out': { keywords: 'phone mobile carrier transfer port account', topic: {} },
+  'Phone carrier port-out': { keywords: 'phone mobile carrier transfer port sim esim account verification code wireless', topic: { scam: 'support' } },
   'Refund or billing error': { keywords: 'refund billing charge credit', topic: { scam: 'refund' } },
   'Insurance policy check': { keywords: 'insurance policy coverage premium', topic: { real: 'insurance' } },
   'Subscription or sales call': { keywords: 'telemarketing subscription offer promotion', topic: { real: 'telemarketing' } },
