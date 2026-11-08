@@ -19,6 +19,16 @@ function safeText(text: string) {
     .replace(/\b\d+\s+(?:[a-z]+\s+){1,5}(?:street|st|road|rd|drive|dr|avenue|ave|lane|ln|court|ct)\b/gi, '[details removed]');
 }
 
+/** Adds newly said fake secrets to `day.leaked` and returns them. Scores the original text, before redaction. */
+function scanLeaks(day: Challenge, raw: string) {
+  const added: string[] = [];
+  for (const [key, value] of Object.entries(FAKE_SECRETS)) {
+    if (key === 'live_code' && !day.codeVisible) continue;
+    if (mentionsSecret(raw, key, value) && !day.leaked.includes(key)) { day.leaked.push(key); added.push(key); }
+  }
+  return added;
+}
+
 export function createChallengeService({ connectionString, reply, now = Date.now }: { connectionString: string; reply: Reply; now?: () => number }) {
   async function withClient<T>(work: (client: pg.Client) => Promise<T>) {
     const client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
@@ -48,13 +58,10 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           const raw = action.text.trim();
           if (!raw || raw.length > 1000) throw new ChallengeError('Use a reply from 1 to 1,000 characters.', 400);
           // Score the original text before personal-data redaction. Only user turns count.
-          for (const [key, value] of Object.entries(FAKE_SECRETS)) {
-            if (key === 'live_code' && !day.codeVisible) continue;
-            if (mentionsSecret(raw, key, value) && !day.leaked.includes(key)) day.leaked.push(key);
-          }
+          const leakedNow = scanLeaks(day, raw);
           const text = safeText(raw);
           const at = new Date(now()).toISOString();
-          day.turns.push({ role: 'user', text, at });
+          day.turns.push({ role: 'user', text, at, ...(leakedNow.length ? { leaked: leakedNow } : {}) });
           day.replies += 1;
           if (/\bstop\s+drill\b/i.test(raw)) end(day, 'stop');
           else if (day.replies >= 12) end(day, 'reply_cap');
@@ -90,8 +97,29 @@ export function createChallengeService({ connectionString, reply, now = Date.now
           day.balance -= cost;
           if (day.callerId === 'fraud_team' && cost) day.bank = 'FAILED';
           if (day.callerId === 'recruiter' && (day.verdict === 'Real' || (day.verdict === 'Unverified' && day.events.some(event => event.surface === 'portal')))) day.interview = 'BOOKED';
-          day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked });
+          day.calls.push({ callerId: day.callerId, verdict: day.verdict, turns: day.turns, cost, leaked: day.leaked, startedAt: day.startedAt, endedAt: day.endedAt, endReason: day.endReason });
           day.phase = day.callerId === 'fraud_team' ? 'complete' : 'between';
+        } else if (action?.type === 'voice_turns') {
+          // Yui's browser-voice call is spoken, so its transcript only exists in the browser. Accept it once,
+          // after the call has ended and before the verdict, so the reveal has something to show.
+          if (day.phase !== 'verdict' || day.callerId !== 'recruiter' || day.voiceSaved) throw new ChallengeError('This call has no voice transcript to save.');
+          day.voiceSaved = true;
+          if (!Array.isArray(action.turns) || action.turns.length > 40) throw new ChallengeError('That voice transcript is too long.', 400);
+          // A call can start in text and switch to voice: spoken turns come after the typed ones.
+          const start = Date.parse(day.turns.at(-1)?.at ?? day.startedAt);
+          const span = Math.max(0, Date.parse(day.endedAt ?? day.startedAt) - start);
+          const spoken = action.turns.filter(turn => (turn.role === 'assistant' || turn.role === 'user') && typeof turn.text === 'string' && turn.text.trim());
+          // The disclosure and opening line are already in day.turns; drop spoken repeats of them.
+          const fresh = spoken.filter(turn => !(turn.role === 'assistant' && (turn.text.includes('Tell practice call') || turn.text.includes('This is Yui from'))));
+          fresh.forEach((turn, i) => {
+            const raw = turn.text.trim().slice(0, 1000);
+            const leaked = turn.role === 'user' ? scanLeaks(day, raw) : [];
+            const at = new Date(start + Math.round(span * (i + 1) / (fresh.length + 1))).toISOString();
+            day.turns.push(turn.role === 'user'
+              ? { role: 'user', text: safeText(raw), at, ...(leaked.length ? { leaked } : {}) }
+              : { role: 'assistant', text: raw, at, source: 'script' });
+          });
+          day.replies = day.turns.filter(turn => turn.role === 'user').length;
         } else if (action?.type === 'portal') {
           day.events.push({ type: 'Verify', surface: 'portal', at: new Date(now()).toISOString() });
           if (day.calls.some(call => call.callerId === 'recruiter' && call.verdict === 'Unverified')) day.interview = 'BOOKED';
@@ -132,6 +160,10 @@ export function createChallengeService({ connectionString, reply, now = Date.now
       return day;
     },
     get: (id: string) => update(id),
+    /** Caches the reveal in the saved day. A concurrent action may overwrite it; the next request recomputes. */
+    async saveReveal(id: string, reveal: NonNullable<Challenge['reveal']>) {
+      await withClient(client => client.query(`UPDATE tell_challenges SET state = jsonb_set(state, '{reveal}', $2::jsonb), updated_at = now() WHERE id = $1`, [id, JSON.stringify(reveal)]));
+    },
     act: (id: string, action: Action) => update(id, action),
   };
 }

@@ -1,0 +1,54 @@
+/* Detective reveal. Neutral on black; red and green appear only as small labelled markers on kept/broken rules and call types. */
+.reveal { border-top: 1px solid var(--line); margin-top: 32px; padding-top: 32px; }
+.reveal-head { display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.reveal-head h2 { font-size: clamp(32px, 4vw, 48px); letter-spacing: -.03em; outline: none; }
+.debrief-cat { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.debrief-cat figcaption { color: var(--muted); font-size: 14px; }
+
+.reveal-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; perspective: 1200px; }
+.reveal-card { border: 1px solid var(--ink); border-radius: 24px; padding: 24px; min-width: 0; }
+.reveal-card.pending { border-color: var(--line); color: var(--muted); }
+.reveal-card h3 { font-size: 32px; margin-bottom: 0; }
+.reveal-card .claimed { color: var(--muted); }
+.identity .pill { font-size: 16px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border-color: var(--ink); }
+/* Neutral tone names: this stylesheet ships before the reveal, so it must not name call types. */
+.identity .pill::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+.identity .tone-safe::before { background: var(--green); }
+.identity .tone-unsafe::before { background: var(--red); }
+
+.decisions { list-style: none; padding: 0; margin: 16px 0; }
+.decisions li { border-top: 1px solid var(--line); padding: 16px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.decisions li p { margin: 0; }
+.decisions .cost { color: var(--muted); font-size: 16px; }
+
+.transcript-box { border-top: 1px solid var(--line); padding-top: 12px; }
+.transcript-box summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.lines { list-style: none; padding: 0; margin: 12px 0 0; max-height: 420px; overflow: auto; overscroll-behavior: contain; }
+.lines li { margin-bottom: 16px; overflow-wrap: anywhere; }
+.lines li strong { font-size: 14px; color: var(--muted); }
+.lines li p { margin: 0; }
+.lines li.player { margin-left: 16px; border-left: 1px solid var(--line); padding-left: 12px; }
+/* A red-flag line is underlined and tagged in words, so it never relies on colour. */
+.flag { background: transparent; color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.flag-tag { display: inline-block; margin-left: 6px; border: 1px solid var(--ink); border-radius: 100px; padding: 0 8px; font-size: 12px; letter-spacing: .04em; text-decoration: none; vertical-align: middle; }
+
+.reveal-lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-top: 32px; align-items: start; }
+.steps, .rules, .rewind { border: 1px solid var(--line); border-radius: 24px; padding: 24px; }
+.rewind { margin-top: 24px; border-color: var(--ink); }
+.step-group { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.step-group h4, .rules h4 { margin: 0 0 8px; font-size: 18px; }
+.step-group ol { padding-left: 24px; margin: 0; }
+.step-group li { margin-bottom: 12px; }
+.step-group li p { margin: 4px 0 0; color: var(--muted); font-size: 16px; }
+.step-group code { font-size: 16px; }
+.by { margin-left: 8px; font-size: 14px; color: var(--muted); }
+.rules article { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.rules article p { margin-bottom: 8px; }
+.rules ul { list-style: none; padding: 0; margin: 0; }
+.rules li { display: flex; flex-direction: column; border-left: 4px solid var(--line); padding: 4px 0 4px 12px; margin-bottom: 8px; }
+.rules li span { color: var(--muted); font-size: 16px; }
+.rules li.rule-kept { border-left-color: var(--green); }
+.rules li.rule-broken { border-left-color: var(--red); }
+
+@media (max-width: 1050px) { .reveal-cards { grid-template-columns: 1fr; } .reveal-lower { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .reveal-head { align-items: flex-start; } }

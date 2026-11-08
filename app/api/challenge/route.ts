@@ -15,6 +15,12 @@ function session(request: Request) {
 function json(value: unknown, status = 200, headers: Record<string, string> = {}) {
   return Response.json(value, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 }
+/** The cached reveal is served by its own route; it must not ride along with every day response. */
+function view<T extends { reveal?: unknown } | null>(day: T) {
+  if (!day) return day;
+  const { reveal: _reveal, ...rest } = day;
+  return rest;
+}
 function failure(error: unknown) {
   if (error instanceof ChallengeError) return json({ error: error.message }, error.status);
   console.error('Challenge request failed');
@@ -23,28 +29,29 @@ function failure(error: unknown) {
 export async function GET(request: Request) {
   try {
     const id = session(request);
-    return json({ day: id ? await service().get(id) : null });
+    return json({ day: id ? view(await service().get(id)) : null });
   } catch (error) { return failure(error); }
 }
 export async function POST(request: Request) {
   try {
     if (request.headers.get('origin') !== new URL(request.url).origin) return json({ error: 'Use the challenge page to make this request.' }, 403);
     const raw = await request.text();
-    if (raw.length > 2000) return json({ error: 'This reply is too long.' }, 400);
+    if (raw.length > 40000) return json({ error: 'This reply is too long.' }, 400);
     let action: unknown;
     try { action = JSON.parse(raw); } catch { return json({ error: 'Invalid request.' }, 400); }
     if (!action || typeof action !== 'object' || !('type' in action)) return json({ error: 'Choose a challenge action.' }, 400);
     if (action.type === 'start') {
       const day = await service().start();
       const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
-      return json({ day }, 201, { 'Set-Cookie': `${COOKIE}=${day.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secure}` });
+      return json({ day: view(day) }, 201, { 'Set-Cookie': `${COOKIE}=${day.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secure}` });
     }
     const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next'].includes(String(action.type)) ||
-      (action.type === 'reply' && 'text' in action && typeof action.text === 'string') ||
+      (action.type === 'reply' && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) ||
+      (action.type === 'voice_turns' && 'turns' in action && Array.isArray(action.turns) && action.turns.every((turn: unknown) => !!turn && typeof turn === 'object' && 'text' in turn && typeof turn.text === 'string' && 'role' in turn && (turn.role === 'assistant' || turn.role === 'user'))) ||
       (action.type === 'verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict));
     if (!valid) return json({ error: 'Invalid challenge action.' }, 400);
     const id = session(request);
     if (!id) return json({ error: 'Start a challenge first.' }, 401);
-    return json({ day: await service().act(id, action as Action) });
+    return json({ day: view(await service().act(id, action as Action)) });
   } catch (error) { return failure(error); }
 }
