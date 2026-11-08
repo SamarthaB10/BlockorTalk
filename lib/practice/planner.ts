@@ -1,12 +1,12 @@
 /**
  * SERVER-ONLY: the Drill Planner agent. Nemotron reads the player's practice history and today's FTC
- * alerts through a few tools, then chooses the next drill (a scenario or a battle card) and the rule it
+ * alerts through a few tools, then chooses the next scenario drill and the rule it
  * targets. Code scores the history, checks the choice and rewrites any reason that would give a
  * caller's call type away. If the model fails, is too slow or never chooses, a fixed plan runs on the
  * same tools and the result says which path ran.
  */
 import type { LlmClient } from "../debrief/index.mjs";
-import { BATTLE_CARDS, RULES, SCENARIOS, type ScenarioId } from "./catalog.ts";
+import { RULES, SCENARIOS, type ScenarioId } from "./catalog.ts";
 import type { NewsItem } from "./news.ts";
 import { callTypeOf, isScenarioId } from "./script.ts";
 import type { HistoryEntry, HistorySummary, Plan, PlanStep, Rule } from "./plan-types.ts";
@@ -36,7 +36,6 @@ export function readHistory(value: unknown): HistoryEntry[] {
   for (const e of value.slice(-MAX_HISTORY)) {
     const leaked = Array.isArray(e?.leaked) ? e.leaked.filter((x: unknown): x is string => typeof x === "string").slice(0, 6) : [];
     if (e?.kind === "scenario" && isScenarioId(e.id) && ["Real", "Scam", "Unverified"].includes(e.verdict)) out.push({ kind: "scenario", id: e.id, verdict: e.verdict, leaked });
-    else if (e?.kind === "card" && BATTLE_CARDS.some(c => c.id === e.id)) out.push({ kind: "card", id: e.id, leaked, safe: e.safe === true });
   }
   return out;
 }
@@ -49,18 +48,12 @@ export function summarizeHistory(history: HistoryEntry[]): HistorySummary {
   let falseAlarms = 0;
   for (const e of history) {
     const broken = new Set<Rule>();
-    let tested: Rule[];
-    if (e.kind === "card") {
-      tested = (BATTLE_CARDS.find(c => c.id === e.id)!.rules as Rule[]);
-      if (e.leaked.length || !e.safe) tested.forEach(r => broken.add(r));
-    } else {
-      tested = SCENARIO_RULES[e.id];
-      const type = callTypeOf(e.id);
-      if (e.leaked.length) { broken.add(1); if (e.id === "fraud_team") broken.add(3); if (e.id === "onboarding") broken.add(2); }
-      if (type === "Hijacked" && e.verdict === "Real") broken.add(3);
-      if (type === "Scam" && e.verdict === "Real") broken.add(2);
-      if (type === "Real" && e.verdict === "Scam") { falseAlarms++; broken.add(4); }
-    }
+    const tested = SCENARIO_RULES[e.id];
+    const type = callTypeOf(e.id);
+    if (e.leaked.length) { broken.add(1); if (e.id === "fraud_team") broken.add(3); if (e.id === "onboarding") broken.add(2); }
+    if (type === "Hijacked" && e.verdict === "Real") broken.add(3);
+    if (type === "Scam" && e.verdict === "Real") broken.add(2);
+    if (type === "Real" && e.verdict === "Scam") { falseAlarms++; broken.add(4); }
     for (const r of new Set([...tested, ...broken])) tally.get(r)![broken.has(r) ? "broken" : "kept"]++;
   }
   const rules = [...tally].map(([rule, t]) => ({ rule, ...t }));
@@ -73,7 +66,6 @@ export function summarizeHistory(history: HistoryEntry[]): HistorySummary {
 export function listDrills() {
   return {
     scenarios: SCENARIOS.map(s => ({ id: s.id, caller: s.caller, org: s.org, theme: s.theme, direction: s.direction, rules: SCENARIO_RULES[s.id] })),
-    battle_cards: BATTLE_CARDS.map(c => ({ id: c.id, caller: c.caller, org: c.org, theme: c.theme, tactic: c.tactic, rules: c.rules })),
     rules: RULES,
   };
 }
@@ -83,7 +75,6 @@ const CALL_TYPE_WORDS = /\b(scam\w*|real|legit\w*|genuine|hijack\w*|fake|fraudst
 
 function drillOf(kind: string, id: string) {
   if (kind === "scenario" && isScenarioId(id)) { const s = SCENARIOS.find(x => x.id === id)!; return { kind: "scenario" as const, id, caller: s.caller, org: s.org, rules: SCENARIO_RULES[id] }; }
-  if (kind === "card") { const c = BATTLE_CARDS.find(x => x.id === id); if (c) return { kind: "card" as const, id, caller: c.caller, org: c.org, rules: c.rules as Rule[] }; }
   return null;
 }
 
@@ -107,8 +98,8 @@ export function checkChoice(choice: Choice, summary: HistorySummary, news: NewsI
   if (!drill.rules.includes(rule)) return { error: `${drill.id} tests rules ${drill.rules.join(", ")}, not rule ${String(choice.target_rule)}` };
   const item = typeof choice.news_link === "string" && choice.news_link ? news.find(n => n.link === choice.news_link) : undefined;
   if (typeof choice.news_link === "string" && choice.news_link && !item) return { error: "news_link must be a link returned by get_current_threats" };
-  // An alert headline names a scam, so pairing it with a scenario would give that caller away.
-  if (item && drill.kind !== "card") return { error: "news_link goes with battle cards only" };
+  // An alert headline names a scam, so it stays off the practice call.
+  if (item) return { error: "an alert headline stays off the practice call" };
   let reason = typeof choice.reason === "string" ? choice.reason.replace(/\s+/g, " ").trim().slice(0, 240) : "";
   let reasonSource: "nemotron" | "template" = "nemotron";
   // The reason shows before the call, so it must not tell the player who the caller really is.
@@ -123,22 +114,14 @@ function realCallerFor(summary: HistorySummary): ScenarioId | null {
   return summary.recent.includes("scenario:recruiter") ? "bank_callback" : "recruiter";
 }
 
-/** The fixed plan: weakest rule, a real caller after a false alarm, and today's alert when one fits. */
-export function fixedChoice(summary: HistorySummary, news: NewsItem[]): Choice {
+/** The fixed plan: weakest rule, and a real caller after a false alarm. */
+export function fixedChoice(summary: HistorySummary): Choice {
   const recent = new Set(summary.recent);
   const realCaller = realCallerFor(summary);
   if (realCaller) return { kind: "scenario", id: realCaller, target_rule: 4, reason: FALSE_ALARM_REASON };
   const rule = summary.weakest_rule;
-  const cards = BATTLE_CARDS.filter(c => (c.rules as Rule[]).includes(rule));
-  const fresh = <T extends { id: string }>(items: T[], kind: string) => items.filter(x => !recent.has(`${kind}:${x.id}`));
-  for (const item of news) {
-    const card = cards.find(c => c.id === item.cardId);
-    if (card && !recent.has(`card:${card.id}`)) return { kind: "card", id: card.id, target_rule: rule, news_link: item.link };
-  }
-  const scenario = fresh(SCENARIOS.filter(s => SCENARIO_RULES[s.id].includes(rule) && callTypeOf(s.id) !== "Real"), "scenario")[0];
-  if (summary.drills === 0 && scenario) return { kind: "scenario", id: scenario.id, target_rule: rule };
-  const card = fresh(cards, "card")[0] ?? cards[0];
-  if (card) return { kind: "card", id: card.id, target_rule: rule };
+  const candidates = SCENARIOS.filter(s => SCENARIO_RULES[s.id].includes(rule) && callTypeOf(s.id) !== "Real");
+  const scenario = candidates.find(s => !recent.has(`scenario:${s.id}`)) ?? candidates[0];
   return { kind: "scenario", id: scenario?.id ?? "onboarding", target_rule: rule };
 }
 
@@ -146,8 +129,8 @@ export function fixedChoice(summary: HistorySummary, news: NewsItem[]): Choice {
 
 const TOOL_DEFS = [
   { name: "get_player_history", description: "The player's practice history: per rule, how often it was broken or kept, false alarms on real callers, and the last few drills." },
-  { name: "get_current_threats", description: "Current FTC consumer alerts, each linked to the closest battle card id." },
-  { name: "list_drills", description: "Every drill you may choose: the four scenarios and the battle cards, with the rules each one tests." },
+  { name: "get_current_threats", description: "Current FTC consumer alerts. Headlines stay off the practice call." },
+  { name: "list_drills", description: "Every scenario you may choose, with the rules each one tests." },
 ].map(t => ({ type: "function", function: { ...t, parameters: { type: "object", properties: {} } } }));
 
 const CHOOSE = {
@@ -158,7 +141,7 @@ const CHOOSE = {
     parameters: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["scenario", "card"] },
+        kind: { type: "string", enum: ["scenario"] },
         id: { type: "string" },
         target_rule: { type: "integer", enum: [1, 2, 3, 4] },
         reason: { type: "string", description: "Second person, at most 30 words. Never say whether the caller is real, a scam or hijacked." },
@@ -173,7 +156,7 @@ const SYSTEM = [
   "You are the Drill Planner for Tell, where people practise telling real phone calls from scams. All details are fictional.",
   "Plan ONE next practice drill. Call get_player_history, get_current_threats and list_drills (in one reply: they are independent), then call choose_drill.",
   "Target the rule the player breaks most. After a false alarm (a real caller turned away), code picks a real caller to check, so Tell never teaches paranoia.",
-  "Prefer a battle card that matches a current FTC alert when it tests the target rule. Avoid repeating the last drill.",
+  "Choose a scenario that tests the target rule. Avoid repeating the last drill. Leave news_link unset: an alert headline names a scam.",
   "The reason is shown before the call: kind, specific, at most 30 words, and it must never reveal whether the caller is real, a scam or hijacked.",
 ].join("\n");
 
@@ -211,11 +194,11 @@ export async function planDrill({ history, llm = null, threats, timeoutMs = PLAN
       out = summary.drills ? `weakest rule ${summary.weakest_rule}; ${summary.rules.map(r => `R${r.rule} ${r.broken}✗/${r.kept}✓`).join(", ")}; ${summary.false_alarms} false alarms` : "new player: no drills yet";
     } else if (name === "get_current_threats") {
       const items = await loadNews();
-      result = items.length ? items.map(i => ({ title: i.title, link: i.link, card_id: i.cardId })) : { error: "FTC feed unavailable" };
-      input = "FTC consumer alerts"; out = items.length ? `${items.length} alerts → cards ${[...new Set(items.map(i => i.cardId))].join(", ")}` : "feed unavailable";
+      result = items.length ? items.map(i => ({ title: i.title, link: i.link })) : { error: "FTC feed unavailable" };
+      input = "FTC consumer alerts"; out = items.length ? `${items.length} alerts` : "feed unavailable";
     } else {
       const drills = listDrills();
-      result = drills; input = "catalog"; out = `${drills.scenarios.length} scenarios, ${drills.battle_cards.length} battle cards`;
+      result = drills; input = "catalog"; out = `${drills.scenarios.length} scenarios`;
     }
     steps.push({ n: steps.length + 1, tool: name, input_summary: input, result_summary: out, ms: Date.now() - started, by });
     return result;
@@ -228,7 +211,7 @@ export async function planDrill({ history, llm = null, threats, timeoutMs = PLAN
 
   const fixed = async (reason: string, steps: PlanStep[] = [], rejected: Plan["rejected"] = []) => {
     for (const name of ["get_player_history", "get_current_threats", "list_drills"]) await runTool(name, steps, "fixed");
-    const choice = checkChoice(fixedChoice(summary, news), summary, news);
+    const choice = checkChoice(fixedChoice(summary), summary, news);
     steps.push({ n: steps.length + 1, tool: "choose_drill", input_summary: "fixed plan", result_summary: "error" in choice ? choice.error : `${choice.drill.kind}:${choice.drill.id} for rule ${choice.target_rule}`, ms: 0, by: "fixed" });
     return finish("fixed", null, reason, steps, choice, rejected);
   };

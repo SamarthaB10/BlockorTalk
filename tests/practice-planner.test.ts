@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { planDrill, readHistory, summarizeHistory, type HistoryEntry } from "../lib/practice/planner";
 import type { NewsItem } from "../lib/practice/news";
 
-const CUSTOMS: NewsItem = { title: "Got a call about a package held at customs?", link: "https://consumer.ftc.gov/consumer-alerts/2026/11/example-one", summary: "A delivery fee scam.", cardId: "customs-fee" };
+const CUSTOMS: NewsItem = { title: "Got a call about a package held at customs?", link: "https://consumer.ftc.gov/consumer-alerts/2026/11/example-one", summary: "A delivery fee scam." };
 const threats = async () => [CUSTOMS];
 const noFeed = async (): Promise<NewsItem[]> => { throw new Error("blocked"); };
 
@@ -42,19 +42,18 @@ describe("history scoring", () => {
   });
 
   it("drops history entries it can't check", () => {
-    expect(readHistory([{ kind: "scenario", id: "nope", verdict: "Real" }, { kind: "card", id: "customs-fee", safe: true }, "junk"])).toEqual([{ kind: "card", id: "customs-fee", leaked: [], safe: true }]);
+    expect(readHistory([{ kind: "scenario", id: "nope", verdict: "Real" }, { kind: "card", id: "customs-fee", safe: true }, "junk", { kind: "scenario", id: "recruiter", verdict: "Real", leaked: [] }])).toEqual([{ kind: "scenario", id: "recruiter", verdict: "Real", leaked: [] }]);
   });
 });
 
 describe("fixed plan", () => {
-  it("runs without Nemotron, says so, and targets the weakest rule with today's alert", async () => {
-    const history: HistoryEntry[] = [{ kind: "card", id: "customs-fee", leaked: ["card number"], safe: false }, { kind: "card", id: "line-shutoff-pin", leaked: ["account PIN"], safe: false }];
-    const plan = await planDrill({ history: [history[1]!], threats });
+  it("runs without Nemotron, says so, and targets the weakest rule with a scenario", async () => {
+    const plan = await planDrill({ history: [{ kind: "scenario", id: "fraud_team", verdict: "Real", leaked: ["Corvanta one-time code"] }], threats });
     expect(plan.path).toBe("fixed");
     expect(plan.fallback_reason).toMatch(/NVIDIA_API_KEY/);
     expect(plan.target_rule).toBe(1);
-    expect(plan.drill).toMatchObject({ kind: "card", id: "customs-fee" });
-    expect(plan.news?.link).toBe(CUSTOMS.link);
+    expect(plan.drill).toMatchObject({ kind: "scenario", id: "onboarding" });
+    expect(plan.news).toBeNull();
     expect(plan.steps.map(s => s.tool)).toEqual(["get_player_history", "get_current_threats", "list_drills", "choose_drill"]);
   });
 
@@ -83,12 +82,12 @@ describe("agent path", () => {
   it("lets Nemotron call the tools and choose, and logs each step", async () => {
     const { llm, seen } = scripted([
       { content: null, tool_calls: [tool("a", "get_player_history"), tool("b", "get_current_threats"), tool("c", "list_drills")] },
-      { content: null, tool_calls: [tool("d", "choose_drill", { kind: "card", id: "freeze-card", target_rule: 3, reason: "She knows your card ending. Practise not treating that as proof." })] },
+      { content: null, tool_calls: [tool("d", "choose_drill", { kind: "scenario", id: "fraud_team", target_rule: 3, reason: "She knows your card ending. Practise not treating that as proof." })] },
     ]);
     const plan = await planDrill({ history: leakedKaisCode, llm, threats });
     expect(plan.path).toBe("agent");
     expect(plan.model).toBe("fake-nemotron");
-    expect(plan.drill).toMatchObject({ kind: "card", id: "freeze-card", caller: "Maria" });
+    expect(plan.drill).toMatchObject({ kind: "scenario", id: "fraud_team", caller: "Kai" });
     expect(plan.target_rule).toBe(3);
     expect(plan.reason).toBe("She knows your card ending. Practise not treating that as proof.");
     expect(plan.steps.map(s => [s.tool, s.by])).toEqual([["get_player_history", "nemotron"], ["get_current_threats", "nemotron"], ["list_drills", "nemotron"], ["choose_drill", "nemotron"]]);
@@ -98,14 +97,14 @@ describe("agent path", () => {
 
   it("sends an invalid choice back to the model, then accepts the fix", async () => {
     const { llm } = scripted([
-      { content: null, tool_calls: [tool("a", "choose_drill", { kind: "card", id: "freeze-card", target_rule: 2, reason: "Pressure." })] },
-      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "card", id: "line-shutoff-pin", target_rule: 2, reason: "A deadline is pressure. Practise slowing down." })] },
+      { content: null, tool_calls: [tool("a", "choose_drill", { kind: "scenario", id: "fraud_team", target_rule: 2, reason: "Pressure." })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "onboarding", target_rule: 2, reason: "A deadline is pressure. Practise slowing down." })] },
     ]);
     const plan = await planDrill({ history: [], llm, threats });
     expect(plan.path).toBe("agent");
     expect(plan.rejected).toHaveLength(1);
     expect(plan.rejected[0]!.error).toMatch(/tests rules 1, 3, 4/);
-    expect(plan.drill.id).toBe("line-shutoff-pin");
+    expect(plan.drill.id).toBe("onboarding");
   });
 
   it("rewrites a reason that gives the caller away", async () => {
@@ -120,7 +119,7 @@ describe("agent path", () => {
   it("won't pair a scenario with an FTC headline", async () => {
     const { llm } = scripted([{ content: null, tool_calls: [tool("a", "choose_drill", { kind: "scenario", id: "onboarding", target_rule: 2, reason: "Practise this.", news_link: CUSTOMS.link })] }, { content: "done" }]);
     const plan = await planDrill({ history: [], llm, threats });
-    expect(plan.rejected[0]!.error).toMatch(/battle cards only/);
+    expect(plan.rejected[0]!.error).toMatch(/headline stays off the practice call/);
   });
 
   it("falls back to the fixed plan on an error, and says so", async () => {
@@ -154,12 +153,6 @@ describe("summarizeHistory", () => {
     expect(s.drills).toBe(0);
     expect(s.rules.every(r => r.broken === 0 && r.kept === 0)).toBe(true);
     expect(s.weakest_rule).toBe(1);
-  });
-
-  it("counts a clean battle card as kept on each rule it tests", () => {
-    const s = summarizeHistory([{ kind: "card", id: "freeze-card", leaked: [], safe: true }]);
-    expect(s.rules.map(r => [r.rule, r.broken, r.kept])).toEqual([[1, 0, 1], [2, 0, 0], [3, 0, 1], [4, 0, 1]]);
-    expect(s.weakest_rule).toBe(2);
   });
 
   it("counts trusting the caller who knew your details against rule 3, even with nothing leaked", () => {
@@ -211,7 +204,7 @@ describe("review fixes", () => {
   it("never shows the model anything that tells scenario callers apart by call type", async () => {
     const { llm, seen } = scripted([
       { content: null, tool_calls: [tool("a", "list_drills")] },
-      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "card", id: "freeze-card", target_rule: 3, reason: "Practise." })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "fraud_team", target_rule: 3, reason: "Practise." })] },
     ]);
     await planDrill({ history: [], llm, threats });
     const listed = JSON.parse((seen[1]!.at(-1) as { content: string }).content);
@@ -230,7 +223,7 @@ describe("review fixes", () => {
   it("keeps rejected model reasons out of the plan", async () => {
     const { llm } = scripted([
       { content: null, tool_calls: [tool("a", "choose_drill", { kind: "scenario", id: "fraud_team", target_rule: 2, reason: "Kai is a hijacked caller" })] },
-      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "card", id: "line-shutoff-pin", target_rule: 2, reason: "Practise slowing down." })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "onboarding", target_rule: 2, reason: "Practise slowing down." })] },
     ]);
     const plan = await planDrill({ history: [], llm, threats });
     expect(plan.rejected).toHaveLength(1);
@@ -239,8 +232,8 @@ describe("review fixes", () => {
 
   it("rejects a news link that wasn't in today's alerts", async () => {
     const { llm } = scripted([
-      { content: null, tool_calls: [tool("a", "choose_drill", { kind: "card", id: "customs-fee", target_rule: 1, reason: "Practise.", news_link: "https://evil.example/x" })] },
-      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "card", id: "customs-fee", target_rule: 1, reason: "Practise." })] },
+      { content: null, tool_calls: [tool("a", "choose_drill", { kind: "scenario", id: "onboarding", target_rule: 1, reason: "Practise.", news_link: "https://evil.example/x" })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "onboarding", target_rule: 1, reason: "Practise." })] },
     ]);
     const plan = await planDrill({ history: [], llm, threats });
     expect(plan.rejected[0]!.error).toMatch(/get_current_threats/);
@@ -251,7 +244,7 @@ describe("review fixes", () => {
     const long = "x".repeat(500);
     const { llm } = scripted([
       { content: null, tool_calls: [tool("a", "choose_drill", { kind: long, id: long, target_rule: 1, reason: "x" })] },
-      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "card", id: "customs-fee", target_rule: 1, reason: "Practise." })] },
+      { content: null, tool_calls: [tool("b", "choose_drill", { kind: "scenario", id: "onboarding", target_rule: 1, reason: "Practise." })] },
     ]);
     const plan = await planDrill({ history: [], llm, threats });
     expect(JSON.stringify(plan)).not.toMatch(/x{41}/);
@@ -268,7 +261,7 @@ describe("review fixes", () => {
   it("stops running tools past the step cap", async () => {
     const { llm, seen } = scripted([
       { content: null, tool_calls: [tool("a", "list_drills"), tool("b", "list_drills"), tool("c", "list_drills")] },
-      { content: null, tool_calls: [tool("d", "choose_drill", { kind: "card", id: "freeze-card", target_rule: 3, reason: "Practise." })] },
+      { content: null, tool_calls: [tool("d", "choose_drill", { kind: "scenario", id: "fraud_team", target_rule: 3, reason: "Practise." })] },
     ]);
     const plan = await planDrill({ history: [], llm, threats, maxToolCalls: 2 });
     expect(plan.steps.filter(s => s.tool === "list_drills")).toHaveLength(2);
@@ -276,19 +269,18 @@ describe("review fixes", () => {
   });
 
   it("keeps only the last 30 history entries", () => {
-    const old = Array.from({ length: 40 }, () => ({ kind: "card", id: "customs-fee", leaked: ["card number"], safe: false }));
-    const recent = Array.from({ length: 30 }, () => ({ kind: "card", id: "freeze-card", leaked: [], safe: true }));
-    expect(readHistory([...old, ...recent]).every(e => e.id === "freeze-card")).toBe(true);
+    const old = Array.from({ length: 40 }, () => ({ kind: "scenario" as const, id: "onboarding" as const, verdict: "Scam" as const, leaked: ["card number"] }));
+    const recent = Array.from({ length: 30 }, () => ({ kind: "scenario" as const, id: "recruiter" as const, verdict: "Real" as const, leaked: [] as string[] }));
+    expect(readHistory([...old, ...recent]).every(e => e.id === "recruiter")).toBe(true);
   });
 
-  it("uses today's alerts in the fixed plan even when the agent timed out mid-fetch", async () => {
+  it("fetches today's alerts once when the agent times out mid-fetch", async () => {
     let fetches = 0;
     const slowFeed = () => { fetches++; return new Promise<NewsItem[]>(resolve => setTimeout(() => resolve([CUSTOMS]), 60)); };
     const { llm } = scripted([{ content: null, tool_calls: [tool("a", "get_current_threats")] }, { content: "thinking" }]);
-    const history: HistoryEntry[] = [{ kind: "card", id: "line-shutoff-pin", leaked: ["account PIN"], safe: false }];
-    const plan = await planDrill({ history, llm, threats: slowFeed, timeoutMs: 20 });
+    const plan = await planDrill({ history: [], llm, threats: slowFeed, timeoutMs: 20 });
     expect(plan.path).toBe("fixed");
-    expect(plan.news?.link).toBe(CUSTOMS.link);
+    expect(plan.news).toBeNull();
     expect(fetches).toBe(1);
   });
 

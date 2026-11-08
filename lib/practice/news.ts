@@ -12,8 +12,6 @@ export interface NewsItem {
   link: string;
   date?: string;
   summary: string;
-  /** The battle card closest to this scam, for "Practice this". */
-  cardId: string;
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", mdash: "—", ndash: "–", hellip: "…" };
@@ -42,19 +40,6 @@ function shorten(text: string, max = 240): string {
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 20))}…`;
 }
 
-const CARD_RULES: [RegExp, string][] = [
-  [/gift card|job|employ|recruit|hiring|work[- ]from[- ]home/i, "refund-code"],
-  [/package|deliver|shipping|postal|parcel|customs|toll/i, "customs-fee"],
-  [/phone|carrier|sim\b|wireless|text message|mobile/i, "port-out-code"],
-  [/bill|utility|shut ?off|disconnect|overdue/i, "line-shutoff-pin"],
-  [/order|refund|amazon|shopping|online store|account (was )?charged/i, "refund-code"],
-  [/government|irs|social security|police|federal|ftc|imperson|safe account|move (your )?money|invest|crypto/i, "safe-account"],
-];
-
-export function cardFor(text: string): string {
-  return CARD_RULES.find(([re]) => re.test(text))?.[1] ?? "freeze-card";
-}
-
 /** Parses RSS 2.0 `<item>` or Atom `<entry>` feeds into news items. */
 export function parseFeed(xml: string, limit = 6): NewsItem[] {
   const blocks = [...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)].map(m => m[0]);
@@ -72,7 +57,6 @@ export function parseFeed(xml: string, limit = 6): NewsItem[] {
       link,
       ...(parsed && !Number.isNaN(parsed.getTime()) ? { date: parsed.toISOString() } : {}),
       summary,
-      cardId: cardFor(`${title} ${summary}`),
     });
     if (items.length >= limit) break;
   }

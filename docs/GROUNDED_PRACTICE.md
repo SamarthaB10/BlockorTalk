@@ -25,7 +25,7 @@ The command downloads the archive to ignored `data/cache/`, applies the additive
 
 ## Existing ElevenLabs agents
 
-Every registered agent can be provisioned with a `get_training_examples` server tool: Yui (`recruiter`), Ren (`onboarding`), Kai (`fraud_team`), Aki (`bank_callback`) and the battle-card caller (`card_coach`).
+Every registered agent can be provisioned with a `get_training_examples` server tool: Yui (`recruiter`), Ren (`onboarding`), Kai (`fraud_team`) and Aki (`bank_callback`).
 
 The tool calls `/api/voice/examples/<callerId>` on the Cloudflare Worker. It requires the same `X-Tell-Tool-Secret` authentication as the existing beat tool. The browser cannot read source labels through this route. Caller-to-label mapping stays on the server. Every query selects only five Kaggle prompt examples. Held-out rows are excluded by SQL.
 
