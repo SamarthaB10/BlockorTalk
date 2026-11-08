@@ -18,7 +18,8 @@ class Checkpoint:
         self.lock = threading.Lock()
         self.rows = {}
         if path.exists():
-            for line in path.read_text(encoding="utf-8").splitlines():
+            content = path.read_text(encoding="utf-8")
+            for line in content.splitlines():
                 try:
                     entry = json.loads(line)
                     if entry["namespace"] == namespace:
@@ -26,6 +27,9 @@ class Checkpoint:
                 except (json.JSONDecodeError, KeyError):
                     # An interrupted append may leave a partial final line.
                     continue
+            if content and not content.endswith("\n"):
+                with path.open("a", encoding="utf-8") as output:
+                    output.write("\n")
 
     def save(self, key, row):
         with self.lock, self.path.open("a", encoding="utf-8") as output:

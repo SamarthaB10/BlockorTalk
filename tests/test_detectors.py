@@ -45,11 +45,14 @@ class DetectorInterfaceTests(unittest.TestCase):
             return contextlib.nullcontext([NemotronDetector(llm)])
 
         with tempfile.TemporaryDirectory() as directory:
+            # Simulate a process stopping halfway through its final JSONL append.
+            (Path(directory) / "result.jsonl").write_text('{"namespace":', encoding="utf-8")
             args = ["--fixture", str(Path(__file__).parent / "fixtures/trainable.json"),
                     "--detectors", "all", "--output", str(Path(directory) / "result.json")]
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(evaluate.main(args, detector_factory=factory), 0)
                 llm.offline = True
+                self.assertEqual(evaluate.main(args, detector_factory=factory), 0)
                 self.assertEqual(evaluate.main(args, detector_factory=factory), 0)
             saved = json.loads((Path(directory) / "result.json").read_text())
             self.assertEqual(len(saved["reports"][0]["groups"]["synthetic_test"]), 2)

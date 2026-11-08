@@ -56,7 +56,8 @@ class NvidiaClient:
                 error.close()
                 if status not in (429, 500, 502, 503, 504) or attempt == 5:
                     raise NvidiaError(f"NVIDIA {path} HTTP {status}") from None
-                delay = float(retry_after) if retry_after.isdigit() else 2 ** attempt
+                delay = (float(retry_after) if retry_after.isdigit() else
+                         30 if status == 429 else 2 ** attempt)
                 time.sleep(min(delay, 30))
             except (urllib.error.URLError, TimeoutError):
                 if attempt == 5:
