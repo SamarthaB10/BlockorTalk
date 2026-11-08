@@ -151,12 +151,11 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-profile-avatar { display:grid; place-items:center; width:128px; height:128px; margin:0 auto 24px; border:2px solid var(--line-strong); border-radius:50%; background:var(--hub-card-2); color:var(--ink); font-size:52px; }
 .hub-profile-identity .player-fields { text-align:left; }
 .hub-profile-identity .player-actions { justify-content:center; }
-.hub-scenario { position:relative; }
-.hub-scenario>.pixel-phone { --pixel-phone-width:60px; position:absolute; top:24px; right:24px; }
-.hub-scenario>.hub-chip, .hub-scenario>h2, .hub-scenario>h2+p { margin-right:84px; }
+.hub-scenario-mascot { display:block; width:136px; height:116px; object-fit:contain; background:transparent; border-radius:12px; }
+.hub-scenario>.hub-scenario-mascot { align-self:flex-end; }
 .hub .hub-people { gap:16px; }
 .hub.hub .hub-people span { display:flex; flex-direction:column; width:auto; height:auto; gap:8px; background:transparent; }
-.hub-people .pixel-phone { --pixel-phone-width:40px; }
+.hub-people .hub-scenario-mascot { width:68px; height:58px; border-radius:8px; }
 .hub-skill-key { margin:0 0 20px; color:var(--hub-muted); line-height:1.6; }
 .hub-skill-scales { display:grid; gap:12px; margin:8px 0; }
 .hub-skill-scales>div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:4px 12px; font-size:12px; }
