@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Season } from '../../lib/season/routes';
 import { Button } from '../components/ui';
 
@@ -14,25 +14,27 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [offset, setOffset] = useState(0);
+  const active = useRef(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch('/api/season', { cache: 'no-store' });
+      const value = await response.json() as Board & { error?: string };
+      if (!response.ok) throw new Error(value.error || 'The Leaderboard is unavailable.');
+      if (active.current) {
+        setBoard(value); setError('');
+        const serverDate = response.headers.get('date');
+        if (serverDate) setOffset(Date.parse(serverDate) - Date.now());
+      }
+    } catch (cause) { if (active.current) setError(cause instanceof Error ? cause.message : 'Please try again.'); }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    async function refresh() {
-      try {
-        const response = await fetch('/api/season', { cache: 'no-store' });
-        const value = await response.json() as Board & { error?: string };
-        if (!response.ok) throw new Error(value.error || 'The Leaderboard is unavailable.');
-        if (active) {
-          setBoard(value); setError('');
-          const serverDate = response.headers.get('date');
-          if (serverDate) setOffset(Date.parse(serverDate) - Date.now());
-        }
-      } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'Please try again.'); }
-    }
+    active.current = true;
     void refresh();
     const interval = setInterval(refresh, 10000);
-    return () => { active = false; clearInterval(interval); };
-  }, []);
+    return () => { active.current = false; clearInterval(interval); };
+  }, [refresh]);
 
   useEffect(() => {
     if (!board) return;
@@ -45,14 +47,8 @@ export default function Leaderboard({ claim = false }: { claim?: boolean }) {
   // Fetch the final board at zero; a failed request stays visible and retries on the regular interval.
   useEffect(() => {
     if (!board || board.final || remaining !== 0 || Date.now() + offset < Date.parse(board.season.endsAt)) return;
-    let active = true;
-    void fetch('/api/season', { cache: 'no-store' }).then(async response => {
-      if (!response.ok) throw new Error();
-      const value = await response.json() as Board;
-      if (active) { setBoard(value); setError(''); }
-    }).catch(() => { if (active) setError('The Season has ended. Waiting for the final Leaderboard.'); });
-    return () => { active = false; };
-  }, [remaining, board, offset]);
+    void refresh();
+  }, [remaining, board, offset, refresh]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setMessage('');

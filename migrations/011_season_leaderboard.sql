@@ -34,3 +34,7 @@ END;
 $$;
 CREATE TRIGGER season_score_window BEFORE INSERT OR UPDATE OR DELETE ON season_scores
 FOR EACH ROW EXECUTE FUNCTION guard_season_score();
+
+-- Reject a transaction that wrote while live but commits after the deadline.
+CREATE CONSTRAINT TRIGGER season_score_commit_window AFTER INSERT OR UPDATE OR DELETE ON season_scores
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION guard_season_score();
