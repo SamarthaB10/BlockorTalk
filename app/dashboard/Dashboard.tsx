@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { startBrowserCall, type BrowserCallHandle } from '../../lib/voice/browserCall';
 import VoiceOrb from '../challenge/VoiceOrb';
 import { SCENARIOS, type ScenarioId } from '../../lib/practice/catalog';
+import { scenarioCatalog } from '../../lib/season/scenarios/catalog';
 import SpritePlayer from '../components/SpritePlayer';
 import './dashboard.css';
 import Welcome from './Welcome';
@@ -11,18 +12,18 @@ import PracticeCard from './PracticeCard';
 import TypedGreeting from './TypedGreeting';
 import HubBoard from './HubBoard';
 import Leaderboard from '../leaderboard/Leaderboard';
+import { dashboardView, type DashboardView } from './view';
 
-type View = 'Home' | 'Leaderboard' | 'Scenarios' | 'News';
+type View = DashboardView;
 type Turn = { role: 'caller' | 'you'; text: string };
 type Alert = { title: string; link: string; summary: string; date?: string };
 
-export default function Dashboard() {
+export default function Dashboard({ initialView = 'Home' }: { initialView?: View }) {
   const [playerName, setPlayerName] = useState('');
-  const [view, setView] = useState<View>('Home');
+  const [view, setView] = useState<View>(initialView);
   useEffect(() => {
     const restore = () => {
-      const selected = new URLSearchParams(location.search).get('view');
-      setView(selected === 'Leaderboard' || selected === 'Scenarios' || selected === 'News' ? selected : 'Home');
+      setView(dashboardView(new URLSearchParams(location.search).get('view') ?? undefined));
       stopVoice(); setScenario(null); setShowCode(false);
     };
     restore(); window.addEventListener('popstate', restore);
@@ -114,7 +115,7 @@ export default function Dashboard() {
       <article className="hub-card hub-rule"><span className="hub-chip">Take it with you</span><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
     </section>}
     {view === 'Home' && <HubBoard />}
-    {view === 'Scenarios' && !scenario && <section className="hub-library">{SCENARIOS.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.theme} · {item.direction}</span><h2>{item.caller}</h2><p>{item.org}</p><p>{item.card}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button><button disabled={busy || connecting} className="hub-link" onClick={() => void practice('open', item.id)}>Practice in text ↗</button></article>)}</section>}
+    {view === 'Scenarios' && !scenario && <section className="hub-library">{SCENARIOS.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.theme} · {item.direction}</span><h2>{item.caller}</h2><p>{item.org}</p><p>{item.card}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button><button disabled={busy || connecting} className="hub-link" onClick={() => void practice('open', item.id)}>Practice in text ↗</button></article>)}{scenarioCatalog.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.category}</span><h2>{item.org}</h2><p>{item.card.facts[0]}</p><a className="hub-primary" href={'/play/' + encodeURIComponent(item.id)}>Practice this call ↗</a></article>)}</section>}
     {view === 'Scenarios' && scenario && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/>{(voiceHandle || connecting) && <><VoiceOrb handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} /><button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button></>}<div className="hub-transcript" role="log" aria-label="Practice transcript" aria-live="polite">{turns.map((turn, index) => <p key={index} data-role={turn.role}><strong>{turn.role === 'you' ? 'You' : 'Caller'}</strong>{turn.text}</p>)}</div>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{!ended && !voiceHandle && !connecting && <form onSubmit={event => { event.preventDefault(); void practice('reply', scenario); }}><label htmlFor="practice-reply">Your reply</label><div><input id="practice-reply" maxLength={1000} value={text} onChange={event => setText(event.target.value)} disabled={busy}/><button disabled={busy || !text.trim()}>Send</button></div></form>}<h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy || connecting || Boolean(voiceHandle)} onClick={() => void practice('verdict', scenario, verdict)}>{verdict}</button>)}</div></>}</section>}
     {view === 'News' && <section className="hub-library">{newsState && <p role="status">{newsState} <a href="https://consumer.ftc.gov/consumer-alerts">Read FTC alerts ↗</a></p>}{alerts.map(item => <article className="hub-card" key={item.link}><span className="hub-chip">FTC · Consumer alert</span><h2>{item.title}</h2><p>{item.summary}</p><a className="hub-link" href={item.link} target="_blank" rel="noreferrer">Read the source ↗</a></article>)}</section>}
     {view === 'Leaderboard' && <Leaderboard embedded />}
