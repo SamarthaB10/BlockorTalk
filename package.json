@@ -43,7 +43,8 @@
     "react": "latest",
     "react-dom": "latest",
     "react-server-dom-webpack": "latest",
-    "vinext": "latest"
+    "vinext": "latest",
+    "three": "0.160.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "beta",
@@ -57,7 +58,8 @@
     "tsx": "4.23.15",
     "typescript": "latest",
     "vite": "^8.3.6",
-    "vitest": "3.2.7"
+    "vitest": "3.2.7",
+    "@types/three": "0.160.0"
   },
   "private": true,
   "engines": {

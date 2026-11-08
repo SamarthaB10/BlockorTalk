@@ -10,7 +10,7 @@ The paragraph above is the target scope, not proof of a production release. See 
 
 ## Source and production status (Nov 8, 2026)
 
-The BS-09 change adds shared Play, Me and Leaderboard navigation, the signed-in Player's nickname and Season Blokbuks, a reusable plain B mark, and `/credits`. The shell is limited to `/play`, `/me`, `/leaderboard` and `/credits`. The landing page links to Play after sign-in and to Credits. `/practice` redirects to `/play`; its old generated-call screen and battle-card entry are retired. Supporting practice modules and speech adapters remain because the Challenge and the new call engine use them.
+The BS-09 change adds shared Play, Me and Leaderboard navigation, the signed-in Player's nickname and Season Blokbuks, a reusable plain B mark, and `/credits`. The shell is limited to `/play`, `/me`, `/leaderboard` and `/credits`. The Player profile page links to Play after sign-in. The restored 3D landing page links to the Player profile and Credits. `/practice` redirects to `/play`; its old generated-call screen and battle-card entry are retired. Supporting practice modules and speech adapters remain because the Challenge and the new call engine use them.
 
 This is not yet a complete, verified production loop. At the start of BS-09, [the call engine (#56)](https://github.com/SamarthaB10/BlockorTalk/issues/56), [Play screens (#60)](https://github.com/SamarthaB10/BlockorTalk/issues/60), [results (#61)](https://github.com/SamarthaB10/BlockorTalk/issues/61) and [Carrier insights (#62)](https://github.com/SamarthaB10/BlockorTalk/issues/62) were still open. The shared `/play` layout is ready for BS-10; BS-09 does not add a replacement game or a placeholder Play page. Do not release the redirect until `/play` works.
 

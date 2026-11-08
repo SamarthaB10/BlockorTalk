@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FRAME_MS, SPRITE_HEIGHT, SPRITE_WIDTH, animationFolder, frameAt, isSettled, spriteFrame, spriteFrames,
   type Animation, type Personality,
@@ -35,12 +35,23 @@ type Props = {
  * Plays the exported PNG frames at about 8 fps. Changing personality or animation
  * restarts at frame 01. Idle plays twice then holds frame 01; talk poses loop while
  * `active` and hold frame 01 otherwise. Reduced motion shows a still frame.
- * Callers decide whether a cat may be on screen at all (one at a time, none during a call).
+ * The board owns placement; the pose reflects activity, never caller trustworthiness.
  */
 export default function SpritePlayer({ personality, animation, active = true, scale = 1 }: Props) {
   const folder = animationFolder[animation];
   const reduced = usePrefersReducedMotion();
-  const animate = !reduced;
+  const tile = useRef<HTMLSpanElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
+  useEffect(() => {
+    const update = () => setPageVisible(!document.hidden);
+    update();
+    document.addEventListener('visibilitychange', update);
+    const observer = new IntersectionObserver(entries => setVisible(entries[0]?.isIntersecting ?? false));
+    if (tile.current) observer.observe(tile.current);
+    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); };
+  }, []);
+  const animate = !reduced && visible && pageVisible;
   const key = `${personality}/${folder}`;
   const [run, setRun] = useState({ key, tick: 0 });
   const tick = run.key === key ? run.tick : 0; // a new pose starts at frame 01 immediately
@@ -62,7 +73,7 @@ export default function SpritePlayer({ personality, animation, active = true, sc
   }, [key, folder, active, animate]);
 
   const frame = frameAt(folder, tick, { active, animate });
-  return <span className="ui-sprite-tile">
+  return <span ref={tile} className="ui-sprite-tile">
     <img
       className="ui-sprite"
       src={spriteFrame(personality, folder, frame)}

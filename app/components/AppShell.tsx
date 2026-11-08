@@ -52,7 +52,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {state === 'loading' ? <span role="status">Loading profile…</span> : state === 'down' ? <><span>Profile unavailable</span><button className="ui-button" onClick={() => setRetry(value => value + 1)}>Try again</button></> : profile ? <>
           <span className="app-nickname">{profile.nickname}</span>
           {amount === undefined ? <span className="app-score-note" role="status">Loading Blokbuks…</span> : amount === null ? <span className="app-score-note">Blokbuks unavailable</span> : <Blokbuks amount={amount} />}
-        </> : <a href="/#player-heading">Sign in</a>}
+        </> : <a href="/profile">Sign in</a>}
       </div>
     </header>
     <div id="season-content" tabIndex={-1}>{children}</div>
