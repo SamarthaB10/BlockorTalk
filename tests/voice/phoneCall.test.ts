@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { ElevenLabsVoiceAdapter, FakeVoiceAdapter, VoiceRequestError, type AgentIds } from "../../lib/voice/adapter";
-import { phoneCallHandler } from "../../lib/voice/phoneCall";
+import { ElevenLabsVoiceAdapter, FakeVoiceAdapter, VoiceRequestError, VoiceUpstreamError, type AgentIds } from "../../lib/voice/adapter";
+import { phoneCallHandler, phoneCallUserError } from "../../lib/voice/phoneCall";
 import { SCENARIO_VARIABLE_NAMES } from "../../lib/voice/scenarioVoice";
 
 const TEAM = ["+15125550123"];
@@ -50,6 +50,23 @@ describe("call my phone", () => {
     log.mockRestore();
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ error: "Phone calls aren’t set up yet." });
+  });
+
+  it("turns Twilio trial and bad phone-line failures into actionable errors", async () => {
+    expect(phoneCallUserError(new VoiceUpstreamError(400, { detail: { message: "Cannot call unverified number on trial" } })).error)
+      .toMatch(/Verified Caller IDs/i);
+    expect(phoneCallUserError(new VoiceUpstreamError(404, { detail: "phone number not found" })).error)
+      .toMatch(/ELEVENLABS_PHONE_NUMBER_ID/i);
+    expect(phoneCallUserError(new VoiceUpstreamError(401, { detail: "unauthorized" })).error)
+      .toMatch(/ELEVENLABS_API_KEY/i);
+
+    const voice = new FakeVoiceAdapter();
+    voice.placeCall = async () => { throw new VoiceUpstreamError(400, { detail: { message: "Destination not verified for trial account" } }); };
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await harness(voice).post({ callerId: "fraud_team", to: "+15125550123" });
+    log.mockRestore();
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "Twilio trial can only dial Verified Caller IDs. Verify this phone in Twilio, then retry." });
   });
 });
 

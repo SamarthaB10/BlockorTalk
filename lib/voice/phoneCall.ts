@@ -1,5 +1,5 @@
 import { SCENARIOS } from "../practice/catalog";
-import { VoiceRequestError, type ScenarioAgentKey, type VoiceAdapter } from "./adapter";
+import { VoiceRequestError, VoiceUpstreamError, type ScenarioAgentKey, type VoiceAdapter } from "./adapter";
 import { CHALLENGE_CALLER_IDS, type ChallengeCallerId } from "./callers";
 import { SCENARIO_VARIABLE_NAMES, scenarioVoiceVariables } from "./scenarioVoice";
 
@@ -13,6 +13,48 @@ export function phoneNumber(value: unknown): string | null {
   const digits = value.replace(/[\s().-]/g, "");
   const e164 = /^\d{10}$/.test(digits) ? `+1${digits}` : /^1\d{10}$/.test(digits) ? `+${digits}` : digits;
   return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;
+}
+
+/** Pull a short vendor message for logs / safe UI hints. Never returns API keys or tokens. */
+function vendorText(err: unknown): string {
+  const body = err instanceof VoiceUpstreamError ? err.body : (err as { body?: unknown })?.body;
+  if (typeof body === "string") return body;
+  const detail = (body as { detail?: unknown } | null | undefined)?.detail;
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object") {
+    const msg = (detail as { message?: unknown }).message;
+    const code = (detail as { code?: unknown }).code;
+    const status = (detail as { status?: unknown }).status;
+    return [typeof code === "string" ? code : "", typeof status === "string" ? status : "", typeof msg === "string" ? msg : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (err instanceof VoiceRequestError) return err.message;
+  return "";
+}
+
+/** Map vendor / local failures to a short UI error. Keeps secrets and raw vendor dumps out of the browser. */
+export function phoneCallUserError(err: unknown): { error: string; status: number } {
+  const local = err instanceof VoiceRequestError ? err.message : "";
+  if (/ELEVENLABS_PHONE_NUMBER_ID|No valid ElevenLabs agent ID/.test(local)) {
+    return { error: "Phone calls aren’t set up yet.", status: 503 };
+  }
+  const code = err instanceof VoiceUpstreamError ? err.statusCode : (err as { statusCode?: unknown })?.statusCode;
+  const text = vendorText(err).toLowerCase();
+  if (code === 401 || code === 403) return { error: "Voice API key was rejected. Check ELEVENLABS_API_KEY on the Worker.", status: 502 };
+  if (/unverified|not verified|trial/.test(text)) {
+    return { error: "Twilio trial can only dial Verified Caller IDs. Verify this phone in Twilio, then retry.", status: 502 };
+  }
+  if (/phone.?number|agent_phone|phnum|not found|invalid.*agent/.test(text) || code === 404) {
+    return { error: "Phone line or agent ID looks wrong. Re-check ELEVENLABS_PHONE_NUMBER_ID and that provider is twilio.", status: 502 };
+  }
+  if (/sip|trunk/.test(text) && /twilio|provider/.test(text)) {
+    return { error: "Phone provider mismatch. Set ELEVENLABS_PHONE_PROVIDER=twilio on the Worker.", status: 502 };
+  }
+  if (/Outbound call failed:/.test(local)) {
+    return { error: "ElevenLabs refused the dial. Check Twilio call logs and the imported number in ElevenLabs.", status: 502 };
+  }
+  return { error: "The call didn’t go through. Try again in a moment.", status: 502 };
 }
 
 /**
@@ -40,11 +82,11 @@ export function phoneCallHandler(deps: { voice: VoiceAdapter; teamPhones: readon
       // Nothing about the agent goes back: for a catalog call it would reveal the Version.
       return json({ calling: true });
     } catch (err) {
-      const local = err instanceof VoiceRequestError ? err.message : "";
-      const code = (err as { statusCode?: unknown })?.statusCode;
-      console.error("phone call failed", typeof code === "number" ? code : "no status", local);
-      if (/ELEVENLABS_PHONE_NUMBER_ID|No valid ElevenLabs agent ID/.test(local)) return json({ error: "Phone calls aren’t set up yet." }, 503);
-      return json({ error: "The call didn’t go through. Try again in a moment." }, 502);
+      const code = err instanceof VoiceUpstreamError ? err.statusCode : (err as { statusCode?: unknown })?.statusCode;
+      const text = vendorText(err);
+      console.error("phone call failed", typeof code === "number" ? code : "no status", text.slice(0, 240));
+      const out = phoneCallUserError(err);
+      return json({ error: out.error }, out.status);
     }
   };
 }

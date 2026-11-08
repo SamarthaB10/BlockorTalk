@@ -1,7 +1,7 @@
 import { postCallWebhookHandler } from "../../lib/voice/webhook";
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { ElevenLabsVoiceAdapter, FakeVoiceAdapter, VoiceRequestError, type AgentIds } from "../../lib/voice/adapter";
+import { ElevenLabsVoiceAdapter, FakeVoiceAdapter, VoiceRequestError, VoiceUpstreamError, type AgentIds } from "../../lib/voice/adapter";
 
 const AGENTS: AgentIds = {
   recruiter: "agent_r",
@@ -64,6 +64,25 @@ describe("ElevenLabs voice adapter", () => {
       voice.placeCall({ callerId: "fraud_team", toNumber: "+14155550123", phoneVerified: false, variables: KAI_CARD }),
     ).rejects.toBeInstanceOf(VoiceRequestError);
     expect(outbound).toHaveLength(0);
+  });
+
+  it("wraps Twilio status-code failures as VoiceUpstreamError", async () => {
+    const client = {
+      conversationalAi: {
+        twilio: {
+          outboundCall: async () => {
+            throw Object.assign(new Error("bad request"), { statusCode: 400, body: { detail: "unverified" } });
+          },
+        },
+      },
+    } as any;
+    const voice = new ElevenLabsVoiceAdapter(client, AGENTS, "phnum_tw", undefined, "twilio");
+    await expect(
+      voice.placeCall({ callerId: "fraud_team", toNumber: "+14155550123", phoneVerified: true, variables: KAI_CARD }),
+    ).rejects.toMatchObject({ statusCode: 400, body: { detail: "unverified" } });
+    await expect(
+      voice.placeCall({ callerId: "fraud_team", toNumber: "+14155550123", phoneVerified: true, variables: KAI_CARD }),
+    ).rejects.toBeInstanceOf(VoiceUpstreamError);
   });
 
   it("refuses a call missing a scenario-card variable", async () => {
