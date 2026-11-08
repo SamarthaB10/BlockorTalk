@@ -33,7 +33,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
         if (controller.signal.aborted) return;
         if (!season?.ok) { setAmount(null); return; }
         const { ownRank } = await season.json() as SeasonResponse;
-        if (!controller.signal.aborted) setAmount(ownRank?.blokbuks ?? null);
+        // Players who join after the deadline have no rank and start at 0 B.
+        if (!controller.signal.aborted) setAmount(ownRank?.blokbuks ?? 0);
       } catch { if (!controller.signal.aborted) setState('down'); }
     }
     void load();
