@@ -135,3 +135,12 @@ body:has(.hub) { margin:0; background:#eeece8; }.hub * { box-sizing:border-box; 
 .hub-analysis ul{margin:8px 0 0;padding-left:1.2rem;color:#69645e;}
 @media(max-width:1000px){.hub-skill-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:640px){.hub-skill-grid,.hub .player-fields{grid-template-columns:1fr;}.hub-recommend .hub-primary{min-width:0;width:100%;}.hub .player-actions{flex-direction:column;}}
+
+/* Drills and debriefs on the dashboard: the play screens' tokens, relit for the light theme. */
+.hub-drill{--bg:#f5f3ef;--surface:#fff;--ink:#1e1c1a;--ink-muted:#625e58;--line:#1e1c1a2e;--line-strong:#1e1c1a;--paper:#e8e2d8;--focus-ring:3px solid #a23e0b;width:100%;max-width:1100px;margin:0 auto 32px;padding:clamp(16px,2.4vw,28px);background:#f5f3ef;border:1px solid #1e1c1a12;border-radius:16px;color:#1e1c1a;scroll-margin-top:16px;}
+.hub-drill:focus{outline:none;}
+.hub-drill>.hub-link{margin-bottom:8px;}
+.hub-drill .play,.hub-drill .call-results{max-width:none;padding:0;font-family:'Sora',sans-serif;}
+.hub-drill .play .play-primary,.hub-drill .call-results-link.is-primary{background:#2a2624;color:#fff;border-color:#2a2624;}
+.hub-drill button.call-results-link{font:inherit;cursor:pointer;}
+.hub-skill-history button.hub-link{text-align:left;}
