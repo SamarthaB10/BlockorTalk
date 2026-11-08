@@ -7,24 +7,40 @@ import NewsAlerts from '../app/dashboard/NewsAlerts';
 import { scenarioCatalog } from '../lib/season/scenarios/catalog';
 import { SCENARIO_CALLERS } from '../lib/voice/scenarioVoice';
 import { SCENARIOS } from '../lib/practice/catalog';
+import { SCENARIO_TOPICS, TOPICS } from '../app/dashboard/topics';
 
 test('every scenario has a voice session: no text practice, no /play link, no /profile', () => {
   const html = renderToStaticMarkup(createElement(Dashboard, { initialView: 'Scenarios' }));
-  expect(html).toContain('Yui');
-  expect(html).toContain('Play by voice');
+  expect(html).toContain('<strong>Yui</strong>');
   expect(html).not.toContain('Practice in text');
   expect(html).not.toContain('href="/play');
   for (const row of scenarioCatalog) {
-    expect(html).toContain(`<h2>${SCENARIO_CALLERS[row.id]}</h2>`);
+    expect(html).toContain(`<strong>${SCENARIO_CALLERS[row.id]}</strong>`);
     expect(html).toContain(row.category);
     for (const secret of row.secrets) expect(html).not.toContain(secret.value);
   }
-  expect(html.match(/Play by voice/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
+  expect(html.match(/data-contact="true"/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
   expect(html).not.toContain('Voice coming soon');
   expect(html).toContain('id="test-phone"');
-  expect(html.match(/>Call my phone<\/button>/g)).toHaveLength(SCENARIOS.length + scenarioCatalog.length);
   expect(html).not.toContain('/profile');
   expect(html).not.toMatch(/ask_line|next_step|versions/);
+});
+
+test('topic filters cover every scenario and never split a real caller from a scam one', () => {
+  const ids = [...SCENARIOS.map(s => s.id), ...scenarioCatalog.map(s => s.id)];
+  for (const id of ids) expect(TOPICS).toContain(SCENARIO_TOPICS[id]);
+  expect(SCENARIO_TOPICS.recruiter).toBe(SCENARIO_TOPICS.onboarding);
+  expect(SCENARIO_TOPICS.fraud_team).toBe(SCENARIO_TOPICS.bank_callback);
+
+  const html = renderToStaticMarkup(createElement(Dashboard, { initialView: 'Scenarios' }));
+  expect(html).toContain('aria-label="Filter scenarios by topic"');
+  expect(html).toMatch(/aria-pressed="true"[^>]*>All <span>18<\/span>/);
+  for (const topic of TOPICS) {
+    const count = ids.filter(id => SCENARIO_TOPICS[id] === topic).length;
+    expect(html).toContain(`>${topic.replace('&', '&amp;')} <span>${count}</span>`);
+  }
+  expect(html).toContain('Shuffle call');
+  expect(html).toContain('Showing all 18 calls');
 });
 
 test('each news alert has Practice this call, and the Drill Planner pick shows its category, reason and path', () => {
