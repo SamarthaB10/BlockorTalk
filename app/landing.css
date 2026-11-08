@@ -16,6 +16,7 @@
 @media(max-width:640px) { .landing { padding:var(--space-4); }.landing-head span { max-width:140px; text-align:right; }.landing-systems { grid-template-columns:1fr; }.landing-system { border-top:1px solid var(--line); padding-top:var(--space-5); }.landing-intro { padding:var(--space-7) 0; } }
 
 .player-signup { border-top:1px solid var(--line); padding:var(--space-6) 0 var(--space-7); }
+.player-signup a, .landing-footer a { color:var(--ink); text-underline-offset:var(--space-1); }
 .player-signup h2 { margin:0 0 var(--space-4); }
 .player-signup form { max-width:760px; }
 .player-fields { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); }

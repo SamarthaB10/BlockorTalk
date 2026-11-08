@@ -110,6 +110,6 @@ export default function Landing(){
       </div>
       <a className="nova-text-link" href="/dashboard">Open your practice dashboard <Arrow/></a>
     </section>
-    <footer className="nova-footer"><a href="/dashboard">BLOCK OR TALK · EVERY SCAM HAS A TELL <Arrow/></a><span>2026</span><button aria-pressed={paused} onClick={()=>setPaused(v=>!v)}>{paused?'Resume motion':'Pause motion'}</button></footer>
+    <footer className="nova-footer"><a href="/dashboard">BLOCK OR TALK · EVERY SCAM HAS A TELL <Arrow/></a><a href="/profile">Player profile</a><a href="/credits">Credits</a><span>2026</span><button aria-pressed={paused} onClick={()=>setPaused(v=>!v)}>{paused?'Resume motion':'Pause motion'}</button></footer>
   </main>;
 }
