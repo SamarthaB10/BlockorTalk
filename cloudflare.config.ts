@@ -13,6 +13,8 @@ export default defineConfig({
     },
     env: {
       ASSETS: bindings.assets(),
+      DATABASE_URL: bindings.secret(),
+      NVIDIA_API_KEY: bindings.secret(),
     },
   }),
 });
