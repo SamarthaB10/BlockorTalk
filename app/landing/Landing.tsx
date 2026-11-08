@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import SpriteScene from './SpriteScene';
-import AgentPhases from './AgentPhases';
 import './landing.css';
 
 const prompts = [
@@ -103,12 +102,11 @@ export default function Landing(){
       <div className="nova-review-arrows"><button aria-label="Previous rule" onClick={()=>setRule(i=>(i+rules.length-1)%rules.length)}><Arrow direction="left"/></button><button aria-label="Next rule" onClick={()=>setRule(i=>(i+1)%rules.length)}><Arrow/></button><span>{String(rule+1).padStart(2,'0')} / 04</span></div>
     </section>
     <section className="landing-team" aria-labelledby="landing-team-title">
-      <header><h2 id="landing-team-title">Meet your practice team.</h2><p>Three companions. A little more confidence with every call.</p></header>
-      <AgentPhases paused={!motion} />
+      <h2 id="landing-team-title">Meet your team.</h2>
       <div className="landing-team-grid">
-        <article><h3>Planner · Prepare your day</h3><p>Start with three callers, two tasks, and fictional details to protect. Your practice day gives you a concrete goal.</p><p>Scene → Tasks → Your first call</p></article>
-        <article><h3>Detector · Examine the evidence</h3><p>After your decisions, the detector checks your call transcripts for scam signals. The reveal shows its evidence and uncertainty.</p><p>Transcript → Signals → Evidence</p></article>
-        <article><h3>Debrief · Learn your next move</h3><p>See how your choices connect to the four rules, understand the outcome, and rewind the costliest decision to try again.</p><p>Your choices → Explanation → Retry</p></article>
+        <article><img src="/sprites/purple/idle/idle_01.png" width="160" height="140" alt=""/><h3>Planner</h3><p>Sets the callers and tasks for the day.</p></article>
+        <article><img src="/sprites/red/idle/idle_01.png" width="160" height="140" alt=""/><h3>Detector</h3><p>Checks the call for scam signals.</p></article>
+        <article><img src="/sprites/green/idle/idle_01.png" width="160" height="140" alt=""/><h3>Debrief</h3><p>Explains the result and the next move.</p></article>
       </div>
       <a className="nova-text-link" href="/dashboard">Open your practice dashboard <Arrow/></a>
     </section>
