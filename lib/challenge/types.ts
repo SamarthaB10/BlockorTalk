@@ -24,7 +24,7 @@ export type Challenge = {
   phase: 'call' | 'verdict' | 'between' | 'complete';
   startedAt: string;
   endedAt?: string;
-  endReason?: 'disconnect' | 'stop' | 'reply_cap' | 'time_cap';
+  endReason?: CallResult['endReason'];
   replies: number;
   verdict?: Verdict;
   turns: Turn[];
@@ -37,7 +37,41 @@ export type Challenge = {
   voiceSaved?: boolean;
   /** The detective reveal, cached after the day completes. Not sent with day responses. */
   reveal?: import('./reveal.ts').RevealPayload;
+  /** The day's one rewind, once started. It is scored on its own and never changes the official day. */
+  rewind?: Rewind;
 };
-export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; turns: VoiceTurnInput[] };
+export type EndReason = NonNullable<Challenge['endReason']>;
+/**
+ * A text replay of one finished call, from a chosen turn, with the same persona and beats.
+ * `turns[0..prefix)` are copied from the original call; everything after is the replay.
+ * It keeps its own leaks and Verify records: nothing here may reach `balance`, the tasks, `calls` or `events`.
+ */
+export type Rewind = {
+  callIndex: number;
+  callerId: CallerId;
+  /** The 1-based turn the player chose, numbered like the reveal's transcript. */
+  fromTurn: number;
+  prefix: number;
+  /** call → verdict (call ended, awaiting a verdict) → done (scored). Verify steps still count after done. */
+  phase: 'call' | 'verdict' | 'done';
+  turns: Turn[];
+  replies: number;
+  leaked: string[];
+  codeVisible: boolean;
+  startedAt: string;
+  endedAt?: string;
+  endReason?: EndReason;
+  verdict?: Verdict;
+  events: VerifyRecord[];
+  callbackStep: 0 | 1 | 2 | 3;
+  /** Set once the replay has a verdict. Kept current by later Verify steps, like the bank callback on the day. */
+  outcome?: import('./scoring.ts').CallOutcome;
+};
+export type RewindAction =
+  | { type: 'rewind_start'; callIndex: number; turn: number }
+  | { type: 'rewind_reply'; text: string }
+  | { type: 'rewind_end' | 'rewind_portal' | 'rewind_bank' | 'rewind_callback_start' | 'rewind_callback_next' }
+  | { type: 'rewind_verdict'; verdict: Verdict };
+export type Action = { type: 'reply'; text: string } | { type: 'end' | 'next' | 'portal' | 'bank' | 'callback_start' | 'callback_next' } | { type: 'verdict'; verdict: Verdict } | { type: 'voice_turns'; turns: VoiceTurnInput[] } | RewindAction;
 export type ReplyRequest = { turns: Turn[]; options: readonly string[] };
 export type Reply = (request: ReplyRequest) => Promise<string>;

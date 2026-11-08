@@ -353,3 +353,130 @@ for (const worst of [false, true]) {
     if (worst) assert.ok(reveal.calls[2].result.decisions.some(d => d.kind === 'leak' && d.result === 'cost_you' && d.cost.money === 650));
   });
 }
+
+// Issue 12: one rewind per day. The replay is a text re-run of one call from a chosen turn, scored by
+// the same rules, stored on its own, and it never changes the official day.
+async function worstDay(service) {
+  let day = await service.start();
+  await finishCall(service, day, 'Scam');
+  day = await service.act(day.id, { type: 'next' });
+  await service.act(day.id, { type: 'reply', text: '4729' });
+  await finishCall(service, day, 'Real');
+  day = await service.act(day.id, { type: 'next' });
+  for (let i = 0; i < 3; i++) await service.act(day.id, { type: 'reply', text: 'Tell me more' });
+  await service.act(day.id, { type: 'reply', text: 'The code is 551274' });
+  return finishCall(service, day, 'Real');
+}
+const official = ({ balance, interview, bank, calls, events, phase }) => ({ balance, interview, bank, calls, events, phase });
+
+test("rewinding Kai from the Debrief agent's point is stored separately and leaves the official loss", { skip: !databaseUrl }, async t => {
+  const { buildReveal, revealSignature } = await import('../lib/challenge/reveal.ts');
+  const { officialOutcome } = await import('../lib/challenge/scoring.ts');
+  const { service } = await fixture(t);
+  const before = await worstDay(service);
+  assert.equal(before.balance, 0);
+  const { rewind: point } = await buildReveal(before, { mode: 'fixed' });
+  assert.equal(point.call, 2, 'the costliest decision is reading Kai the code');
+  assert.equal(before.calls[2].turns[point.turn - 1].role, 'user');
+
+  let day = await service.act(before.id, { type: 'rewind_start', callIndex: point.call, turn: point.turn });
+  assert.equal(day.rewind.prefix, point.turn - 1, 'the replay starts just before the leaked reply');
+  assert.deepEqual(day.rewind.turns, before.calls[2].turns.slice(0, point.turn - 1), 'the earlier turns are shown');
+  assert.equal(day.rewind.codeVisible, true, 'the code request is already on screen');
+  assert.deepEqual(day.rewind.leaked, []);
+  assert.equal(day.rewind.phase, 'call');
+
+  day = await service.act(day.id, { type: 'rewind_reply', text: "No. I don't read codes out. I'll call Corvanta myself." });
+  assert.equal(day.rewind.turns.at(-1).role, 'assistant', 'the same persona answers with its next beat');
+  await service.act(day.id, { type: 'rewind_end' });
+  await assert.rejects(service.act(day.id, { type: 'rewind_callback_start' }), /bank app first/);
+  await service.act(day.id, { type: 'rewind_bank' });
+  await service.act(day.id, { type: 'rewind_callback_start' });
+  await service.act(day.id, { type: 'rewind_callback_next' });
+  await service.act(day.id, { type: 'rewind_callback_next' });
+  day = await service.act(day.id, { type: 'rewind_verdict', verdict: 'Scam' });
+
+  assert.equal(day.rewind.phase, 'done');
+  assert.deepEqual(day.rewind.outcome, { cost: 0, task: 'done' }, 'the replay keeps the money and resolves the alert');
+  assert.deepEqual(officialOutcome(day, 2), { cost: 650, task: 'failed' }, 'the original still shows the loss');
+  assert.deepEqual(official(day), official(before), 'balance, tasks, calls and Verify events are untouched');
+  assert.equal(revealSignature(day), revealSignature(before), 'the cached reveal is not rebuilt');
+  const restored = await service.get(day.id);
+  assert.deepEqual(restored.rewind, day.rewind, 'the replay is saved with the day');
+  assert.deepEqual(official(restored), official(before));
+});
+
+test('a day has only one rewind, during or after the replay', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  const day = await worstDay(service);
+  await service.act(day.id, { type: 'rewind_start', callIndex: 1, turn: 3 });
+  for (const callIndex of [1, 2]) {
+    await assert.rejects(service.act(day.id, { type: 'rewind_start', callIndex, turn: 3 }), err => err.status === 409 && /already used/.test(err.message));
+  }
+  await service.act(day.id, { type: 'rewind_end' });
+  await service.act(day.id, { type: 'rewind_verdict', verdict: 'Scam' });
+  await assert.rejects(service.act(day.id, { type: 'rewind_start', callIndex: 2, turn: 9 }), /already used/);
+  await assert.rejects(service.act(day.id, { type: 'rewind_verdict', verdict: 'Real' }), /already has a verdict/);
+  await assert.rejects(service.act(day.id, { type: 'rewind_reply', text: 'again' }), /replay has ended/);
+});
+
+test('a rewind opens only after the reveal, on a real call and turn', { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  const early = await service.start();
+  await assert.rejects(service.act(early.id, { type: 'rewind_start', callIndex: 0, turn: 2 }), /after the reveal/);
+  await assert.rejects(service.act(early.id, { type: 'rewind_reply', text: 'hi' }), /Start a rewind first/);
+  const day = await worstDay(service);
+  for (const [callIndex, turn] of [[3, 2], [-1, 2], [0, 0], [0, 99], [0.5, 2]]) {
+    await assert.rejects(service.act(day.id, { type: 'rewind_start', callIndex, turn }), err => err.status === 400);
+  }
+  assert.equal((await service.get(day.id)).rewind, undefined, 'a rejected start does not use up the rewind');
+});
+
+test('a replay that leaks again costs the same on its own, and the official balance stays put', { skip: !databaseUrl }, async t => {
+  const { service, advance } = await fixture(t);
+  const before = await worstDay(service);
+  let day = await service.act(before.id, { type: 'rewind_start', callIndex: 2, turn: 9 });
+  day = await service.act(day.id, { type: 'rewind_reply', text: 'five five one two seven four' });
+  assert.deepEqual(day.rewind.leaked, ['live_code']);
+  advance(180000);
+  day = await service.get(day.id);
+  assert.equal(day.rewind.phase, 'verdict', 'the replay has its own 3-minute cap');
+  assert.equal(day.rewind.endReason, 'time_cap');
+  day = await service.act(day.id, { type: 'rewind_verdict', verdict: 'Real' });
+  assert.deepEqual(day.rewind.outcome, { cost: 650, task: 'failed' });
+  assert.deepEqual(official(day), official(before));
+});
+
+test("a rewind keeps the kept turns' leaks: from a caller line it replays after it, from a player line before it", { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  // Ren's call: disclosure, opening, the player reads 4729 (turn 3), Ren's next beat (turn 4).
+  const a = await worstDay(service);
+  let day = await service.act(a.id, { type: 'rewind_start', callIndex: 1, turn: 4 });
+  assert.equal(day.rewind.prefix, 4);
+  assert.deepEqual(day.rewind.leaked, ['gift_card_code'], 'the earlier leak still counts');
+  await service.act(day.id, { type: 'rewind_end' });
+  day = await service.act(day.id, { type: 'rewind_verdict', verdict: 'Scam' });
+  assert.deepEqual(day.rewind.outcome, { cost: 350, task: null });
+
+  const b = await worstDay(service);
+  day = await service.act(b.id, { type: 'rewind_start', callIndex: 1, turn: 3 });
+  assert.equal(day.rewind.prefix, 2);
+  assert.deepEqual(day.rewind.leaked, []);
+  await service.act(day.id, { type: 'rewind_reply', text: "I won't pay a deposit with a gift card." });
+  await service.act(day.id, { type: 'rewind_end' });
+  day = await service.act(day.id, { type: 'rewind_verdict', verdict: 'Scam' });
+  assert.deepEqual(day.rewind.outcome, { cost: 0, task: null });
+  assert.equal(day.balance, 0);
+});
+
+test("rewinding Yui needs the replay's own verdict to book the interview", { skip: !databaseUrl }, async t => {
+  const { service } = await fixture(t);
+  const before = await worstDay(service);
+  let day = await service.act(before.id, { type: 'rewind_start', callIndex: 0, turn: before.calls[0].turns.length });
+  await service.act(day.id, { type: 'rewind_end' });
+  await service.act(day.id, { type: 'rewind_portal' });
+  day = await service.act(day.id, { type: 'rewind_verdict', verdict: 'Unverified' });
+  assert.deepEqual(day.rewind.outcome, { cost: 0, task: 'done' });
+  assert.equal(day.interview, 'OPEN', 'the official task stays open');
+  assert.deepEqual(day.events, before.events, 'the replay portal check is not a day Verify event');
+});

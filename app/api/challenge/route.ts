@@ -45,8 +45,11 @@ export async function POST(request: Request) {
       const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
       return json({ day: view(day) }, 201, { 'Set-Cookie': `${COOKIE}=${day.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400${secure}` });
     }
-    const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next'].includes(String(action.type)) ||
-      (action.type === 'reply' && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) ||
+    const valid = ['end', 'portal', 'next', 'bank', 'callback_start', 'callback_next',
+      'rewind_end', 'rewind_portal', 'rewind_bank', 'rewind_callback_start', 'rewind_callback_next'].includes(String(action.type)) ||
+      ((action.type === 'reply' || action.type === 'rewind_reply') && 'text' in action && typeof action.text === 'string' && action.text.length <= 2000) ||
+      (action.type === 'rewind_start' && 'callIndex' in action && Number.isInteger(action.callIndex) && 'turn' in action && Number.isInteger(action.turn)) ||
+      (action.type === 'rewind_verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict)) ||
       (action.type === 'voice_turns' && 'turns' in action && Array.isArray(action.turns) && action.turns.every((turn: unknown) => !!turn && typeof turn === 'object' && 'text' in turn && typeof turn.text === 'string' && 'role' in turn && (turn.role === 'assistant' || turn.role === 'user'))) ||
       (action.type === 'verdict' && 'verdict' in action && typeof action.verdict === 'string' && ['Real', 'Scam', 'Unverified'].includes(action.verdict));
     if (!valid) return json({ error: 'Invalid challenge action.' }, 400);

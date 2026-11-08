@@ -302,7 +302,7 @@ export default function ChallengeBoard() {
           <button className="app-tile" disabled={busy} onClick={() => void act({ type: 'portal' })}>Bluebonnet portal <span>Open candidate portal ↗</span></button><button className="app-tile" disabled={busy} onClick={() => void act({ type: 'bank' })}>Corvanta Bank <span>Open your bank app ↗</span></button>
         </aside>
       </div>
-      {day.phase === 'complete' && <Reveal day={day} />}
+      {day.phase === 'complete' && <Reveal day={day} busy={busy} act={act} />}
     </>}
     <nav className="moves" aria-label="Your four moves">{moves.map(([move, hint]) => <button key={move} disabled={busy || !active || (voiceMode && (move === 'Probe' || move === 'Protect'))} onClick={() => {
       if (move === 'Disconnect') { if (handleRef.current) endVoiceCall(); else { if (voiceMode) { void hangUp(); setVoice('ended'); } void act({ type: 'end' }); } }

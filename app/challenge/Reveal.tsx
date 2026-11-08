@@ -1,11 +1,12 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Challenge } from '../../lib/challenge/types';
+import type { Action, Challenge } from '../../lib/challenge/types';
 import type { RevealCall, RevealPayload } from '../../lib/challenge/reveal';
 import { CALLERS, CALL_ORDER } from '../../lib/challenge/scenarios';
 import SpritePlayer from '../components/SpritePlayer';
 import { Flip, Stamp } from '../components/ui';
+import Rewind from './Rewind';
 import './reveal.css';
 
 type State = { status: 'loading' | 'ready' | 'error'; reveal: RevealPayload | null; error: string; phase?: 'thinking' | 'typing' };
@@ -159,7 +160,7 @@ function Rules({ reveal }: { reveal: RevealPayload }) {
   </section>;
 }
 
-export default function Reveal({ day }: { day: Challenge }) {
+export default function Reveal({ day, busy, act }: { day: Challenge; busy: boolean; act: (action: Action) => Promise<boolean> }) {
   const { status, reveal, error, load, phase } = useRevealData(day);
   const goodDay = !!reveal && reveal.summary.balance === 1000 && reveal.summary.interview === 'BOOKED' && reveal.summary.bank === 'RESOLVED';
   const cat = { animation: status === 'loading' ? phase ?? 'thinking' as const : goodDay ? 'excited' as const : 'talking' as const, active: status === 'loading', caption: status === 'loading' ? 'Checking the calls…' : 'Debrief agent' };
@@ -188,6 +189,7 @@ export default function Reveal({ day }: { day: Challenge }) {
         <div><figure className="debrief-cat"><SpritePlayer personality="debrief" animation={cat.animation} active={cat.active} scale={2} /><figcaption>{cat.caption}</figcaption></figure><Steps reveal={reveal} /></div>
         <div><Rules reveal={reveal} /></div>
       </div>
+      <Rewind day={day} reveal={reveal} busy={busy} act={act} />
     </Fragment>}
   </section>;
 }
