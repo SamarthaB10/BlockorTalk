@@ -49,5 +49,5 @@ def result_from_quotes(text, payload):
         anchored.append({"tactic": flag["tactic"], "span": {
             "start": start, "end": start + len(quote), "text": quote,
         }})
-    return {"label": payload["label"], "scam_type": scam_type,
+    return {"label": payload["label"], "scam_type": scam_type if payload["label"] == "scam" else None,
             "red_flags": anchored, "confidence": float(confidence), "message": None}

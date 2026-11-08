@@ -37,20 +37,20 @@ class PgvectorPool:
         existing = {row[0] for row in self.connection.execute(
             "SELECT id FROM detection_examples WHERE pool_id = %s", (self.pool_id,))}
         missing = [(key, item) for key, item in self.items.items() if key not in existing]
-        for offset in range(0, len(missing), 32):
-            batch = missing[offset:offset + 32]
-            vectors = self.embeddings.embed([item.text for _, item in batch], "passage")
-            if len(vectors) != len(batch):
+        for key, item in missing:
+            # The hosted endpoint accepts one input per request. Commit each
+            # success so a later failure never discards earlier paid-for work.
+            vectors = self.embeddings.embed([item.text], "passage")
+            if len(vectors) != 1:
                 raise ValueError("embedding response length does not match input")
             with self.connection.transaction():
-                for (key, item), vector in zip(batch, vectors):
-                    self.connection.execute(
-                        """INSERT INTO detection_examples
-                        (pool_id, id, dialogue, label, split, source, embedding)
-                        VALUES (%s, %s, %s, %s, 'train', %s, %s::vector)
-                        ON CONFLICT (pool_id, id) DO NOTHING""",
-                        (self.pool_id, key, item.text, item.label, item.source, vector_literal(vector)),
-                    )
+                self.connection.execute(
+                    """INSERT INTO detection_examples
+                    (pool_id, id, dialogue, label, split, source, embedding)
+                    VALUES (%s, %s, %s, %s, 'train', %s, %s::vector)
+                    ON CONFLICT (pool_id, id) DO NOTHING""",
+                    (self.pool_id, key, item.text, item.label, item.source, vector_literal(vectors[0])),
+                )
         self.require_ready()
 
     def require_ready(self):
