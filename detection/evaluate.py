@@ -17,7 +17,7 @@ from detection.corpus import LeakageError, assert_no_leakage, load_fixture, load
 from detection.metrics import classification_scores, positive_rate
 
 
-def main(argv: list[str] | None = None) -> int:
+def legacy_fixture_main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Evaluate the TF-IDF detection baseline.")
     parser.add_argument(
         "--fixture",
@@ -109,6 +109,36 @@ def _predictions(corpus):
     if not all(supplied):
         raise ValueError("either every held-out item has y_pred, or none do")
     return {name: [item.y_pred for item in items] for name, items in groups.items()}
+
+
+def main(argv=None, *, detector_factory=None, clock=time.perf_counter):
+    parser = argparse.ArgumentParser(description="Compare baseline, zero-shot and retrieval detectors.")
+    parser.add_argument("--fixture", type=Path)
+    parser.add_argument("--detectors", choices=("all", "baseline"))
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--limit", type=int, help="Smoke run: maximum scored items per split (seed 7)")
+    parser.add_argument("--output", type=Path, help="Save structured results, timings and abstentions as JSON")
+    args = parser.parse_args(argv)
+    if args.workers < 1 or (args.limit is not None and args.limit < 1):
+        parser.error("workers and limit must be positive")
+    # Keep issue 3's canned-prediction fixture CLI stable. Live runs now default to all three.
+    if args.fixture and args.detectors is None and not args.limit and not args.output:
+        return legacy_fixture_main(["--fixture", str(args.fixture)])
+    args.detectors = args.detectors or "all"
+    try:
+        corpus = load_fixture(args.fixture) if args.fixture else load_real_corpus()
+        assert_no_leakage(corpus)
+        from detection.comparison import run
+        from detection.runtime import open_detectors
+        return run(corpus, args, detector_factory or open_detectors, clock)
+    except LeakageError as error:
+        print(error, file=sys.stderr)
+        return 1
+    except Exception as error:
+        # Do not print database/vendor exception bodies, which can contain credentials.
+        print(f"Evaluation failed ({type(error).__name__}); check pool indexing, environment and endpoints.",
+              file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
