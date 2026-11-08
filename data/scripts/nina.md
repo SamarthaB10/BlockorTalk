@@ -14,7 +14,7 @@ A real recruiter at Bluebonnet Labs (fictional employer) confirming an interview
 Her scheduling tool keeps freezing and she narrates it: *"Sorry, one sec, the calendar is thinking about it again..."* Mild realism only. It must never sound pushy or suspicious.
 
 ## Beats (~45 seconds)
-1. **disclosure**: "This is a Tell practice call from an AI voice. It's recorded for your report. Say 'stop drill' anytime."
+1. **disclosure**: "It's recorded for your report. Say 'stop drill' anytime."
 2. **open**: "Hi, is this Alex? This is Nina with Bluebonnet Labs Recruiting, calling about your application."
 3. **confirm_slot**: "We'd like to confirm your interview for the Junior Data Analyst role, Tuesday at 10:30 AM." (quirk fits here)
 4. **portal_pointer**: "Everything's already in your candidate portal. I don't need anything from you."

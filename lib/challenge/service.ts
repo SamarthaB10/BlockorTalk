@@ -234,7 +234,7 @@ export function createChallengeService({ connectionString = '', store = postgres
           const spoken = action.turns.slice(day.voiceReceived ?? 0).filter(turn => (turn.role === 'assistant' || turn.role === 'user') && typeof turn.text === 'string' && turn.text.trim());
           // The disclosure and opening line are already in day.turns; drop spoken repeats of them.
           const opening = `This is ${CALLERS[day.callerId].name} from`;
-          const fresh = spoken.filter(turn => !(turn.role === 'assistant' && (turn.text.includes('Tell practice call') || turn.text.includes(opening))));
+          const fresh = spoken.filter(turn => !(turn.role === 'assistant' && (turn.text.includes(DISCLOSURE) || turn.text.includes('Tell practice call') || turn.text.includes(opening))));
           fresh.forEach((turn, i) => {
             const raw = turn.text.trim().slice(0, 1000);
             const at = live ? new Date(now()).toISOString() : new Date(start + Math.round(span * (i + 1) / (fresh.length + 1))).toISOString();
