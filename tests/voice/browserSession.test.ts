@@ -43,4 +43,15 @@ describe("browser session handler", () => {
     expect(res.status).toBe(502);
     expect(await res.text()).not.toMatch(/sk_secret|xi-api-key/);
   });
+
+  it("reports the vendor's HTTP status (never its message) so a bad Worker key is diagnosable", async () => {
+    const voice = new FakeVoiceAdapter();
+    voice.createBrowserSession = async () => {
+      throw Object.assign(new Error("agent agent_x not found for key sk_secret"), { statusCode: 404 });
+    };
+    const res = await harness(voice).post({ callerId: CHALLENGE_CALLER_IDS[0] });
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error: string; upstreamStatus?: number };
+    expect(body).toEqual({ error: "voice session unavailable", upstreamStatus: 404 });
+  });
 });
