@@ -9,6 +9,7 @@ import './dashboard.css';
 import Welcome from './Welcome';
 import PracticeCard from './PracticeCard';
 import TypedGreeting from './TypedGreeting';
+import HubBoard from './HubBoard';
 import Leaderboard from '../leaderboard/Leaderboard';
 
 type View = 'Home' | 'Leaderboard' | 'Scenarios' | 'News';
@@ -87,11 +88,22 @@ export default function Dashboard() {
     } catch (failure) { if (attempt === connection.current) { setError(failure instanceof Error ? failure.message : 'Voice did not connect.'); setEnded(true); } }
     finally { if (attempt === connection.current) setConnecting(false); }
   }
+  const pendingBoard = useRef(false);
   function navigate(next: View) { stopVoice(); setView(next); setScenario(null); setError(''); history.pushState(null, '', next === 'Home' ? '/dashboard' : `/dashboard?view=${next}`); }
+  function scrollBoard() {
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    document.getElementById('standings')?.scrollIntoView({ behavior });
+  }
+  function openBoard() {
+    pendingBoard.current = true;
+    if (view === 'Home') { pendingBoard.current = false; scrollBoard(); }
+    else navigate('Home');
+  }
+  useEffect(() => { if (view === 'Home' && pendingBoard.current) { pendingBoard.current = false; scrollBoard(); } }, [view]);
   return <main className="hub">
     <Welcome onName={setPlayerName} />
     {playerName && <TypedGreeting name={playerName} />}
-    <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Leaderboard', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}</nav><a className="hub-launch" href="/challenge">Enter Challenge ↗</a></header>
+    <header className="hub-nav"><a href="/">Block or Talk<span>Practice your judgment.</span></a><nav aria-label="Dashboard">{(['Home', 'Scenarios', 'News'] as const).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} onClick={() => navigate(item)}>{item}</button>)}<button onClick={openBoard}>Leaderboard</button></nav><a className="hub-launch" href="/challenge">Enter Challenge ↗</a></header>
     <section className="hub-intro"><div className="hub-mascot"><SpritePlayer personality="planner" animation="idle" /></div><div><p>Your practice space</p><h1>{view === 'Home' ? 'A little practice. Better instincts.' : view === 'Leaderboard' ? 'Good judgment adds up.' : view === 'Scenarios' ? 'One call. Your judgment.' : 'Stay one step ahead.'}</h1><p>{view === 'Home' ? 'Choose a challenge, practice a single call, or catch up on the latest alerts. Your next move starts here.' : view === 'Leaderboard' ? 'Practice spotting scam calls. Earn Blokbuks with each Scored call.' : view === 'Scenarios' ? 'Practice individual calls in text. No money or tasks to manage.' : 'Consumer alerts from the Federal Trade Commission.'}</p></div></section>
     {error && <p role="alert">{error}</p>}
     {view === 'Home' && <section className="hub-grid" aria-label="Choose your practice">
@@ -101,10 +113,11 @@ export default function Dashboard() {
       <article className="hub-card hub-news"><span className="hub-chip">FTC consumer alerts</span><h2>What’s happening now.</h2>{alerts.slice(0, 2).map(item => <a key={item.link} href={item.link} target="_blank" rel="noreferrer">{item.title} ↗</a>)}{newsState && <p role="status">{newsState}</p>}<button className="hub-link" onClick={() => navigate('News')}>Read the latest ↗</button></article>
       <article className="hub-card hub-rule"><span className="hub-chip">Take it with you</span><h2>Knowing your details doesn’t prove who’s calling.</h2><p>Hang up. Call back on a number you already have.</p><span className="hub-rule-number">One rule. Any call.</span></article>
     </section>}
+    {view === 'Home' && <HubBoard />}
     {view === 'Scenarios' && !scenario && <section className="hub-library">{SCENARIOS.map(item => <article className="hub-card" key={item.id}><span className="hub-chip">{item.theme} · {item.direction}</span><h2>{item.caller}</h2><p>{item.org}</p><p>{item.card}</p><button disabled={busy || connecting} className="hub-primary" onClick={() => void practiceVoice(item.id)}>Play by voice ↗</button><button disabled={busy || connecting} className="hub-link" onClick={() => void practice('open', item.id)}>Practice in text ↗</button></article>)}</section>}
     {view === 'Scenarios' && scenario && <section className="hub-practice"><button className="hub-link" disabled={busy} onClick={() => { stopVoice(); setScenario(null); setShowCode(false); }}>← All scenarios</button><h2>{SCENARIOS.find(item => item.id === scenario)?.caller} · Practice call</h2><p>Use fictional details only.</p><PracticeCard scenario={SCENARIOS.find(item => item.id === scenario)!} showCode={showCode} voiceMode={Boolean(voiceHandle || connecting)}/>{(voiceHandle || connecting) && <><VoiceOrb handle={voiceHandle} active={Boolean(voiceHandle)} connecting={connecting} /><button onClick={() => { stopVoice(); setEnded(true); }}>End voice call</button></>}<div className="hub-transcript" role="log" aria-label="Practice transcript" aria-live="polite">{turns.map((turn, index) => <p key={index} data-role={turn.role}><strong>{turn.role === 'you' ? 'You' : 'Caller'}</strong>{turn.text}</p>)}</div>{result ? <div role="status"><h3>The evidence</h3><p>{result.explanation}</p><p>{result.safest}</p></div> : <>{!ended && !voiceHandle && !connecting && <form onSubmit={event => { event.preventDefault(); void practice('reply', scenario); }}><label htmlFor="practice-reply">Your reply</label><div><input id="practice-reply" maxLength={1000} value={text} onChange={event => setText(event.target.value)} disabled={busy}/><button disabled={busy || !text.trim()}>Send</button></div></form>}<h3>What’s your verdict?</h3><div className="hub-verdict">{['Real', 'Scam', 'Unverified'].map(verdict => <button key={verdict} disabled={busy || connecting || Boolean(voiceHandle)} onClick={() => void practice('verdict', scenario, verdict)}>{verdict}</button>)}</div></>}</section>}
     {view === 'News' && <section className="hub-library">{newsState && <p role="status">{newsState} <a href="https://consumer.ftc.gov/consumer-alerts">Read FTC alerts ↗</a></p>}{alerts.map(item => <article className="hub-card" key={item.link}><span className="hub-chip">FTC · Consumer alert</span><h2>{item.title}</h2><p>{item.summary}</p><a className="hub-link" href={item.link} target="_blank" rel="noreferrer">Read the source ↗</a></article>)}</section>}
     {view === 'Leaderboard' && <Leaderboard embedded />}
-    <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<button type="button" onClick={() => navigate('Leaderboard')}>Leaderboard</button><a href="/profile">Player profile</a><a href="/me">Your analysis</a><a href="/about">About the project ↗</a></footer>
+    <footer className="hub-footer">Block or Talk · Fictional calls. Practical instincts.<a href="#standings" onClick={event => { event.preventDefault(); openBoard(); }}>Leaderboard</a><a href="/profile">Player profile</a><a href="/me">Your analysis</a><a href="/about">About the project ↗</a></footer>
   </main>;
 }
