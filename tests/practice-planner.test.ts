@@ -190,7 +190,7 @@ describe("POST /api/practice plan", () => {
     try {
       const res = await post({ action: "plan", history: [{ kind: "scenario", id: "recruiter", verdict: "Scam", leaked: [] }, { kind: "bogus" }] });
       expect(res.status).toBe(200);
-      const { plan } = await res.json();
+      const { plan } = await res.json() as { plan: Awaited<ReturnType<typeof planDrill>> };
       expect(plan.path).toBe("fixed");
       expect(plan.history.drills).toBe(1);
       expect(plan.target_rule).toBe(4);
@@ -308,7 +308,8 @@ describe("POST /api/practice plan: crafted history", () => {
       const body = { action: "plan", history: ["constructor", "toString", "__proto__"].map(id => ({ kind: "scenario", id, verdict: "Real", leaked: [] })) };
       const res = await POST(new Request("http://localhost/api/practice", { method: "POST", headers: { origin: "http://localhost" }, body: JSON.stringify(body) }));
       expect(res.status).toBe(200);
-      expect((await res.json()).plan.history.drills).toBe(0);
+      const result = await res.json() as { plan: Awaited<ReturnType<typeof planDrill>> };
+      expect(result.plan.history.drills).toBe(0);
     } finally { globalThis.fetch = realFetch; }
   });
 });
