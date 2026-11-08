@@ -48,5 +48,8 @@
     "typescript": "latest",
     "vite": "^8.3.6"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22.18.0"
+  }
 }
