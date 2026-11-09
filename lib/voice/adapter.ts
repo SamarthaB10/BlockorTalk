@@ -96,9 +96,17 @@ export class ElevenLabsVoiceAdapter implements VoiceAdapter {
     if (!AGENT_ID.test(agentId)) throw new VoiceRequestError(`No valid ElevenLabs agent ID for ${req.callerId}`);
     const call = { agentId, agentPhoneNumberId: this.phoneNumberId, toNumber: req.toNumber, conversationInitiationClientData: { dynamicVariables } };
 
-    const res = this.phoneProvider === "twilio"
-      ? await this.client.conversationalAi.twilio.outboundCall(call)
-      : await this.client.conversationalAi.sipTrunk.outboundCall({ ...call, telephonyCallConfig: { ringingTimeoutSecs: 30 } });
+    let res;
+    try {
+      res = this.phoneProvider === "twilio"
+        ? await this.client.conversationalAi.twilio.outboundCall(call)
+        : await this.client.conversationalAi.sipTrunk.outboundCall({ ...call, telephonyCallConfig: { ringingTimeoutSecs: 30 } });
+    } catch (err) {
+      const statusCode = (err as { statusCode?: unknown })?.statusCode;
+      const body = (err as { body?: unknown })?.body;
+      if (typeof statusCode === "number") throw new VoiceUpstreamError(statusCode, body);
+      throw err;
+    }
     if (!res.success || !res.conversationId) {
       throw new VoiceRequestError(`Outbound call failed: ${res.message}`);
     }
